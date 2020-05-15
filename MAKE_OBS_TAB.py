@@ -7,17 +7,17 @@ MAKE_OBS_TAB
 This script extracts single base observations at SNPs positions from a given
 sequence. It requires an aligned and sorted BAM file with the sequence, as well
 as an IMPUTE2 legend format, which contains the SNPs positions.
-The observed alleles, together with their chromosome position and line number in
-the legend file, are organized in a table.
+The observed alleles, together with their chromosome position and line number
+in the legend file, are organized in a table.
 
 THIS SCRIPT IS BASED ON MAKE_OBS_TABLE FROM THE TILDE PROJECT (https://github.com/svohr/tilde).
 
 Daniel Ariad (daniel@ariad.org)
-April 1st, 2020
+May 11st, 2020
 
 """
 
-import sys, os, subprocess, time, tempfile, pickle, argparse, re, random
+import sys, os, subprocess, time, tempfile, pickle, argparse, re
 
 def read_impute2_legend(legend_filename):
     """ Reads in the SNPs from the impute legend file and builds a list of
@@ -27,23 +27,24 @@ def read_impute2_legend(legend_filename):
     snp_positions = list()
     leg_in.readline()   # Bite off the header
     for line in leg_in:
-        pos = line.rstrip().split()[1] # Trailing whitespaces stripped from the right of the string. Then it splits the string into a list of words.
-        snp_positions.append(int(pos))
+        ind, pos = line.lstrip().rstrip().split()[0:2] # Trailing whitespaces stripped from the right of the string. Then it splits the string into a list of words.
+        chr_id = 'chr'+ind.split(':')[0]
+        snp_positions.append((chr_id, int(pos)))
     leg_in.close()
 
     return snp_positions
 
 
-def generate_snps_position_list(snp_positions, chrm_id):
-    """ Creates a position list file of our SNPs, which would be used by
-        samtools mpileup to find observed bases. 
-        The position list file contains two columns for chromosome and position.
-        The columns are TAB-separated and countings starts from 1. """ 
+def save_known_snps_positions(snp_positions):
+    """ Saves the list of known SNPs positions, which would be used by
+        samtools mpileup to find observed bases. The position list file
+        contains two columns for chromosome and position. The columns are
+        TAB-separated and countings starts from 1. """ 
     
     pos_file = tempfile.NamedTemporaryFile(delete=False, mode='w') 
 
-    for pos in snp_positions:
-        pos_file.write('%s\t%d\n' % (chrm_id, pos)) #Enter data into file.
+    for chr_id, pos in snp_positions:
+        pos_file.write('%s\t%d\n' % (chr_id, pos)) #Write data into file.
     
     pos_file.close()
     
@@ -54,7 +55,7 @@ def parse_bases_field(ref, bases_str):
         bases at this position. Positions where indels occur are not
         considered. """
     
-    dictionary = {'.*[*+-].*': '',  #(1)  Skip deletions\insertions and remove sequence end mark.
+    dictionary = {'.*[*+-].*': '',  #(1)  Skip deletions\insertions.
                   '\\^.': '',       #(2)  Remove sequence start mark followed by mapping quality.
                   '\$': '',         #(3)  Remove sequence end mark
                   '[,.]': ref}      #(4)  Replace with matching reference.
@@ -76,7 +77,10 @@ def extract_bases_from_pileup(mpu_output, max_cov):
         pos, ref, cov, bases = int(fields[1]), fields[2], int(fields[3]), fields[4]
         if cov > 0  and (max_cov == 0 or cov <= max_cov):
             reads = parse_bases_field(ref, bases)
-            if len(set(reads))==1:  #Only non overlaping reads are considered.
+            ### if len(set(reads))==1: 
+            if pos==38119108:
+                print(reads,bases,len(bases))
+            if len(reads)==1:  #Only single base observations are considered.
                 extracted.append((pos,reads[0]))
                 
     return extracted    
@@ -106,7 +110,7 @@ def get_snps_samtools(bam_filename, pos_filename,
 
 
 
-def main(bam, impute_leg, chrm, min_mq, min_bq, max_cov, fasta_ref, verbose, samtools_dir, write_to_stdout): 
+def main(bam, impute_leg, min_mq, min_bq, max_cov, fasta_ref, verbose, samtools_dir, write_to_stdout): 
     """ Builds a table of SNP positions and base observations from mapped reads. """
     
     if not os.path.isfile(bam): raise Exception('error: BAM file does not exist.')
@@ -114,7 +118,7 @@ def main(bam, impute_leg, chrm, min_mq, min_bq, max_cov, fasta_ref, verbose, sam
     
     try:
         snp_positions = read_impute2_legend(impute_leg) 
-        pos_filename = generate_snps_position_list(snp_positions, chrm)
+        pos_filename = save_known_snps_positions(snp_positions)
         mpu_out, mpu_err = get_snps_samtools(bam, pos_filename, 
                                              min_mq, min_bq, 
                                              max_cov, fasta_ref, verbose, samtools_dir) 
@@ -126,13 +130,15 @@ def main(bam, impute_leg, chrm, min_mq, min_bq, max_cov, fasta_ref, verbose, sam
     snp_positions_iter, obs_tab, i0 = iter(snp_positions), list(), 0
     
     for (pos1, read) in extracted:
-        for i, pos2 in enumerate(snp_positions_iter,start=i0):
+        for i, (chr_id, pos2) in enumerate(snp_positions_iter,start=i0):
             if pos1 == pos2:
                 obs_tab.append([i, pos1, read])
                 i0 = i + 1
                 break
-                        
-    return obs_tab
+
+    chr_id = 'chr' + snp_positions[0][0]  
+                    
+    return obs_tab, chr_id
     
 if __name__ == "__main__": 
     time0 = time.time()
@@ -144,8 +150,6 @@ if __name__ == "__main__":
                         help='BAM file')
     parser.add_argument('impute_leg', metavar='legend_filename', type=str, 
                         help='IMPUTE2 legend file')
-    parser.add_argument('chrm', metavar='chromosomeID', type=str,
-                        help='Chromosome ID')
     parser.add_argument('-q', '--min-bq', type=int, 
                         metavar='BASEQ', default=30, 
                         help='Minimum base quaility for observations. Default value is 30.')
@@ -169,9 +173,9 @@ if __name__ == "__main__":
                         help='Write output to stdout (standard output).')
     
     args = parser.parse_args()
-    obs_tab = main(**vars(args))
+    obs_tab, chr_id = main(**vars(args))
     
-    info = {'chr' : args.chrm, 'min-bq': args.min_bq, 'min-mq' :  args.min_mq, 'max-cov' :  args.max_cov} 
+    info = {'chr_id' : chr_id, 'min-bq': args.min_bq, 'min-mq' :  args.min_mq, 'max-cov' :  args.max_cov} 
 
     if args.write_to_stdout:
         tab_out = sys.stdout
@@ -180,7 +184,7 @@ if __name__ == "__main__":
             tab_out.write('%d\t%d\t%s\n' % (ind, pos, read))
 
     else:
-        EXT = '.OBS[BAQ].p' if args.fasta_ref != '' else '.OBS.p'
+        EXT = '.obs[BAQ].p' if args.fasta_ref != '' else '.obs.p'
         output_filename = re.sub('.bam$','',args.bam.split('/')[-1])+EXT
         with open( output_filename, "wb") as f:
             pickle.dump(obs_tab, f)
