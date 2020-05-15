@@ -1,195 +1,203 @@
-#! /usr/bin/python3
+#!/usr/local/python/intelpython3/bin/python
 # -*- coding: utf-8 -*-
 """
-
 MAKE_OBS_TAB
 
-This script extracts single base observations at SNPs positions from a given
+This script extracts single base observations at SNP positions from a given
 sequence. It requires an aligned and sorted BAM file with the sequence, as well
 as an IMPUTE2 legend format, which contains the SNPs positions.
 The observed alleles, together with their chromosome position and line number
 in the legend file, are organized in a table.
 
-THIS SCRIPT IS BASED ON MAKE_OBS_TABLE FROM THE TILDE PROJECT (https://github.com/svohr/tilde).
-
 Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
-
 """
+import sys, os, time, random, warnings, argparse, re, pickle, pysam
 
-import sys, os, subprocess, time, tempfile, pickle, argparse, re
+warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
-def read_impute2_legend(legend_filename):
-    """ Reads in the SNPs from the impute legend file and builds a list of
-        tuples, containing snp positions, reference and alternate alleles. """
+def read_impute2(impute2_filename,**kwargs):
+    """ Reads an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE) and builds a list
+        of lists, containing the dataset. """
     
-    leg_in = open(legend_filename, 'r')
-    snp_positions = list()
-    leg_in.readline()   # Bite off the header
-    for line in leg_in:
-        ind, pos = line.lstrip().rstrip().split()[0:2] # Trailing whitespaces stripped from the right of the string. Then it splits the string into a list of words.
-        chr_id = 'chr'+ind.split(':')[0]
-        snp_positions.append((chr_id, int(pos)))
-    leg_in.close()
+    filetype = kwargs.get('filetype', None)
+    with open(impute2_filename, 'r') as impute2_in:
+        if filetype == 'legend':
+            impute2_in.readline()   # Bite off the header
+            def parse(x): 
+                y=x.strip().split()
+                y[0] = 'chr'+y[0].split(':')[0]
+                y[1]=int(y[1])
+                return y
+        elif filetype == 'hap':
+            def parse(x):
+                return [i=='1' for i in x.strip().split()]
+        else:
+            def parse(x):
+                return x.strip().split() # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
+       
+        impute2_tab = [parse(line) for line in impute2_in]
+    return impute2_tab
 
-    return snp_positions
+time0 = time.time()
 
+def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,**more_kwargs):
+    """ Retrives observed bases from known SNPs position. """
+    
+    if not os.path.isfile(bam_filename): raise Exception('Error: BAM file does not exist.')
+    if not os.path.isfile(legend_filename): raise Exception('Error: LEGEND file does not exist.')
+    if fasta_filename!='' and not os.path.isfile(fasta_filename): raise Exception('Error: FASTA file does not exist.')
 
-def save_known_snps_positions(snp_positions):
-    """ Saves the list of known SNPs positions, which would be used by
-        samtools mpileup to find observed bases. The position list file
-        contains two columns for chromosome and position. The columns are
-        TAB-separated and countings starts from 1. """ 
-    
-    pos_file = tempfile.NamedTemporaryFile(delete=False, mode='w') 
-
-    for chr_id, pos in snp_positions:
-        pos_file.write('%s\t%d\n' % (chr_id, pos)) #Write data into file.
-    
-    pos_file.close()
-    
-    return pos_file.name
-
-def parse_bases_field(ref, bases_str):
-    """ Parses the bases field of mpileup output and returns the observed
-        bases at this position. Positions where indels occur are not
-        considered. """
-    
-    dictionary = {'.*[*+-].*': '',  #(1)  Skip deletions\insertions.
-                  '\\^.': '',       #(2)  Remove sequence start mark followed by mapping quality.
-                  '\$': '',         #(3)  Remove sequence end mark
-                  '[,.]': ref}      #(4)  Replace with matching reference.
-    
-    for pattern, substitute in dictionary.items():
-        bases_str = re.sub(pattern, substitute, bases_str)
-    
-    bases_str = bases_str.upper()
-    
-    return bases_str
-     
-def extract_bases_from_pileup(mpu_output, max_cov):
-    """ Extracts, from the pileup format data, the observed bases at SNPs
-        positions. If more than one base is present, one is chosen at random."""
-        
-    extracted = []
-    for line in mpu_output.splitlines():
-        fields = line.rstrip().split('\t')
-        pos, ref, cov, bases = int(fields[1]), fields[2], int(fields[3]), fields[4]
-        if cov > 0  and (max_cov == 0 or cov <= max_cov):
-            reads = parse_bases_field(ref, bases)
-            ### if len(set(reads))==1: 
-            if pos==38119108:
-                print(reads,bases,len(bases))
-            if len(reads)==1:  #Only single base observations are considered.
-                extracted.append((pos,reads[0]))
-                
-    return extracted    
-
-def get_snps_samtools(bam_filename, pos_filename, 
-                      min_mapq, min_baseq, max_cov, fasta_ref, verbose, samtools_dir):
-    """ Runs samtools mpileup as a subprocess and returns the output """
-    
-    samtools_inst_dir = samtools_dir if samtools_dir=='' or samtools_dir[-1]=='/' else samtools_dir+'/'
-
-    samtools_args = [samtools_inst_dir+'samtools', 'mpileup',
-                     '-q', str(min_mapq), #Minimum mapping quality for an alignment to be used.
-                     '-Q', str(min_baseq), #Minimum base quality for a base to be considered.
-                     '-d', str(max_cov), #At a position, read maximally INT reads per input file. 
-                     '-l', pos_filename] #Position list file containing a list of regions or sites where pileup or BCF should be generated.
-    
-    samtools_args.append(bam_filename) if fasta_ref == '' else samtools_args.extend(['-f', fasta_ref, bam_filename])
-        
-    if verbose: 
-        sys.stderr.write('Calling samtools:\n  %s\n' % ' '.join(samtools_args))
-    
-    mpileup = subprocess.Popen(samtools_args, 
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-    out, err = mpileup.communicate()
-    return out, err 
-
-
-
-def main(bam, impute_leg, min_mq, min_bq, max_cov, fasta_ref, verbose, samtools_dir, write_to_stdout): 
-    """ Builds a table of SNP positions and base observations from mapped reads. """
-    
-    if not os.path.isfile(bam): raise Exception('error: BAM file does not exist.')
-    if not os.path.isfile(impute_leg): raise Exception('error: LEGEND file does not exist.')
+    obs_tab = list()
     
     try:
-        snp_positions = read_impute2_legend(impute_leg) 
-        pos_filename = save_known_snps_positions(snp_positions)
-        mpu_out, mpu_err = get_snps_samtools(bam, pos_filename, 
-                                             min_mq, min_bq, 
-                                             max_cov, fasta_ref, verbose, samtools_dir) 
-    finally:
-        os.remove(pos_filename)
-    
-    extracted = extract_bases_from_pileup(mpu_out.decode('UTF-8'), max_cov)   
-    
-    snp_positions_iter, obs_tab, i0 = iter(snp_positions), list(), 0
-    
-    for (pos1, read) in extracted:
-        for i, (chr_id, pos2) in enumerate(snp_positions_iter,start=i0):
-            if pos1 == pos2:
-                obs_tab.append([i, pos1, read])
-                i0 = i + 1
-                break
+        genome_reference = pysam.FastaFile(fasta_filename) if fasta_filename!='' else None
+        samfile = pysam.AlignmentFile(bam_filename, 'rb' )
+        leg_tab = read_impute2(legend_filename, filetype='legend')
 
-    chr_id = 'chr' + snp_positions[0][0]  
-                    
-    return obs_tab, chr_id
+        
+        kwarg = {'contig': leg_tab[0][0],       # The chr_id of the considered chromosome.
+                 'start': leg_tab[0][1]-1,      # The first snp in chr_id.
+                 'end': leg_tab[-1][1],         # The last snp in chr_id.
+                 'truncate': True,              # By default, the samtools pileup engine outputs all reads overlapping a region. If truncate is True and a region is given, only columns in the exact region specificied are returned.
+                 'max_depth': max_depth,        # Maximum read depth permitted. The default limit is ‘8000’.
+                 'stepper': 'samtools',         # The following arguments all pertain to the samtools stepper:
+                 'min_base_quality': min_bq,    # Minimum base quality. Bases below the minimum quality will not be output.
+                 'min_mapping_quality': min_mq, # Only use reads above a minimum mapping quality. The default is 0.
+                 'ignore_overlaps': True,       # If set to True, detect if read pairs overlap and only take the higher quality base.
+                 'ignore_orphans': True,        # Ignore orphans (paired reads that are not in a proper pair).
+                 'fastafile': genome_reference, # FastaFile object of a reference sequence.    
+                 'compute_baq': True}           # By default, performs re-alignment computing per-Base Alignment Qualities (BAQ), if a reference sequence is given.'
+                                 
+
+        leg_tab_iterator = enumerate(leg_tab)        
+        pos = 0         
+        
+        for pileupcolumn in samfile.pileup(**kwarg):
+            
+            while pileupcolumn.pos > pos-1: 
+                i, (chr_id,pos,ref,alt) = next(leg_tab_iterator)  
+            
+            if pileupcolumn.pos == pos-1:
+                
+                rows = [(chr_id, pos, (ref,alt), i, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position]) for pileupread in pileupcolumn.pileups if pileupread.query_position!=None] # query_position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment). 
+            
+                if pileupcolumn.get_num_aligned()==1:
+                    obs_tab.extend(rows)
+                else:
+                    warnings.warn('Multiple reads were found to overlap at one or more SNP positions.')
+                    if handle_multiple_observations=='all':
+                        obs_tab.extend(rows)
+                    elif handle_multiple_observations=='first' and len(rows)>0:
+                        obs_tab.append(rows[0])
+                    elif handle_multiple_observations=='random' and len(rows)>0:
+                        obs_tab.append(random.choice(rows))
+                    elif handle_multiple_observations=='skip':
+                        pass
+                    else:
+                        raise Exception('error: handle_multiple_observations only supports the options \"skip\", \"all\", \"first\" and \"random\".')
+        
+    finally:
+        if genome_reference!=None: genome_reference.close()
+        samfile.close()
     
+    return tuple(obs_tab)
+
 if __name__ == "__main__": 
     time0 = time.time()
     
     parser = argparse.ArgumentParser(
-        description='Builds a table of SNP positions, single base observations from mapped reads and '
-                    'their corresponding line number within the IMPUTE2 legend file.')
-    parser.add_argument('bam', metavar='BAM_filename', type=str, 
+        description='Builds a table of single base observations at known SNP positions.')
+    parser.add_argument('bam_filename', metavar='BAM_FILENAME', type=str, 
                         help='BAM file')
-    parser.add_argument('impute_leg', metavar='legend_filename', type=str, 
+    parser.add_argument('legend_filename', metavar='LEGEND_FILENAME', type=str, 
                         help='IMPUTE2 legend file')
-    parser.add_argument('-q', '--min-bq', type=int, 
-                        metavar='BASEQ', default=30, 
-                        help='Minimum base quaility for observations. Default value is 30.')
-    parser.add_argument('-Q', '--min-mq', type=int, 
-                        metavar='MAPQ', default=30,
-                        help='Minimum mapping quaility for observations. Default value 30.')
-    parser.add_argument('-c', '--max-cov', type=int, 
-                        metavar='COV', default=0,
-                        help='Maximum coverage to allow (inclusive). Default value is 0.')
-    parser.add_argument('-f', '--fasta-ref', type=str,
-                        default='', metavar='FASTA_REF',
+    parser.add_argument('-f','--fasta_filename', type=str,metavar='FASTA_FILENAME', default='',
                         help='The faidx-indexed reference file in the FASTA format. ' 
-                             'The file can be optionally compressed by bgzip. '
                              'Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8.')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='Print debug information')
-    parser.add_argument('-s', '--samtools-dir', type=str,
-                        default='', metavar='SAMTOOLS_DIR',
-                        help='The directory where samtools are installed.')
-    parser.add_argument('-w', '--write-to-stdout', action='store_true',
-                        help='Write output to stdout (standard output).')
+    parser.add_argument('-u', '--handle-multiple-observations', type=str, 
+                        metavar='all/first/random/skip', default='skip', 
+                        help='We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to skip the SNP. '
+                             'However, a few alternative options to handle multiple observations are avaible: (a) take the first observed base, (b) pick randomly an observed base and (c) keep all the observed bases.')
+    parser.add_argument('-b', '--min-bq', type=int, 
+                        metavar='INT', default=30, 
+                        help='Minimum base quaility for observations. Default value is 30.')
+    parser.add_argument('-m', '--min-mq', type=int, 
+                        metavar='INT', default=30,
+                        help='Minimum mapping quaility for observations. Default value 30.')
+    parser.add_argument('-d', '--max-depth', type=int, 
+                        metavar='INT', default=0,
+                        help='Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit.')
+    parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
+                        help='Output filename. The default filename is the same as the BAM filename, but with an extension of .obs.p')
     
     args = parser.parse_args()
-    obs_tab, chr_id = main(**vars(args))
     
-    info = {'chr_id' : chr_id, 'min-bq': args.min_bq, 'min-mq' :  args.min_mq, 'max-cov' :  args.max_cov} 
+    obs_tab  = retrive_bases(**vars(args))
+    
+    info = {'redo-BAQ': args.fasta_filename=='', 'handle-multiple-observations' : args.handle_multiple_observations, 'min-bq': args.min_bq, 'min-mq' :  args.min_mq, 'max-depth' :  args.max_depth} 
 
-    if args.write_to_stdout:
-        tab_out = sys.stdout
-        tab_out.write('SNPs indices, SNPs Positions, Observed Bases\n')
-        for (ind, pos, read) in obs_tab: 
-            tab_out.write('%d\t%d\t%s\n' % (ind, pos, read))
-
-    else:
-        EXT = '.obs[BAQ].p' if args.fasta_ref != '' else '.obs.p'
-        output_filename = re.sub('.bam$','',args.bam.split('/')[-1])+EXT
-        with open( output_filename, "wb") as f:
-            pickle.dump(obs_tab, f)
-            pickle.dump(info, f)
+    default_output_filename = re.sub('.bam$','',args.bam_filename.strip().split('/')[-1])+'.obs.p'
+    output_filename = default_output_filename if args.output_filename=='' else args.output_filename 
+    
+    with open( output_filename, "wb") as f:
+        pickle.dump(obs_tab, f)
+        pickle.dump(info, f)
      
     time1 = time.time()
     print('Done in %.2f sec.' % (time1-time0))
     sys.exit(0)
+    
+
+######################
+#if __name__ == "__main__": 
+#    print("Executed when invoked directly")
+#    bam_filename = '../BAMs_hg38/SRR6676163.hg38.bam'
+#    fasta_filename = None#'../genome_ref_hg38/hg38.fa'
+#    legend_filename = '../make_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
+#    handle_multiple_observations = 'skip'
+#    min_bq = 30
+#    min_mq = 30
+#    max_depth = 0
+#    result = retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth)
+#    #test()
+#    time1 = time.time()
+#    print('Done in %.3f sec.' % (time1-time0))
+#else: 
+#    print("Executed when imported")
+#
+#
+#def pileup(genome_reference,samfile,chr_id,start_position,end_position):
+#    additional_arguments = {'truncate': True,               # By default, the samtools pileup engine outputs all reads overlapping a region. If truncate is True and a region is given, only columns in the exact region specificied are returned.
+#                            'max_depth': 0,                 # Maximum read depth permitted. The default limit is ‘8000’.
+#                            'stepper': 'samtools',          # The following arguments all pertain to the samtools stepper:
+#                            'min_base_quality': 30,         # Minimum base quality. Bases below the minimum quality will not be output.
+#                            'min_mapping_quality': 30,      # Only use reads above a minimum mapping quality. The default is 0.
+#                            'ignore_overlaps': True,        # If set to True, detect if read pairs overlap and only take the higher quality base.
+#                            'ignore_orphans': True,         # Ignore orphans (paired reads that are not in a proper pair).
+#                            'compute_baq': False,            # Re-alignment computing per-Base Alignment Qualities (BAQ). The default is to do re-alignment. 
+#                            'fastafile': genome_reference}  # Requires a FastaFile object of a reference sequence. If none is present, no realignment will be performed.                 
+#
+#    for pileupcolumn in samfile.pileup(chr_id,start_position,end_position, **additional_arguments):
+#        print ("\ncoverage at base %s = %s" %
+#               (pileupcolumn.pos, pileupcolumn.get_num_aligned()))
+#        for pileupread in pileupcolumn.pileups:
+#            position = pileupread.query_position
+#            #print(position)
+#            if position!=None: # Query position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment). 
+#                print ('\tbase in read %s = %s' %
+#                      (pileupread.alignment.query_name,
+#                       pileupread.alignment.query_sequence[position]))
+#                
+#def test():
+#    try:
+#        genome_reference = None #pysam.FastaFile('/Users/ariad/Dropbox/postdoc_JHU/Tools/genome_ref_hg38/hg38.fa')
+#        samfile = pysam.AlignmentFile('../BAMs_hg38/SRR6676163.hg38.bam', 'rb' )
+#        #pileup(genome_reference, samfile,'chr21', 5033830, 5033850)
+#        pileup(genome_reference, samfile,'chr21', 38119107, 38119108)
+#    finally:
+#        if genome_reference!=None: genome_reference.close()
+#        samfile.close()
+#
+########################    
+
