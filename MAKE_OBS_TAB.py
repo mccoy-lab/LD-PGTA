@@ -12,7 +12,7 @@ in the legend file, are organized in a table.
 Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
-import sys, os, time, random, warnings, argparse, re, pickle, pysam
+import sys, os, time, random, warnings, argparse, re, pickle, pysam, functools, operator
 
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
@@ -55,8 +55,12 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         samfile = pysam.AlignmentFile(bam_filename, 'rb' )
         leg_tab = read_impute2(legend_filename, filetype='legend')
 
+        if next(zip(*leg_tab)).count(leg_tab[0][0])!=len(leg_tab):
+            raise Exception('Error: Unsuitable legend file. All SNP positions should refer to the same chr_id.')
+        else:
+            chr_id = leg_tab[0][0]
         
-        kwarg = {'contig': leg_tab[0][0],       # The chr_id of the considered chromosome.
+        kwarg = {'contig': chr_id,              # The chr_id of the considered chromosome.
                  'start': leg_tab[0][1]-1,      # The first snp in chr_id.
                  'end': leg_tab[-1][1],         # The last snp in chr_id.
                  'truncate': True,              # By default, the samtools pileup engine outputs all reads overlapping a region. If truncate is True and a region is given, only columns in the exact region specificied are returned.
@@ -69,18 +73,17 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                  'fastafile': genome_reference, # FastaFile object of a reference sequence.    
                  'compute_baq': True}           # By default, performs re-alignment computing per-Base Alignment Qualities (BAQ), if a reference sequence is given.'
                                  
-
         leg_tab_iterator = enumerate(leg_tab)        
         pos = 0         
         
         for pileupcolumn in samfile.pileup(**kwarg):
             
             while pileupcolumn.pos > pos-1: 
-                i, (chr_id,pos,ref,alt) = next(leg_tab_iterator)  
+                impute2_index, (chr_id,pos,ref,alt) = next(leg_tab_iterator)  
             
             if pileupcolumn.pos == pos-1:
                 
-                rows = [(chr_id, pos, (ref,alt), i, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position]) for pileupread in pileupcolumn.pileups if pileupread.query_position!=None] # query_position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment). 
+                rows = [(pos, impute2_index, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position]) for pileupread in pileupcolumn.pileups if pileupread.query_position!=None] # query_position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment). 
             
                 if pileupcolumn.get_num_aligned()==1:
                     obs_tab.extend(rows)
@@ -88,10 +91,10 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                     warnings.warn('Multiple reads were found to overlap at one or more SNP positions.')
                     if handle_multiple_observations=='all':
                         obs_tab.extend(rows)
-                    elif handle_multiple_observations=='first' and len(rows)>0:
-                        obs_tab.append(rows[0])
-                    elif handle_multiple_observations=='random' and len(rows)>0:
-                        obs_tab.append(random.choice(rows))
+                    elif handle_multiple_observations=='first':
+                        if len(rows)>0: obs_tab.append(rows[0])
+                    elif handle_multiple_observations=='random':
+                        if len(rows)>0: obs_tab.append(random.choice(rows))
                     elif handle_multiple_observations=='skip':
                         pass
                     else:
@@ -101,7 +104,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         if genome_reference!=None: genome_reference.close()
         samfile.close()
     
-    return tuple(obs_tab)
+    return tuple(obs_tab), chr_id
 
 if __name__ == "__main__": 
     time0 = time.time()
@@ -133,9 +136,14 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    obs_tab  = retrive_bases(**vars(args))
+    obs_tab, chr_id  = retrive_bases(**vars(args))
     
-    info = {'redo-BAQ': args.fasta_filename=='', 'handle-multiple-observations' : args.handle_multiple_observations, 'min-bq': args.min_bq, 'min-mq' :  args.min_mq, 'max-depth' :  args.max_depth} 
+    info = {'redo-BAQ': args.fasta_filename=='',
+            'handle-multiple-observations' : args.handle_multiple_observations,
+            'min-bq': args.min_bq,
+            'min-mq' :  args.min_mq,
+            'max-depth' :  args.max_depth,
+            'chr_id': chr_id} 
 
     default_output_filename = re.sub('.bam$','',args.bam_filename.strip().split('/')[-1])+'.obs.p'
     output_filename = default_output_filename if args.output_filename=='' else args.output_filename 

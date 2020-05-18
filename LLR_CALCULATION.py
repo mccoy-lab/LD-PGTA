@@ -26,8 +26,8 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
         
     hap_dict = dict()
         
-    for (ind, pos, read) in obs_tab:
-        pos2, ref, alt = leg_tab[ind]
+    for (pos, ind, read_id, read) in obs_tab:
+        chr_id, pos2, ref, alt = leg_tab[ind]
         if pos!=pos2:
             raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')         
         if read==alt:
@@ -44,15 +44,20 @@ def read_impute2(impute2_filename,**kwargs):
         of lists, containing the dataset. """
     
     filetype = kwargs.get('filetype', None)
-    impute2_in = open(impute2_filename, 'r')
     with open(impute2_filename, 'r') as impute2_in:
         if filetype == 'legend':
             impute2_in.readline()   # Bite off the header
-            def parse(x): y=x.strip().split()[1:]; y[0]=int(y[0]); return y
+            def parse(x): 
+                y=x.strip().split()
+                y[0] = 'chr'+y[0].split(':')[0]
+                y[1]=int(y[1])
+                return y
         elif filetype == 'hap':
-            def parse(x): return [i=='1' for i in x.strip().split()]
+            def parse(x):
+                return [i=='1' for i in x.strip().split()]
         else:
-            def parse(x): return x.strip().split() # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
+            def parse(x):
+                return x.strip().split() # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
        
         impute2_tab = [parse(line) for line in impute2_in]
     return impute2_tab
@@ -140,7 +145,7 @@ def main(obs_filename,leg_filename,hap_filename,models_filename):
     #frequencies = create_frequencies(hap_dict)
     #LLR = create_LLR(models_dict,frequencies)     
     
-    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) 
+    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return LLR
     
 if __name__ == "__main__": 
@@ -167,15 +172,15 @@ if __name__ == "__main__":
     LLR = create_LLR(models_dict,frequencies) 
     
     #frequencies(*positions[:16])
-    print(positions[:2])
-    print(frequencies(*positions[:2]))
-    print(LLR(*positions[:2]))
-    print(positions[:3])
-    print(frequencies(*positions[:3]))
-    print(LLR(*positions[:3]))
-    print(positions[:4])
-    print(frequencies(*positions[:4]))
-    print(LLR(*positions[:4]))
+    #print(positions[:2])
+    #print(frequencies(*positions[:2]))
+    #print(LLR(*positions[:2]))
+    #print(positions[:3])
+    #print(frequencies(*positions[:3]))
+    #print(LLR(*positions[:3]))
+    #print(positions[:4])
+    #print(frequencies(*positions[:4]))
+    #print(LLR(*positions[:4]))
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))
