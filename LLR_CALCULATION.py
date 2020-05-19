@@ -82,9 +82,9 @@ def create_frequencies(hap_dict):
                 if n==1: 
                     hap[i] = hap_dict[pos[0]] 
                 elif n==2:
-                    hap[i] = tuple(map(operator.and_,pos[0],pos[1]))
+                    hap[i] = tuple(map(operator.and_,hap_dict[pos[0]],hap_dict[pos[1]]))
                 else:
-                    hap[i] = tuple(map(all,zip(*pos)))
+                    hap[i] = tuple(map(all, zip( *(hap_dict[i] for i in pos)   )   ))
             elif type(pos)==int:
                 hap[i] = hap_dict[pos]
             else:

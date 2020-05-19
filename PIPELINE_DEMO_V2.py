@@ -1,0 +1,111 @@
+#! /usr/bin/python3
+# -*- coding: utf-8 -*-
+"""
+
+PIPELINE
+
+Daniel Ariad (daniel@ariad.org)
+Feb 27, 2020
+
+"""
+import time, pickle, re
+from MAKE_OBS_TAB import retrive_bases
+from MIX2HAPLOIDS import main as mix2
+
+
+def make_obs_tab_demo(bam_filename,legend_filename,handle):   
+    time0 = time.time()
+
+    args = {'bam_filename': '../BAMs_hg38/'+bam_filename,
+            'legend_filename': '../make_reference_panel/ref_panel.EUR.hg38.BCFtools/'+legend_filename,
+            'max_depth': 0,
+            'min_bq': 30,
+            'min_mq': 30,
+            'handle_multiple_observations': handle,
+            'fasta_filename': '',#'../genome_ref_hg38/hg38.fa', 
+            'output_filename': ''}
+    
+    obs_tab, chr_id  = retrive_bases(**args)
+    
+    info = {'redo-BAQ': args['fasta_filename']=='',
+            'handle-multiple-observations' : args['handle_multiple_observations'],
+            'min-bq': args['min_bq'],
+            'min-mq' :  args['min_mq'],
+            'max-depth' :  args['max_depth'],
+            'chr_id': chr_id} 
+
+    default_output_filename = re.sub('.bam$','',args['bam_filename'].strip().split('/')[-1])+'.obs.p'
+    output_filename = default_output_filename if args['output_filename']=='' else args['output_filename']
+    
+    with open( 'results/'+output_filename, "wb") as f:
+        pickle.dump(obs_tab, f)
+        pickle.dump(info, f)
+     
+    time1 = time.time()
+    print('Done in %.2f sec.' % (time1-time0))
+
+    return 0
+
+if __name__ == "__main__":
+    #make_obs_tab_demo('SRR10965088.hg38.bam','chr21_EUR_panel.legend')
+    ##make_obs_tab_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend','skip')
+    #make_obs_tab_demo('SRR151495.0-2.hg38.bam','chr21_EUR_panel.legend','first')
+    #make_obs_tab_demo('SRR10393062.hg38.bam','chr21_EUR_panel.legend','first')
+    #make_obs_tab_demo('SRR8257209.hg38.bam','chr21_EUR_panel.legend')
+    #make_reads_bed3_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend')
+    
+    #A = mix2('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.001 'all')
+    A = mix2('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.01, 'all')
+    #A = mix2('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.1, 'all')
+    #A = mix2('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 1, 'all')
+    #A = mix2('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 10, 'all')
+    #A = mix2('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.005, 'all')
+    #A = mix2('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.05, 'all')
+    #A = mix2('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.5, 'all')
+
+    #make_llr_dict_demo('SRR10965088.hg38.OBS.p','chr21','pair',25)
+    #make_llr_dict_demo('SRR6676163.hg38.OBS.p','chr21','pair',25)   
+    #make_llr_dict_demo('SRR151495.0-2.hg38.OBS.p','chr21','pair',10)
+    #make_llr_dict_demo('SRR10393062.hg38.OBS.p','chr21','pair',10)
+    #make_llr_dict_demo('SRR8257209.hg38.OBS.p','chr21','pair',25)
+    #make_llr_dict_demo('SRR151495.0-2.hg38.OBS.p','chr21','triplet', 25)
+    #make_llr_dict_demo('SRR10393062.hg38.OBS.p','chr21','triplet', 25)
+    #make_llr_dict_demo('SRR8257209.hg38.OBS.p','chr21','triplet',25)
+    #make_llr_dict_demo('SRR6676163.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('SRR10965088.hg38.OBS.p','chr21','quartet',15)
+    #make_llr_dict_demo('SRR151495.0-2.hg38.OBS.p','chr21','quartet', 20)
+    #make_llr_dict_demo('SRR10393062.hg38.OBS.p','chr21','quartet', 20)
+    #make_llr_dict_demo('SRR8257209.hg38.OBS.p','chr21','quartet',20)
+    #make_llr_dict_demo('SRR6676163.hg38.OBS.p','chr21','quartet',20)
+
+    
+    #make_llr_dict_demo('mixed2haploids.X0.001.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X0.005.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X0.01.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X1.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X10.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X0.001.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X0.005.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X0.01.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X1.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X10.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','quartet',100)
+
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.1)
+    #make_llr_dict_demo('mixed2haploids.X0.025.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','pair',100)
+    #make_llr_dict_demo('mixed2haploids.X0.025.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','triplet',100)
+    #make_llr_dict_demo('mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p','chr21','quartet',100)
+
+    #make_llr_dict_demo('SRR10965088.hg38.OBS.p','chr21','quartet',50)
+    #make_llr_dict_demo('SRR10393062.hg38.OBS.p','chr21','quartet',25)
+
+
+    pass
+    
+    
