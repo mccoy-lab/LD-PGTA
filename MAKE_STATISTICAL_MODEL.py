@@ -5,7 +5,12 @@ Created on Tue Apr 28 13:37:57 2020
 
 @author: ariad
 """
-import itertools,operator,math,pickle,time
+import itertools,operator,math,pickle,time,collections
+
+def DIV(a,b):
+    """ Divides two numbers by their common divisor. """
+    c = math.gcd(a,b)
+    return (a//c,b//c)
 
 def AUX(X):
     """ Checks if the first non-zero integer in an array is one. """   
@@ -18,19 +23,18 @@ def GROUP(X):
     group = {0: [], 1: [], 2: []}
     for i,j in enumerate(X):
         group[j].append(i)
-    return tuple([tuple(i) for i in group.values() if len(i)!=0])
-
-def DIV(a,b):
-    """ Divides two numbers by their common divisor. """
-    c = math.gcd(a,b)
-    return (a//c,b//c)
+    result = tuple([tuple(i) for i in group.values() if len(i)!=0])
+    return result
 
 def COMMON(X,t):
     """ Common procedure for both the SPH and BPH functions. """
     A = ((a,len(tuple(b))) for a,b in itertools.groupby(sorted(X)))
     B = ((a,DIV(b,t)) for a,b in A)
-    C = ((GROUP(a),b) for a,b in B)
-    return tuple(C)
+    C = collections.defaultdict(list)
+    for a,b in B:
+        C[b].append(GROUP(a))
+    result = {key: tuple(value) for key, value in C.items()} 
+    return result
     
 def SPH(x):
     """ Returns the SPH probability function """
@@ -59,7 +63,7 @@ def BUILD(x):
 
 if __name__ == "__main__": 
     print("Executed when invoked directly")
-    BUILD(16)
+    models = BUILD(16)
 else: 
     print("Executed when imported")
     

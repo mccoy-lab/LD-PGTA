@@ -53,7 +53,9 @@ def build_dictionary_of_reads(obs_tab,chr_id,read_length,offset):
     return obs_dict
 
 def build_obs_dict(obs_tab1, obs_tab2, info, read_length, depth):
-    """ TBA """ 
+    """ Mixes simulated reads to mimic the outcome of an Illumina dye sequencing
+        for an aneuploid cell with two matched haplotypes (‘single parental
+        homolog’; SPH). """ 
     
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
     
@@ -83,7 +85,10 @@ def build_obs_dict(obs_tab1, obs_tab2, info, read_length, depth):
 
 
 def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multiple_observations, **kwargs):
-    """ TBA """
+    """ Wraps build_obs_dict. In addition, copies the values of obs_dict into
+        the list obs_tab, while handling multiple observations at SNP positions.
+        Then stores obs_tab as well as a dictionary with all the arguments that
+        were used. """
     
     time0 = time.time()
     
@@ -118,7 +123,7 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
             else:
                 raise Exception('error: handle_multiple_observations only supports the options \"skip\", \"all\", \"first\" and \"random\".')
   
-    obs_tab =  sorted((row for row in obs_dict.values()), key=operator.itemgetter(0))
+    obs_tab_sorted =  sorted(obs_tab, key=operator.itemgetter(0))
     
     info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
     
@@ -126,13 +131,12 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
         default_output_filename = ('mixed2haploids.X%f' % depth).rstrip('0')+'.'+obs_filename1.lstrip().split('.')[0]+'.'+obs_filename2    
         output_filename = default_output_filename if kwargs.get('output_filename','')=='' else kwargs.get('output_filename','') 
         with open(  'results/' + output_filename , "wb" ) as f:
-                pickle.dump( obs_tab, f )
+                pickle.dump( obs_tab_sorted, f )
                 pickle.dump( info, f )    
         
     time1 = time.time()
-    print('Done in %.2f sec.' % (time1-time0))
-    
-    return tuple(obs_tab), info
+    print('Done simulating the observations table of an aneuploid cell with SPH in %.2f sec.' % (time1-time0))
+    return tuple(obs_tab_sorted), info
     
 if __name__ == "__main__":     
     parser = argparse.ArgumentParser(

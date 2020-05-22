@@ -120,7 +120,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         samfile.close()
     
     time1 = time.time()
-    print('Done in %.2f sec.' % (time1-time0))
+    print('Done building the observations table in %.2f sec.' % (time1-time0))
     return tuple(obs_tab), info
 
 if __name__ == "__main__": 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     parser.add_argument('-u', '--handle-multiple-observations', type=str, 
                         metavar='all/first/random/skip', default='skip', 
                         help='We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to skip the SNP. '
-                             'However, a few alternative options to handle multiple observations are avaible: (a) take the first observed base, (b) pick randomly an observed base and (c) keep all the observed bases.')
+                             'However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) keep all the observed bases.')
     parser.add_argument('-b', '--min-bq', type=int, 
                         metavar='INT', default=30, 
                         help='Minimum base quaility for observations. Default value is 30.')
@@ -152,57 +152,3 @@ if __name__ == "__main__":
     
     retrive_bases(**vars(parser.parse_args()))
     sys.exit(0)
-    
-
-######################
-#if __name__ == "__main__": 
-#    print("Executed when invoked directly")
-#    bam_filename = '../BAMs_hg38/SRR6676163.hg38.bam'
-#    fasta_filename = None#'../genome_ref_hg38/hg38.fa'
-#    legend_filename = '../make_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
-#    handle_multiple_observations = 'skip'
-#    min_bq = 30
-#    min_mq = 30
-#    max_depth = 0
-#    result = retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth)
-#    #test()
-#    time1 = time.time()
-#    print('Done in %.3f sec.' % (time1-time0))
-#else: 
-#    print("Executed when imported")
-#
-#
-#def pileup(genome_reference,samfile,chr_id,start_position,end_position):
-#    additional_arguments = {'truncate': True,               # By default, the samtools pileup engine outputs all reads overlapping a region. If truncate is True and a region is given, only columns in the exact region specificied are returned.
-#                            'max_depth': 0,                 # Maximum read depth permitted. The default limit is ‘8000’.
-#                            'stepper': 'samtools',          # The following arguments all pertain to the samtools stepper:
-#                            'min_base_quality': 30,         # Minimum base quality. Bases below the minimum quality will not be output.
-#                            'min_mapping_quality': 30,      # Only use reads above a minimum mapping quality. The default is 0.
-#                            'ignore_overlaps': True,        # If set to True, detect if read pairs overlap and only take the higher quality base.
-#                            'ignore_orphans': True,         # Ignore orphans (paired reads that are not in a proper pair).
-#                            'compute_baq': False,            # Re-alignment computing per-Base Alignment Qualities (BAQ). The default is to do re-alignment. 
-#                            'fastafile': genome_reference}  # Requires a FastaFile object of a reference sequence. If none is present, no realignment will be performed.                 
-#
-#    for pileupcolumn in samfile.pileup(chr_id,start_position,end_position, **additional_arguments):
-#        print ("\ncoverage at base %s = %s" %
-#               (pileupcolumn.pos, pileupcolumn.get_num_aligned()))
-#        for pileupread in pileupcolumn.pileups:
-#            position = pileupread.query_position
-#            #print(position)
-#            if position!=None: # Query position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment). 
-#                print ('\tbase in read %s = %s' %
-#                      (pileupread.alignment.query_name,
-#                       pileupread.alignment.query_sequence[position]))
-#                
-#def test():
-#    try:
-#        genome_reference = None #pysam.FastaFile('/Users/ariad/Dropbox/postdoc_JHU/Tools/genome_ref_hg38/hg38.fa')
-#        samfile = pysam.AlignmentFile('../BAMs_hg38/SRR6676163.hg38.bam', 'rb' )
-#        #pileup(genome_reference, samfile,'chr21', 5033830, 5033850)
-#        pileup(genome_reference, samfile,'chr21', 38119107, 38119108)
-#    finally:
-#        if genome_reference!=None: genome_reference.close()
-#        samfile.close()
-#
-########################    
-
