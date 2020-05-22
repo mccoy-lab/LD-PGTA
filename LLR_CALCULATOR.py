@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-LLR_CALCULATION
+LLR_CALCULATOR
 
 This script creates a function that calculates log-likelihood BPH/SPH ratio
 (LLR) for a tuple of SNPs. BPH (Both Parental Homologs) correspond to the
