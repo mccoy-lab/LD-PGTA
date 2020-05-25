@@ -15,7 +15,7 @@ from MIX2HAPLOIDS import mix2haploids
 
 def make_obs_tab_demo(bam_filename,legend_filename,handle):   
     args = {'bam_filename': '../BAMs_hg38/'+bam_filename,
-            'legend_filename': '../make_reference_panel/ref_panel.EUR.hg38.BCFtools/'+legend_filename,
+            'legend_filename': '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/'+legend_filename,
             'max_depth': 0,
             'min_bq': 30,
             'min_mq': 30,
@@ -36,9 +36,9 @@ def make_obs_tab_demo(bam_filename,legend_filename,handle):
 
 if __name__ == "__main__":
     #make_obs_tab_demo('SRR10965088.hg38.bam','chr21_EUR_panel.legend')
-    #make_obs_tab_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend','all')
-    #make_obs_tab_demo('SRR151495.0-2.hg38.bam','chr21_EUR_panel.legend','first')
-    #make_obs_tab_demo('SRR10393062.hg38.bam','chr21_EUR_panel.legend','first')
+    make_obs_tab_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend','all')
+    make_obs_tab_demo('SRR151495.0-2.hg38.bam','chr21_EUR_panel.legend','first')
+    make_obs_tab_demo('SRR10393062.hg38.bam','chr21_EUR_panel.legend','first')
     #make_obs_tab_demo('SRR8257209.hg38.bam','chr21_EUR_panel.legend')
     #make_reads_bed3_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend')
     

@@ -1,0 +1,160 @@
+##### Table of Contents
+[Sequence Alignment](#seq_alignment)
+[Create a reference panel](#ref_panel)
+[Build a table of observed bases at SNP positions](#obs_tab)
+
+# Sequence Alignment #
+<a name="seq_alignment"/>
+
+## Convert the sequence SRR6676163 from SRA to FASTQ. ##
+
+`wget 'https://sra-downloadb.be-md.ncbi.nlm.nih.gov/sos1/sra-pub-run-2/SRR6676163/SRR6676163.1'`\
+`mv SRR6676163.1 SRR6676163.sra`\
+`fastq-dump ./SRR6676163.sra --gzip `
+
+## Prepare a Reference Genome ##
+We create a reference genome file based on GRCh38/hg38 (UCSC release, Dec. 2013). In order to accelerate the alignment, we do not include unplaced sequences, centromeric sequences and alternates:
+
+`wget 'ftp://hgdownload.cse.ucsc.edu/goldenPath/hg38/chromosomes/chr?.fa.gz'`\
+`wget 'ftp://hgdownload.cse.ucsc.edu/goldenPath/hg38/chromosomes/chr??.fa.gz'`\
+`gunzip *.fa.gz`\
+`cat *.fa > hg19.fa`\
+`rm chr*.fa`
+
+The complete GRCh38/hg38 (UCSC release, Dec. 2013) reference genome, which includes unplaced sequences, centromeric sequences and alternates, can be downloaded by:
+
+`wget 'http://hgdownload.cse.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz'`\
+`gunzip hg38.fa.gz`
+
+## Create Reference Index ##
+For sequences made out of fragments shorter than 70bp we use the software bwa. The reference index is created from the genome reference by executing:
+
+`bwa index -p hg19bwaidx -a bwtsw hg19.fa`
+
+See [the article](https://dx.doi.org/10.1093%2Fbioinformatics%2Fbtp324) and the [documentation of the software for more details](https://github.com/lh3/bwa).
+
+For sequences made out of fragments shorter larger than 70bp we use the software minimap2. The reference index is created from the genome reference by executing:
+
+`minimap2 -x sr -d hg38.sr.mmi hg38.fa`
+
+See [the article](https://doi.org/10.1093/bioinformatics/bty191) and the [documentation of the software for more details](https://github.com/lh3/minimap2/).
+
+## Align to Reference Genome ##
+In order to align short fragments (<70bp) using bwa, we execute it with the following arguments:
+
+`bwa aln -t 6 hg19bwaidx  SRR6676163.fastq.gz > SRR6676163.bwa`\
+`bwa samse hg19bwaidx SRR6676163.bwa SRR6676163.fastq.gz > SRR6676163.sam`,
+
+where the option `-t 6' allows multi-threading with 6 threads.
+
+In order to map to the reference genome fragments that their length range from 0.07kbp to 1kbp, we use minimap2  with the following arguments:
+
+`minimap2 -t6 -ax sr ../genome_ref_$2/minimap2/hg38.sr.mmi SRR6676163.fastq.gz > SRR6676163.sam`,
+
+where the option `-t6' allows multi-threading with 6 threads.
+
+## Convert from a SAM to a BAM format ##
+
+SAM is a text file, while BAM is essentially GZIP compressed binary forms of the text SAM file. Thus, converting from SAM to BAM format will reduce the data size and improve performance. In addition, a lot of applications (like browser viewing) require the reads in the BAM file to be coordinate-based sorted, .i.e, the reads are ordered from “left” to “right” across the reference genome just as you’d read across a line in a book.
+
+`samtools view -bS -F 4 SRR6676163.sam | samtools sort -@ 6 -o SRR6676163.sorted.bam -`
+
+The option `-F 4` filters out unmapped reads , while `-@ 6` allows samtools to use up to 6 threads.
+
+Next, we create an index from the BAM file with the samtools index subcommand:
+
+`samtools index SRR6676163.sorted.bam SRR6676163.sorted.bai`
+
+Source: http://bioinformatics-core-shared-training.github.io/cruk-bioinf-sschool/Day1/Sequence%20Alignment_July2015_ShamithSamarajiwa.pdf and http://genomeintelligence.org/?p=1486
+
+# Create a reference panel #
+<a name="ref_panel"/>
+
+## Download VCF files from the 1000 Genome Project Phase 3 ##
+
+VCF files from the 1000 Genome Project Phase 3 aligned against GRCh38/hg38:
+
+`wget 'ftp://ftp.sra.ebi.ac.uk/vol1/ERZ822/ERZ822766/*'`
+
+Reference: [Variant calling on the GRCh38 assembly with the data from phase three of the 1000 Genomes Project](https://wellcomeopenresearch.org/articles/4-50/v2)
+
+## Generate list of individuals to include in the creation of the reference panel ##
+Create a file containing a list of individuals to include in subsequent analysis. Each individual ID (as defined in the VCF headerline) should be included on a separate line. In order to generate such a list for the 1000 genome project phase 1\3 visit https://www.internationalgenome.org/data-portal/sample.
+
+## Generate a reference panel ##
+Here we create a reference panel using BCFtools.  First, the reference panel is stored in a BCF format:
+
+`bcftools view \`\
+`ALL.chr21.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz \`\
+`--samples-file EUR_indv_phase3.txt \`\
+`--exclude-types indels,mnps,ref,bnd,other\`\
+`--min-alleles 2 \`\
+`--max-alleles 2 \`\
+`--min-af 0.02 \`\
+`--phased \`\
+`--exclude 'AN!=2*N_SAMPLES' \`\
+`--output-file chr21_EUR_panel.bcf \`\
+`--output-type u`\
+
+The arguments that were used:
+
+`--sample-file EUR_indv_phase3.txt` _File of sample names to include with one sample per line. The sample order is updated to reflect that given in the input file._
+
+`--exclude-types indels,mnps,ref,bnd,other` _Select only sites with SNP variants across all samples, by excluding any other type. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags._
+
+`--min-alleles 2 --max-alleles 2` _Select only biallelic SNPs, by selecting sites with (at least and at most) two alleles listed in REF and ALT columns._
+
+`--min-af 0.1 ` _Minimum allele frequency (minor allele count / allele number)._
+
+`--phased --exclude 'AN!=2*N_SAMPLES'` _An IMPUTE reference-panel format requires phased data and bi-allelic sites. In order to make sure that no data is missing, sites that total number of alleles across all samples is not equal to twice the number of samples are excluded._
+
+`--output-file chr21_EUR_panel.bcf --output-type u` _Here we specify the output file name and format. We choose an uncompressed BCF in order to speed up performance by removing unnecessary compression/decompression and BCF → IMPUTE2 conversion._
+
+Then, we convert from BCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT:
+
+`bcftools convert chr21_EUR_panel.bcf --haplegendsample IMPUTE2`\
+`gunzip chr21_EUR_panel.legend.gz`\
+`gunzip chr21_EUR_panel.hap.gz`\
+`rm chr21_EUR_panel.bcf`
+
+# Build a table of observed bases at SNP positions #
+<a name="obs_tab"/>
+
+The script MAKE_OBS_TAB.py gets a BAM file, which is aligned and sorted, as well as an IMPUTE2 legend file.
+Then, it builds a nested list that contains observed alleles at SNPs positions together with their chromosome position and line number in the legend file. The nested list is stored in a pickle format.
+
+We run the script with the following arguments and flags:
+
+`python3 MAKE_OBS_TAB.py SRR6676163.bam chr21_EUR_panel.impute.legend
+--samtools-dir ../samtools-1.10 --min-bq 30 --min-mq 30 --max-cov 0 --verbose`,
+
+where the first argument is the filename of the BAM file, containing reads mapped to a reference sequence. The second argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. In addition, we used the following flags:
+
+`--fasta_filename` <FILENAME> _The faidx-indexed reference file in the FASTA format. Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8._
+
+`--handle-multiple-observations` <all/first/random/skip> _We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to skip the SNP. However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) keep all the observed bases._
+
+`--min-bq` <INT> _Minimum base quaility for observations. Default value is 30._
+
+`--min-mq` <INT> _Minimum mapping quaility for observations. Default value 30._
+
+`--max-depth` <FLOAT> _Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit._
+`--output-filename` <FILENAME> _Output filename. The default filename is the same as the BAM filename, but with an extension of .obs.p ._
+
+
+* In order to use the script, the Python module Pysam must be present. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
+
+# Build a dictionary that lists pairs/triplets of SNPs and gives their log-likelihood BPH/SPH ratio. #
+
+`python3 MAKE_LLR_DICT.py SRR6676163.hg38.OBS.p chr21_EUR_panel.legend chr21_EUR_panel.hap'
+--method triplets --frag-length 200 --hap-length 1e5 --grade 25`
+
+where the first argument, SRR6676163.hg38.OBS.p is the filename of a pickle file created by MAKE_OBS_TAB.py. The second and third arguments refer to an IMPUTE2 legend file and hap file, containing our reference panel.  In addition, we used the following flags:
+
+`--method pairs/triplets` _Use the statistical models of pairs/triplet of SNPs._
+
+`--frag-length <integer>` _DNA fragments length. The LLR is calculated for SNPs separated by at least the fragment length. The default value is 200._
+
+`--hap-length <integer>` _Haplotype maximal length. The LLR is calculated for SNPs separated by at most the haplotype length. Setting the value to 0 removes the limit. The default value is 10^5._
+
+`--grade <integer>` _Downgrade percentage for the overall observations. Default value is 100, meaning no downgrading._

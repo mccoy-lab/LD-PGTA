@@ -149,7 +149,7 @@ def create_LLR(models_dict,frequencies):
     
     return LLR
 
-def wraps_create_LLR1(obs_filename,leg_filename,hap_filename,models_filename):
+def wrapper_func_of_create_LLR_1(obs_filename,leg_filename,hap_filename,models_filename):
     """ Wraps the function create_LLR. It receives an observations file, IMPUTE2
         legend file, IMPUTE2 haplotypes file, and the statistical model. Based
         on the given data it creates and returns the LLR function."""
@@ -174,7 +174,7 @@ def wraps_create_LLR1(obs_filename,leg_filename,hap_filename,models_filename):
     LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return LLR
 
-def wraps_create_LLR2(obs_tab,leg_tab,hap_tab):
+def wrapper_func_of_create_LLR_2(obs_tab,leg_tab,hap_tab):
     """ Wraps the fuction create_LLR. It receives an observations array, legend
         array and haplotypes array. Based on the given data it creates and
         returns the LLR function."""
@@ -185,14 +185,16 @@ def wraps_create_LLR2(obs_tab,leg_tab,hap_tab):
     LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return LLR
     
-####################################
+###############################################################################
 
-if __name__ == "__main__": 
+if __name__ != "__main__": 
+    print("The module LLR_CALCULATOR was imported.")   
+else:
     print("Executed when invoked directly")
     a = time.time()
     obs_filename = 'results/mixed2haploids.X0.01.SRR10393062.SRR151495.0-2.hg38.OBS.p'
-    hap_filename = '../make_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
-    leg_filename = '../make_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
+    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
     
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='legend')
@@ -236,5 +238,3 @@ if __name__ == "__main__":
 
     print('Done in %.3f sec.' % ((b-a)))
     
-else: 
-    print("Executed when imported")
