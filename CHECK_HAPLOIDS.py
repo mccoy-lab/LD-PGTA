@@ -2,11 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 
-Simulates observed bases at known SNP positions from an aneuploid cell
-with two matched haplotypes (‘single parental homolog’; SPH), by mixing
-two haploids. 
-
-MIX2HAPLOIDS
+CHECK_HAPLOIDS
 
 Daniel Ariad (daniel@ariad.org)
 May 15st, 2020
@@ -52,7 +48,7 @@ def build_dictionary_of_reads(obs_tab,chr_id,read_length,offset):
             read = next(reads_iterator, None)
     return obs_dict
 
-def build_obs_dict(obs_tab1, obs_tab2, info, read_length, depth):
+def build_obs_dict(obs_tab, info, read_length, depth):
     """ Mixes simulated reads to mimic the outcome of an Illumina dye sequencing
         for an aneuploid cell with two matched haplotypes (‘single parental
         homolog’; SPH). """ 
@@ -63,20 +59,18 @@ def build_obs_dict(obs_tab1, obs_tab2, info, read_length, depth):
     
     num_of_reads = number_of_reads(chr_id,read_length,depth)
     
-    cache1, cache2 = dict(), dict()
+    cache = dict()
     
     for offset in range(read_length):
-        cache1.update(build_dictionary_of_reads(obs_tab1,chr_id,read_length,offset)) 
-        cache2.update(build_dictionary_of_reads(obs_tab2,chr_id,read_length,offset)) 
+        cache.update(build_dictionary_of_reads(obs_tab,chr_id,read_length,offset)) 
     
     obs_dict = collections.defaultdict(list)
     
     for i in range(num_of_reads):
         p = random.randrange(chr_length(chr_id))+1
         read_boundaries = (p,p+read_length-1)
-        rand_dict, ID = (cache1,'A') if random.randrange(3)==0 else (cache2,'B')  
-        reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1],ID,i) 
-        for pos, impute2_ind, _, obs_base in rand_dict.get(read_boundaries,[]):
+        reads_id = '%d.%d.%d' % (read_boundaries[0],read_boundaries[1],i) 
+        for pos, impute2_ind, _, obs_base in cache.get(read_boundaries,[]):
             obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
 
     info.update({'depth': depth, 'read_length': read_length})
@@ -84,7 +78,7 @@ def build_obs_dict(obs_tab1, obs_tab2, info, read_length, depth):
     return obs_dict, info
 
 
-def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multiple_observations, **kwargs):
+def check_haploid(obs_filename, read_length, depth, handle_multiple_observations, **kwargs):
     """ Wraps build_obs_dict. In addition, copies the values of obs_dict into
         the list obs_tab, while handling multiple observations at SNP positions.
         Then stores obs_tab as well as a dictionary with all the arguments that
@@ -92,18 +86,11 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
     
     time0 = time.time()
     
-    with open('results/'+obs_filename1, 'rb') as f:
-        obs_tab1 = pickle.load(f)
-        info1 = pickle.load(f)
-    
-    with open('results/'+obs_filename2, 'rb') as f:
-        obs_tab2 = pickle.load(f)
-        info2 = pickle.load(f)
-   
-    if info1!=info2:
-        raise Exception("Error: mismatch between the details of %s and %s." % (obs_filename1, obs_filename2))    
-    
-    obs_dict, info = build_obs_dict(obs_tab1, obs_tab2, info1, read_length, depth)
+    with open('results/'+obs_filename, 'rb') as f:
+        obs_tab = pickle.load(f)
+        info = pickle.load(f)
+ 
+    obs_dict, info = build_obs_dict(obs_tab, info, read_length, depth)
             
     obs_tab = list()
     
@@ -128,39 +115,13 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
     info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
     
     if kwargs.get('save',True):
-        default_output_filename = ('mixed2haploids.X%f' % depth).rstrip('0')+'.'+obs_filename1.lstrip().split('.')[0]+'.'+obs_filename2    
+        default_output_filename = ('check_haploid.X%f' % depth).rstrip('0')+'.'+obs_filename  
         output_filename = default_output_filename if kwargs.get('output_filename','')=='' else kwargs.get('output_filename','') 
         with open(  'results/' + output_filename , "wb" ) as f:
                 pickle.dump( obs_tab_sorted, f )
                 pickle.dump( info, f )    
         
     time1 = time.time()
-    print('Done simulating the observations table of an aneuploid cell with SPH in %.2f sec.' % (time1-time0))
+    print('Done in %.2f sec.' % (time1-time0))
     return tuple(obs_tab_sorted), info
-    
-if __name__ == "__main__":     
-    parser = argparse.ArgumentParser(
-        description='Simulates observed bases at known SNP positions from an aneuploid cell '
-                    'with two matched haplotypes (‘single parental homolog’; SPH), by mixing '
-                    'two haploids.')
-    parser.add_argument('obs_filename1', metavar='OBS_FILENAME1', type=str, 
-                        help='OBS file')
-    parser.add_argument('obs_filename2', metavar='OBS_FILENAME2', type=str, 
-                        help='OBS file')
-    parser.add_argument('-d', '--depth', type=float, 
-                        metavar='FLOAT', default=0.01, 
-                        help='The average coverage for a whole genome.  Default value 0.01')
-    parser.add_argument('-l', '--read-length', type=int, 
-                        metavar='INT', default=150,
-                        help='The number of base pairs (bp) sequenced from a DNA fragment. Default value 150.')
-    parser.add_argument('-u', '--handle-multiple-observations', type=str, 
-                        metavar='all/first/random/skip', default='skip', 
-                        help='We expect to observe at most a single base per SNP. When encountering '
-                             'an exception the default behavior is to skip the SNP. However, a '
-                             'few alternative options to handle multiple observations are avaible: ' 
-                             '(a) take the first observed base, (b) pick randomly an observed base'
-                             'and (c) keep all the observed bases.')
-    parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
-                        help='Output filename. The default filename is a combination of both OBS filenames.')    
-    mix2haploids(**vars(parser.parse_args()))    
-    sys.exit(0)
+

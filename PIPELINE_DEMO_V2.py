@@ -11,11 +11,13 @@ Feb 27, 2020
 import time, pickle, re
 from MAKE_OBS_TAB import retrive_bases
 from MIX2HAPLOIDS import mix2haploids
+from CHECK_HAPLOIDS import check_haploid
+
 
 
 def make_obs_tab_demo(bam_filename,legend_filename,handle):   
     args = {'bam_filename': '../BAMs_hg38/'+bam_filename,
-            'legend_filename': '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/'+legend_filename,
+            'legend_filename': '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/'+legend_filename,
             'max_depth': 0,
             'min_bq': 30,
             'min_mq': 30,
@@ -36,20 +38,33 @@ def make_obs_tab_demo(bam_filename,legend_filename,handle):
 
 if __name__ == "__main__":
     #make_obs_tab_demo('SRR10965088.hg38.bam','chr21_EUR_panel.legend')
-    make_obs_tab_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend','all')
-    make_obs_tab_demo('SRR151495.0-2.hg38.bam','chr21_EUR_panel.legend','first')
-    make_obs_tab_demo('SRR10393062.hg38.bam','chr21_EUR_panel.legend','first')
+    #make_obs_tab_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend','all')
+    #make_obs_tab_demo('SRR151495.0-2.hg38.bam','chr21_HapMix_panel.legend','first')
+    #make_obs_tab_demo('SRR10393062.hg38.bam','chr21_HapMix_panel.legend','first')
     #make_obs_tab_demo('SRR8257209.hg38.bam','chr21_EUR_panel.legend')
     #make_reads_bed3_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend')
     
     #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.001 'all')
     #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.01, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.1, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 1, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 10, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.005, 'all')
-    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.05, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.5, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.1, 'all')
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.02, 'all')
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.03, 'all')
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.04, 'all')
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.05, 'all')
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.06, 'all')
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.07, 'all')
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.08, 'all')
+    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.09, 'all')
+
+    
+    #A = check_haploid('SRR10393062.hg38.OBS.p', 150, 0.1, 'all')
+    #A = check_haploid('SRR151495.0-2.hg38.OBS.p', 150, 0.1, 'all')
+    #A = check_haploid('SRR151495.0-2.hg38.OBS.p', 150, 0.05, 'all')
+    #A = check_haploid('SRR151495.0-2.hg38.OBS.p', 150, 0.15, 'all')
+    #A = check_haploid('SRR151495.0-2.hg38.OBS.p', 150, 0.2, 'all')
+
+
+
 
     #make_llr_dict_demo('SRR10965088.hg38.OBS.p','chr21','pair',25)
     #make_llr_dict_demo('SRR6676163.hg38.OBS.p','chr21','pair',25)   

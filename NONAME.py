@@ -5,7 +5,7 @@ Created on Tue May 19 16:25:49 2020
 
 @author: ariad
 """
-import collections,time,pickle,statistics
+import collections,time,pickle,statistics,random
 
 from LLR_CALCULATOR import wrapper_func_of_create_LLR_2 as get_LLR
 
@@ -38,23 +38,51 @@ def build_aux_dict(obs_tab,leg_tab):
         
     aux_dict = collections.defaultdict(list)
         
-    for (pos, ind, read_id, read) in obs_tab:
-        if read in leg_tab[ind][2:]:
-            aux_dict[pos].append((read_id,read))  
+    for (pos, ind, read_id, allele) in obs_tab:
+        if allele in leg_tab[ind][2:]:
+            aux_dict[pos].append((read_id,allele))  
        
     return aux_dict 
 
-def group_alleles(aux_dict,positions):
+def group_alleles(aux_dict,positions,min_alleles_per_win,min_alleles_per_read,min_reads_per_win):
     """ Returns a dictionary that lists reads IDs and gives all the SNPs within
         the corresponding read."""
     
-    alleles = collections.defaultdict(list)
+    reads = collections.defaultdict(list)
     for pos in positions:
-        for (read_id,read) in aux_dict[pos]:
-            alleles[read_id].append((pos,read))
-    grouped_alleles = sorted(alleles.values(), key=len, reverse=True)
-    return grouped_alleles
+        for (read_id,allele) in aux_dict[pos]:
+            reads[read_id].append((pos,allele))
+    
+    ######################## APPLY THRESHOLDS AND FILTERS #####################
+    if min_alleles_per_win:
+        total_num_of_alleles = sum(len(alleles) for alleles in reads.values())
+        if total_num_of_alleles<min_alleles_per_win: return None
+    
+    if min_alleles_per_read:    
+        for read_id,alleles in tuple(reads.items()):
+            if len(alleles)<min_alleles_per_read: del reads[read_id]
+    
+    if min_reads_per_win:        
+        if len(reads)<2 or len(reads)<min_reads_per_win: return None
+    ###########################################################################
+    
+    
+    read_IDs, haplotypes = zip(*sorted(reads.items(), key=lambda x: len(x[1]), reverse=True)[:16])
+    
+    X = [{read_IDs.index(read_id) for (read_id,_) in aux_dict[pos] 
+          if read_id in read_IDs}
+                for pos in positions]
 
+    for i in range(len(X)-1,-1,-1):
+        for j in range(i-1,-1,-1):
+            if not X[i].isdisjoint(X[j]):
+                X[j].update(X.pop(i))
+                break
+    
+    overlaps = tuple(x for x in X if len(x)>1)
+            
+    return haplotypes, overlaps
+    
 def build_windows_dict(positions,window_size,offset):
     """ Returns a dictionary that lists windows and gives all the SNP positions
         within them."""
@@ -62,6 +90,10 @@ def build_windows_dict(positions,window_size,offset):
     a = positions[0]-(window_size-1)+offset
     b = positions[-1]+(window_size-1)
     boundaries = tuple(range(int(a), int(b), int(window_size)))
+    ####random.seed(a=None, version=2)
+    ####a = positions[0]-(window_size-1)
+    ####b = positions[-1]+(window_size-1)
+    ####boundaries = sorted(random.sample(range(int(a),int(b),10000), int((b-a)/window_size)))
     windows = [(i,j-1) for i,j in zip(boundaries,boundaries[1:])]
     
     windows_dict = collections.defaultdict(list)
@@ -78,38 +110,34 @@ def build_windows_dict(positions,window_size,offset):
 
 def jackknifing(sample,weights):
     """ Given sample elements and the weight of each element, the jackknife
-    estimator, the jackknife variance estimator, relative bias (RB) and
-    relative mean squared error (RMSE) are calculated. More information about
-    delete-m jackknife for unequal m can be found in F.M.Busing et al. (1999),
-    [DOI:10.1023/A:1008800423698]. """
+    estimator, the jackknife standard error and the Jackknife bias (RB)
+    are calculated. More information about delete-m jackknife for unequal m
+    can be found in F.M.Busing et al. (1999), [DOI:10.1023/A:1008800423698]. """
     
-    N = len(population)
-    t0 = sum(population) / N
+    N = len(sample)
+    t0 = sum(sample) / N
     H = [1/w for w in weights]
-    #H = [N for w in weights]
-    T = [sum(population[:i]+population[i+1:])/(N-1) for i in range(N)] 
+    ###H = [N for w in weights]
+    T = [sum(sample[:i]+sample[i+1:])/(N-1) for i in range(N)] 
     pseudo_values = [h*t0-(h-1)*t for t,h in zip(T,H)] 
     jackknife_estimator = sum((p/h for p,h in zip(pseudo_values,H)))
     jackknife_variance = sum(((p-jackknife_estimator)**2/(h-1) for p,h in zip(pseudo_values,H)))/N
-    RB = sum((t - t0 for t in T))/t0/N
-    RMSE = sum(((t - t0)**2 for t in T))/t0**2/N
-    return jackknife_estimator, jackknife_variance, RB, RMSE
+    jackknife_bias = (N-1)*t0-sum((t*(h-1)/h for t,h in zip(T,H)))
+    return jackknife_estimator, jackknife_variance**.5 , jackknife_bias
 
-def mean_and_std(x):
-    """ Calculates the mean and stadard deviation of a list of numbers. """
-    if len(x)!=0:
-        mean = statistics.mean(x)
-        std = statistics.pstdev(x, mu=mean)
+def mean_and_std(sample):
+    """ Calculates the mean and standard deviation of normally distributed
+        random variables. """
+    
+    if len(sample)!=0:
+        mean = statistics.mean(sample)
+        std = statistics.pstdev(sample, mu=mean)/len(sample)**.5
     else:
         mean = std = 0
     return mean, std
 
 def main(obs_filename,leg_filename,hap_filename,window_size,offset,min_reads_per_window,min_alleles_per_read):
     a = time.time()
-    
-    min_alleles_per_window = 2
-    min_alleles_per_read = 2
-    min_reads_per_window = 2
     
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='legend')
@@ -120,29 +148,21 @@ def main(obs_filename,leg_filename,hap_filename,window_size,offset,min_reads_per
       
     aux_dict = build_aux_dict(obs_tab, leg_tab)
     
-    args = {'positions': tuple(aux_dict.keys()),
-            'window_size': window_size,
-            'offset': offset } 
+    args = dict(positions = tuple(aux_dict.keys()),
+                window_size =  window_size,
+                offset =  offset) 
+    
+    thresholds = dict(min_alleles_per_win = 1,
+                      min_alleles_per_read = 1,
+                      min_reads_per_win = 4)
     
     windows_dict = build_windows_dict(**args)
-    
-    windows_dict_filtered1 = {key: value for key,value in windows_dict.items() if len(value)>min_alleles_per_window}
-        
-    windows_dict_grouped_filtered2 = {key: tuple((g for g in group_alleles(aux_dict,value) if len(g)>=min_alleles_per_read)) for key,value in windows_dict_filtered1.items()} 
-    
-    windows_dict_filtered3 = {key: value for key,value in windows_dict_grouped_filtered2.items()  if len(value)>=min_reads_per_window}
-    
-    #LLR = get_LLR(obs_filename,leg_filename,hap_filename,models_filename)
-    
+    windows_dict_grouped = {window: group_alleles(aux_dict,positions,**thresholds) for window,positions in windows_dict.items()}
     LLR = get_LLR(obs_tab, leg_tab, hap_tab)
-    LLR_dict = {key: LLR(*value[:16]) for key,value in windows_dict_filtered3.items() if len(value)>=1}
-    
+    LLR_dict = {window: LLR(*arg) for window,arg in windows_dict_grouped.items() if arg!=None}
     LLR_dict_without_nones = {key: value for key,value in LLR_dict.items() if value!=None} 
     
-    print(sum(LLR_dict_without_nones.values()))
-    
     b = time.time()
-
     print('Done in %.3f sec.' % ((b-a)))
     return LLR_dict_without_nones
      
@@ -150,10 +170,9 @@ if __name__ == "__main__":
     print("Executed when invoked directly")
     a = time.time()
     
-    
-    obs_filename = 'results/mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.OBS.p'
-    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
+    obs_filename = 'results/mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p'
+    hap_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.legend'
     #models_filename = 'MODELS.p'
     
     
@@ -172,33 +191,23 @@ if __name__ == "__main__":
     
     windows_dict = build_windows_dict(**args)
     
-    min_alleles_per_window = 2
-    min_alleles_per_read = 2
-    min_reads_per_window = 2
-        
-    windows_dict_filtered1 = {key: value for key,value in windows_dict.items() if len(value)>min_alleles_per_window}
-        
-    windows_dict_grouped_filtered2 = {key: tuple((g for g in group_alleles(aux_dict,value) if len(g)>=min_alleles_per_read)) for key,value in windows_dict_filtered1.items()} 
+    thresholds = dict(min_alleles_per_win = 1,
+                      min_alleles_per_read = 1,
+                      min_reads_per_win = 4)
     
-    windows_dict_filtered3 = {key: value for key,value in windows_dict_grouped_filtered2.items()  if len(value)>=min_reads_per_window}
-    
-    #LLR = get_LLR(obs_filename,leg_filename,hap_filename,models_filename)
-    
+    windows_dict_grouped = {window: group_alleles(aux_dict,positions,**thresholds) for window,positions in windows_dict.items()}
     LLR = get_LLR(obs_tab, leg_tab, hap_tab)
-    LLR_dict = {key: LLR(*value[:16]) for key,value in windows_dict_filtered3.items() if len(value)>=1}
-    
+    LLR_dict = {window: LLR(*arg) for window,arg in windows_dict_grouped.items() if arg!=None}
     LLR_dict_without_nones = {key: value for key,value in LLR_dict.items() if value!=None} 
     
     w0 = [len(windows_dict[key]) for key in LLR_dict_without_nones]; W = sum(w0)
     weights = [i/W for i in w0]
     population = tuple(LLR_dict_without_nones.values())
     print(jackknifing(population,weights))
-    #print(sum([1 for i  in population if i<0])/len(population) )
+    print(len(population),sum([1 for i  in population if i<0])/len(population) )
+    print(mean_and_std(population))
     #print(sum(LLR_dict_without_nones.values()))
-    
-    
-    ########### SEND TO LLR ##########
-    
+        
     #A = group_alleles(aux_dict,positions[:20])
     
     b = time.time()

@@ -49,6 +49,7 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
         the returned dictionary as the reference panel."""
         
     hap_dict = dict()
+    mismatches = 0
         
     for (pos, ind, read_id, read) in obs_tab:
         chr_id, pos2, ref, alt = leg_tab[ind]
@@ -57,9 +58,11 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
         if read==alt:
             hap_dict[(pos,read)] = tuple(hap_tab[ind])
         elif read==ref:
-            hap_dict[(pos,read)] = tuple(map(operator.not_,hap_tab[ind]))        
+            hap_dict[(pos,read)] = tuple(map(operator.not_,hap_tab[ind]))
+        else:
+            mismatches += 1
     
-    print('%%%.2f of the reads matched known alleles.' % (100*len(hap_dict)/len(obs_tab)))
+    print('%%%.2f of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
     
     return hap_dict
 
@@ -136,15 +139,32 @@ def create_LLR(models_dict,frequencies):
     joint frequncies. Based on these arguments it creates the function
     LLR, which calculates the log-likelihood BPH/SPH ratio."""
     
-    def LLR(*alleles):
-        """ Calculates the log-likelihood BPH/SPH ratio for a tuple of SNPs.
+    def test(groups,overlaps):
+        """ Checks whether overlapping alleles are contained in the same group. """ 
+        return all(any(o.issubset(g) for g in groups) for o in overlaps)
+    
+    def LLR(alleles,overlaps):
+        """ Calculates the log-likelihood BPH/SPH ratio for a tuple of alleles.
         BPH (Both Parental Homologs) denotes three unmatched haplotypes,
         while SPH (Single Parental Homolog) denotes two matched haplotypes
-        out of three. """
+        out of three.
+        
+        The function recives two arguemnts. The first tuple, alleles contains
+        alleles and haplotypes (a tuple of alleles that were observed in the
+        same read). The second argument, overlaps is a tuple of sets; Each set
+        contains indices associated with alleles/haplotypes that share the same
+        alleles in the regions where they overlap one another. The indices
+        refer to the appearance order of the haplotypes/alleles in the first
+        argument. """
+        
         l = len(alleles)
         freq = frequencies(*alleles)
-        BPH = sum((A[0]/A[1]* sum((prod((freq[b] for b in B)) for B in C))  for A,C in models_dict[l]['BPH'].items()))
-        SPH = sum((A[0]/A[1]* sum((prod((freq[b] for b in B)) for B in C))  for A,C in models_dict[l]['SPH'].items()))
+        BPH = sum((A[0]/A[1]* sum((prod((freq[b] for b in B)) 
+                for B in C if test(B,overlaps)))
+                   for A,C in models_dict[l]['BPH'].items()))
+        SPH = sum((A[0]/A[1]* sum((prod((freq[b] for b in B)) 
+                for B in C if test(B,overlaps))) 
+                   for A,C in models_dict[l]['SPH'].items()))
         return None if SPH<1e-16 else math.log(BPH/SPH)
     
     return LLR

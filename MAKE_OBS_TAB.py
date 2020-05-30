@@ -135,9 +135,9 @@ if __name__ == "__main__":
                         help='The faidx-indexed reference file in the FASTA format. ' 
                              'Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8.')
     parser.add_argument('-u', '--handle-multiple-observations', type=str, 
-                        metavar='all/first/random/skip', default='skip', 
-                        help='We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to skip the SNP. '
-                             'However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) keep all the observed bases.')
+                        metavar='all/first/random/skip', default='all', 
+                        help='We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to keep all the observations.'
+                             'However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) skip the observed bases.')
     parser.add_argument('-b', '--min-bq', type=int, 
                         metavar='INT', default=30, 
                         help='Minimum base quaility for observations. Default value is 30.')
