@@ -11,7 +11,7 @@ Feb 27, 2020
 import time, pickle, re
 from MAKE_OBS_TAB import retrive_bases
 from MIX2HAPLOIDS import mix2haploids
-from CHECK_HAPLOIDS import check_haploid
+from MIX2HAPLOIDS import check_haploid
 
 
 
@@ -45,16 +45,16 @@ if __name__ == "__main__":
     #make_reads_bed3_demo('SRR6676163.hg38.bam','chr21_EUR_panel.legend')
     
     #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.001 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.01, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.01, 'all')
     A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.1, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.02, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.03, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.04, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.05, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.06, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.07, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.08, 'all')
-    #A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.09, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.02, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.03, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.04, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.05, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.06, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.07, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.08, 'all')
+    A = mix2haploids('SRR10393062.hg38.OBS.p', 'SRR151495.0-2.hg38.OBS.p', 150, 0.09, 'all')
 
     
     #A = check_haploid('SRR10393062.hg38.OBS.p', 150, 0.1, 'all')

@@ -58,7 +58,7 @@ def BUILD(x):
         b = time.time()
         print('Done building in %.3f sec.' % ((b-a)))
     with open( 'MODELS.p', "wb") as f:
-            pickle.dump(models, f)
+            pickle.dump(models, f, protocol=4)
     return models
 
 if __name__ == "__main__": 

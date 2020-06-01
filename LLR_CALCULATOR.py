@@ -156,7 +156,7 @@ def create_LLR(models_dict,frequencies):
         alleles in the regions where they overlap one another. The indices
         refer to the appearance order of the haplotypes/alleles in the first
         argument. """
-        
+                
         l = len(alleles)
         freq = frequencies(*alleles)
         BPH = sum((A[0]/A[1]* sum((prod((freq[b] for b in B)) 
@@ -165,7 +165,12 @@ def create_LLR(models_dict,frequencies):
         SPH = sum((A[0]/A[1]* sum((prod((freq[b] for b in B)) 
                 for B in C if test(B,overlaps))) 
                    for A,C in models_dict[l]['SPH'].items()))
-        return None if SPH<1e-16 else math.log(BPH/SPH)
+        
+        result = None if SPH<1e-16 else math.log(BPH/SPH)
+        
+        ###### print(BPH>SPH,BPH,SPH,len(alleles),len(overlaps))
+        
+        return result
     
     return LLR
 
@@ -204,17 +209,18 @@ def wrapper_func_of_create_LLR_2(obs_tab,leg_tab,hap_tab):
         models_dict = pickle.load(models)
     LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return LLR
-    
+        
 ###############################################################################
 
 if __name__ != "__main__": 
     print("The module LLR_CALCULATOR was imported.")   
 else:
     print("Executed when invoked directly")
+    """
     a = time.time()
-    obs_filename = 'results/mixed2haploids.X0.01.SRR10393062.SRR151495.0-2.hg38.OBS.p'
-    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
+    obs_filename = 'results/mixed2haploids.X0.03.SRR10393062.SRR151495.0-2.hg38.OBS.p'
+    hap_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.legend'
     
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='legend')
@@ -240,21 +246,21 @@ else:
     
     print(pos)
     print(frequencies(*pos))
-    print(LLR(*pos))
+    print(LLR(pos,()))
     print('-----')
     print(positions[:2])
     print(frequencies(*positions[:2]))
-    print(LLR(*positions[:2]))
+    print(LLR(positions[:2],()))
     print('-----')
     print(positions[:3])
     print(frequencies(*positions[:3]))
-    print(LLR(*positions[:3]))
+    print(LLR(positions[:3],()))
     print('-----')
     print(positions[:4])
     print(frequencies(*positions[:4]))
-    print(LLR(*positions[:4]))
+    print(LLR(positions[:4],()))
 
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))
-    
+    """
