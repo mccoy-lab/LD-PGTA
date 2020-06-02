@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 
-NO_NAME
+ANEUPLOIDY TEST
 
 Builds a dictionary that lists linkage disequilibrium (LD) blocks that contain
 at least two reads and gives the associated log-likelihood BPH/SPH ratio (LLR).
@@ -13,6 +13,7 @@ involving identical homologs.
 Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
+
 import collections,time,pickle,statistics,argparse,re,sys,itertools
 
 from LLR_CALCULATOR import read_impute2
@@ -157,7 +158,7 @@ def build_blocks_dict(positions,block_size,offset):
             block = next(blocks_iterator, None)
     return blocks_dict   
 
-def main(obs_filename,leg_filename,hap_filename,block_size,offset,output_filename,**thresholds):
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,output_filename,**thresholds):
     """ Returns a dictionary that lists the boundaries of approximately
     independent blocks of linkage disequilibrium (LD). For each LD block it
     gives the associated log-likelihood BPH/SPH ratio (LLR)."""
@@ -242,7 +243,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     
-    LLR_dict, info = main(**vars(args))
+    LLR_dict, info = aneuploidy_test(**vars(args))
             
     sys.exit(0)
 else: 
@@ -258,7 +259,10 @@ if __name__ == "__main__":
                 leg_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.legend',
                 block_size = 1e5,
                 offset = 0,
-                output_filename = None)
+                output_filename = None,
+                min_alleles_per_block = 1,
+                min_alleles_per_read = 1,
+                min_reads_per_block = 4)
     
     #LLR_dict, info = main(**args) 
     #models_filename = 'MODELS.p'

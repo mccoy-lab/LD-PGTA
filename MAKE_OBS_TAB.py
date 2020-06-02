@@ -41,9 +41,10 @@ def read_impute2(impute2_filename,**kwargs):
 
 time0 = time.time()
 
-def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,**kwargs):
+def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename):
     """ Retrives observed bases from known SNPs position. """
     time0 = time.time()
+    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
     if not os.path.isfile(bam_filename): raise Exception('Error: BAM file does not exist.')
     if not os.path.isfile(legend_filename): raise Exception('Error: LEGEND file does not exist.')
@@ -108,9 +109,9 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                 'max-depth' :  max_depth,
                 'chr_id': chr_id} 
 
-        if kwargs.get('save',True):
+        if output_filename!=None:
             default_output_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1])+'.obs.p'
-            output_filename = default_output_filename if kwargs.get('output_filename','')=='' else kwargs.get('output_filename','') 
+            output_filename = default_output_filename if output_filename=='' else output_filename 
             with open( output_filename, "wb") as f:
                 pickle.dump(obs_tab, f, protocol=4)
                 pickle.dump(info, f, protocol=4)    

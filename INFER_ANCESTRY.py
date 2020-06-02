@@ -94,7 +94,7 @@ def main(obs_filename,leg_filename,hap_filename, sam_filename):
     return A6
 
 def demo(filename):
-    mydict = {'obs_filename': 'results/'+filename,
+    mydict = {'obs_filename': 'results_ALL_EXT/'+filename,
               'leg_filename': '../build_reference_panel/ref_panel.ALL_EXT.hg38.BCFtools/chr21_ALL_EXT_panel.legend', 
               'hap_filename': '../build_reference_panel/ref_panel.ALL_EXT.hg38.BCFtools/chr21_ALL_EXT_panel.hap', 
               'sam_filename': '../build_reference_panel/ref_panel.ALL_EXT.hg38.BCFtools/chr21_ALL_EXT_panel.samples'}

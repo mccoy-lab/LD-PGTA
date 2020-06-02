@@ -42,13 +42,12 @@ def check_haploid(obs_filename, read_length, depth, handle_multiple_observations
         of an Illumina dye sequencing."""
     
     time0 = time.time()
-    
+    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
+
     with open('results/'+obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
- 
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
-    
+     
     chr_id = info['chr_id']
     
     num_of_reads = number_of_reads(chr_id,read_length,depth)
@@ -179,7 +178,8 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
         were used. """
     
     time0 = time.time()
-    
+    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
+
     with open('results/'+obs_filename1, 'rb') as f:
         obs_tab1 = pickle.load(f)
         info1 = pickle.load(f)
@@ -192,7 +192,7 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
         raise Exception("Error: mismatch between the details of %s and %s." % (obs_filename1, obs_filename2))    
     
     obs_dict, info = build_obs_dict(obs_tab1, obs_tab2, info1, read_length, depth)
-            
+    
     obs_tab = list()
     
     for rows in obs_dict.values():
