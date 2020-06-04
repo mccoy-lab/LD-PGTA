@@ -32,14 +32,14 @@ def read_impute2(impute2_filename,**kwargs):
     return impute2_tab
 
 
-leg_tab = read_impute2('../make_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend', filetype='legend')
+leg_tab = read_impute2('../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend', filetype='legend')
 a,b,c = tuple(zip(*leg_tab))
 X = [a[i]-a[i-1] for i in range(1,len(a))]
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 weights = [1/len(a) for i in range(len(a)-1)]
 plt.hist(X, bins=range(0,4000,60), facecolor='blue', weights=weights)
-plt.xlabel('Distance between two SNPs')
+plt.xlabel('Distance between nearest neighbor SNPs')
 plt.ylabel('Fraction')
 plt.title(r'EUR ref panel of CHR21')
 plt.show()

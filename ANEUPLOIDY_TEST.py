@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 
-ANEUPLOIDY TEST
+ANEUPLOIDY_TEST
 
 Builds a dictionary that lists linkage disequilibrium (LD) blocks that contain
 at least two reads and gives the associated log-likelihood BPH/SPH ratio (LLR).
@@ -19,7 +19,7 @@ import collections,time,pickle,statistics,argparse,re,sys,itertools
 from LLR_CALCULATOR import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR_2 as get_LLR
 
-def overlaps(obs_filename, leg_filename):
+def find_overlaps(obs_filename, leg_filename):
     """ Given an observation table, the fraction of overlapping reads
         is calculated; Altough the reads overlap in position, they do not
         necessary have common alleles. """
@@ -32,17 +32,17 @@ def overlaps(obs_filename, leg_filename):
         if base in leg_tab[ind][2:]:
             aux_dict[pos].append(read_id)   
             
-    X = [set(x) for x in aux_dict.values()]
+    X = [x for x in aux_dict.values() if len(x)>1]
 
     for i in range(len(X)-1,-1,-1):
-        for j in range(i-1,-1,-1):
+       for j in range(i-1,-1,-1):
             if not X[i].isdisjoint(X[j]):
                 X[j].update(X.pop(i))
                 break
     
     OVERLAPS = sum(len(x) for x in X if len(x)>1)
     TOTAL = len(set(itertools.chain.from_iterable(aux_dict.values())))
-    return OVERLAPS/TOTAL
+    return OVERLAPS,TOTAL
             
 
 def mean_and_std(sample):
@@ -105,8 +105,8 @@ def group_alleles(aux_dict,positions,**thresholds):
         for base in aux_dict[pos]:
             for read_id in aux_dict[pos][base]:
                 reads[read_id].append((pos,base))
-    
-    ######################## APPLY THRESHOLDS AND FILTERS #####################    
+       
+    ######################## APPLY THRESHOLDS AND FILTERS #####################   
     if thresholds.get('min_alleles_per_block',None):
         total_num_of_alleles = sum(len(alleles) for alleles in reads.values())
         if total_num_of_alleles<thresholds['min_alleles_per_block']: return None
@@ -118,24 +118,33 @@ def group_alleles(aux_dict,positions,**thresholds):
     if thresholds.setdefault('min_reads_per_block',2):        
         if len(reads)<thresholds['min_reads_per_block']: return None
     ###########################################################################
-    
-    
+     
     read_IDs, HAPLOTYPES = zip(*sorted(reads.items(), key=lambda x: len(x[1]), reverse=True)[:16])
+    
+    OVERLAPS = tuple(overlap for pos in positions for allele in aux_dict[pos]
+                              if len(overlap:={read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs})>1)
 
-    
-    X = [{read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs}
-                for pos in positions
-                    for allele in aux_dict[pos]]
-    
-    for i in range(len(X)-1,-1,-1):
-        for j in range(i-1,-1,-1):
-            if not X[i].isdisjoint(X[j]):
-                X[j].update(X.pop(i))
-                break
-    
-    OVERLAPPING_HAPLOTYPES = tuple(x for x in X if len(x)>1)
+    OVERLAPS2 = tuple(overlap for (i,j) in zip(OVERLAPS[1:],OVERLAPS[:-1]) if len(overlap:=i.intersection(j))>1) #Reads with at least two overlapping alleles.  
+    print(OVERLAPS,OVERLAPS2)
+    #OVERPLAPS = tuple({read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs}
+    #            for pos in positions
+    #                for allele in aux_dict[pos])
+    #
+    #X = [{read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs}
+    #            for pos in positions
+    #                for allele in aux_dict[pos]]
+    #
+    #for i in range(len(X)-1,-1,-1):
+    #    for j in range(i-1,-1,-1):
+    #        if not X[i].isdisjoint(X[j]):
+    #            X[j].update(X.pop(i))
+    #            break
+    #
+    #OVERLAPPING_HAPLOTYPES = tuple(x for x in X if len(x)>1)
+    #
+    #return HAPLOTYPES, OVERLAPPING_HAPLOTYPES
             
-    return HAPLOTYPES, OVERLAPPING_HAPLOTYPES
+    return HAPLOTYPES, OVERLAPS2
     
 def build_blocks_dict(positions,block_size,offset):
     """ Returns a dictionary that lists blocks and gives all the SNP positions
@@ -171,12 +180,15 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
-      
+    
+    LLR, frequency = get_LLR(obs_tab, leg_tab, hap_tab)
+    
     aux_dict = build_aux_dict(obs_tab, leg_tab)
         
     blocks_dict = build_blocks_dict(tuple(aux_dict.keys()),block_size,offset)
-    blocks_dict_grouped = {block: group_alleles(aux_dict,positions,**thresholds) for block,positions in blocks_dict.items()}
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab)
+    blocks_dict_grouped = {block: group_alleles(aux_dict,positions,**thresholds) 
+                               for block,positions in blocks_dict.items()}
+    
     LLR_dict = {block: LLR(*arg) if arg!=None else None for block,arg in blocks_dict_grouped.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
@@ -201,7 +213,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
                           'fraction_of_negative_LLRs': fraction_of_negative_LLRs} 
     
     if output_filename!=None:
-        default_filename = re.sub('(.*)OBS','\\1LLR', obs_filename.split('/')[-1],1)    
+        default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
         output_filename = default_filename if output_filename=='' else output_filename 
         with open( output_filename, "wb") as f:
             pickle.dump(obs_tab, f, protocol=4)
@@ -219,11 +231,11 @@ if __name__ == "__main__":
                 'Parental Homologs) correspond to the presence of three '
                 'unmatched haplotypes, while SPH (Single Parental Homolog) '
                 'correspond to chromosome gains involving identical homologs.')
-    parser.add_argument('obs_filename', metavar='observations_filename', type=str, 
+    parser.add_argument('obs_filename', metavar='OBS_FILENAME', type=str, 
                         help='A pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions.')
-    parser.add_argument('leg_filename', metavar='legend_filename', type=str, 
+    parser.add_argument('leg_filename', metavar='LEG_FILENAME', type=str, 
                         help='IMPUTE2 legend file')
-    parser.add_argument('hap_filename', metavar='haplotype_filename', type=str, 
+    parser.add_argument('hap_filename', metavar='HAP_FILENAME', type=str, 
                         help='IMPUTE2 haplotype file')
     parser.add_argument('-s', '--block-size', type=int, 
                         metavar='INT', default='100000', 
@@ -239,7 +251,7 @@ if __name__ == "__main__":
                         help='Only LD blocks with at least INT reads are taken into account. The default value is 2.'
                             'Filters a,b and c are applied sequentially, one after the other.')
     parser.add_argument('-o', '--output-filename', type=str, metavar='output_filename',  default='',
-                        help='The output filename. The default is the input filename with the extension \".OBS.p\" replaced by \".LLR#.p\".')
+                        help='The output filename. The default is the input filename with the extension \".obs.p\" replaced by \".LLR#.p\".')
     args = parser.parse_args()
     
     
@@ -247,7 +259,7 @@ if __name__ == "__main__":
             
     sys.exit(0)
 else: 
-    print("Executed when imported")
+    print("The module ANEUPLOIDY_TEST was imported.")
 
 """     
 if __name__ == "__main__": 

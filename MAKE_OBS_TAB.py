@@ -130,7 +130,7 @@ if __name__ == "__main__":
         description='Builds a table of single base observations at known SNP positions.')
     parser.add_argument('bam_filename', metavar='BAM_FILENAME', type=str, 
                         help='BAM file')
-    parser.add_argument('legend_filename', metavar='LEGEND_FILENAME', type=str, 
+    parser.add_argument('legend_filename', metavar='LEG_FILENAME', type=str, 
                         help='IMPUTE2 legend file')
     parser.add_argument('-f','--fasta_filename', type=str,metavar='FASTA_FILENAME', default='',
                         help='The faidx-indexed reference file in the FASTA format. ' 
@@ -153,3 +153,5 @@ if __name__ == "__main__":
     
     retrive_bases(**vars(parser.parse_args()))
     sys.exit(0)
+else:
+    print('The module MAKE_OBS_TAB was imported.')
