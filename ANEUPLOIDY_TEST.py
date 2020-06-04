@@ -14,36 +14,10 @@ Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
 
-import collections,time,pickle,statistics,argparse,re,sys,itertools
+import collections, time, pickle, statistics, argparse, re, sys
 
-from LLR_CALCULATOR import read_impute2
+from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR_2 as get_LLR
-
-def find_overlaps(obs_filename, leg_filename):
-    """ Given an observation table, the fraction of overlapping reads
-        is calculated; Altough the reads overlap in position, they do not
-        necessary have common alleles. """
-    
-    leg_tab = read_impute2(leg_filename, filetype='legend')
-    obs_tab = pickle.load(open(obs_filename, 'rb'))
-    
-    aux_dict = collections.defaultdict(list)
-    for (pos, ind, read_id, base) in obs_tab:
-        if base in leg_tab[ind][2:]:
-            aux_dict[pos].append(read_id)   
-            
-    X = [x for x in aux_dict.values() if len(x)>1]
-
-    for i in range(len(X)-1,-1,-1):
-       for j in range(i-1,-1,-1):
-            if not X[i].isdisjoint(X[j]):
-                X[j].update(X.pop(i))
-                break
-    
-    OVERLAPS = sum(len(x) for x in X if len(x)>1)
-    TOTAL = len(set(itertools.chain.from_iterable(aux_dict.values())))
-    return OVERLAPS,TOTAL
-            
 
 def mean_and_std(sample):
     """ Calculates the mean and standard deviation of normally distributed
@@ -147,7 +121,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
     a = time.time()
 
     hap_tab = read_impute2(hap_filename, filetype='hap')
-    leg_tab = read_impute2(leg_filename, filetype='legend')
+    leg_tab = read_impute2(leg_filename, filetype='leg')
     
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
@@ -253,7 +227,7 @@ if __name__ == "__main__":
     
     
     hap_tab = read_impute2(args['hap_filename'], filetype='hap')
-    leg_tab = read_impute2(args['leg_filename'], filetype='legend')
+    leg_tab = read_impute2(args['leg_filename'], filetype='leg')
     
     with open(args['obs_filename'], 'rb') as f:
         obs_tab = pickle.load(f)

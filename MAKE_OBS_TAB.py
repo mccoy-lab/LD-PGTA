@@ -22,21 +22,21 @@ def read_impute2(impute2_filename,**kwargs):
     
     filetype = kwargs.get('filetype', None)
     with open(impute2_filename, 'r') as impute2_in:
-        if filetype == 'legend':
+        if filetype == 'leg':
             impute2_in.readline()   # Bite off the header
             def parse(x): 
                 y=x.strip().split()
                 y[0] = 'chr'+y[0].split(':')[0]
                 y[1]=int(y[1])
-                return y
+                return tuple(y)
         elif filetype == 'hap':
             def parse(x):
-                return [i=='1' for i in x.strip().split()]
+                return tuple(i=='1' for i in x.strip().split())
         else:
             def parse(x):
-                return x.strip().split() # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
+                return tuple(x.strip().split()) # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
        
-        impute2_tab = [parse(line) for line in impute2_in]
+        impute2_tab = tuple(parse(line) for line in impute2_in)
     return impute2_tab
 
 time0 = time.time()
@@ -55,7 +55,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
     try:
         genome_reference = pysam.FastaFile(fasta_filename) if fasta_filename!='' else None
         samfile = pysam.AlignmentFile(bam_filename, 'rb' )
-        leg_tab = read_impute2(legend_filename, filetype='legend')
+        leg_tab = read_impute2(legend_filename, filetype='leg')
 
         if next(zip(*leg_tab)).count(leg_tab[0][0])!=len(leg_tab):
             raise Exception('Error: Unsuitable legend file. All SNP positions should refer to the same chr_id.')
