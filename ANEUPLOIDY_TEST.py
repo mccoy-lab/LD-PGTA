@@ -87,18 +87,13 @@ def build_aux_dict(obs_tab,leg_tab):
 
 def group_alleles(aux_dict,positions,**thresholds):
     """ For each chromosome position within the tuple positions, all the
-    observed alleles together with their associted read id are extracted from
-    the dictionary aux_dict, which was created by build_aux_dict. 
+    observed alleles together with their associted read id are extracted. 
     Then, all the alleles are grouped into haplotypes (essetially tuples),
     according to the reads they origined from. All the haplotypes together form
     a tuple, named HAPLOTYPES, which is sorted in descending order according to
     the number of alleles in each haplotype. Moreover, only the 16 longest
-    haplotypes are kept in HAPLOTYPES.
-    In addition, overlapping haplotypes, which have common alleles, are
-    identified. For each group of overlapping haplotypes a set of indices is
-    formed; The haplotypes are indexed by their position in the tuple
-    HAPLOTYPES. All these sets are kept within a tuple named OVERLAPPING_HAPLOTYPES.
-    Finally, the tuples HAPLOTYPES and OVERLAPPING_HAPLOTYPES are returned. """
+    haplotypes are kept in HAPLOTYPES. Finally, the tuple HAPLOTYPES is
+    returned. """
     
     reads = collections.defaultdict(list)
     for pos in positions:
@@ -120,31 +115,8 @@ def group_alleles(aux_dict,positions,**thresholds):
     ###########################################################################
      
     read_IDs, HAPLOTYPES = zip(*sorted(reads.items(), key=lambda x: len(x[1]), reverse=True)[:16])
-    
-    OVERLAPS = tuple(overlap for pos in positions for allele in aux_dict[pos]
-                              if len(overlap:={read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs})>1)
-
-    OVERLAPS2 = tuple(overlap for i,j,k in zip(OVERLAPS[:-2],OVERLAPS[1:-1],OVERLAPS[2:]) if len(overlap:=i.intersection(j,k))>1) #Reads with at least two overlapping alleles.  
-    print(OVERLAPS,OVERLAPS2)
-    #OVERPLAPS = tuple({read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs}
-    #            for pos in positions
-    #                for allele in aux_dict[pos])
-    #
-    #X = [{read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs}
-    #            for pos in positions
-    #                for allele in aux_dict[pos]]
-    #
-    #for i in range(len(X)-1,-1,-1):
-    #    for j in range(i-1,-1,-1):
-    #        if not X[i].isdisjoint(X[j]):
-    #            X[j].update(X.pop(i))
-    #            break
-    #
-    #OVERLAPPING_HAPLOTYPES = tuple(x for x in X if len(x)>1)
-    #
-    #return HAPLOTYPES, OVERLAPPING_HAPLOTYPES
             
-    return HAPLOTYPES, OVERLAPS2
+    return HAPLOTYPES
     
 def build_blocks_dict(positions,block_size,offset):
     """ Returns a dictionary that lists blocks and gives all the SNP positions

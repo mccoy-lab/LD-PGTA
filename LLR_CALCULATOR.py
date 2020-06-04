@@ -13,34 +13,7 @@ Daniel Ariad (daniel@ariad.org)
 May 4th, 2020
 """
 
-import operator, itertools, pickle, math, functools, time, os, sys
-
-def prod(iterable):
-    """ Calculates the product of all the elements in the input iterable. """
-    return functools.reduce(operator.mul, iterable, 1)
-
-def read_impute2(impute2_filename,**kwargs):
-    """ Reads an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE) and builds a list
-        of lists, containing the dataset. """
-    
-    filetype = kwargs.get('filetype', None)
-    with open(impute2_filename, 'r') as impute2_in:
-        if filetype == 'legend':
-            impute2_in.readline()   # Bite off the header
-            def parse(x): 
-                y=x.strip().split()
-                y[0] = 'chr'+y[0].split(':')[0]
-                y[1]=int(y[1])
-                return y
-        elif filetype == 'hap':
-            def parse(x):
-                return [i=='1' for i in x.strip().split()]
-        else:
-            def parse(x):
-                return x.strip().split() # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
-       
-        impute2_tab = [parse(line) for line in impute2_in]
-    return impute2_tab
+import operator, itertools, pickle, math, time, os, sys
 
 def build_hap_dict(obs_tab,leg_tab,hap_tab):
     """ Returns a dictionary that lists chromosome positions of SNPs and gives
@@ -67,21 +40,19 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
     return hap_dict
 
 def create_frequencies(hap_dict):
-    """ Returns the functions joint_frequencies and frequency. The first
-        function, joint_frequencies extracts from the dictionary hap_dict
-        the joint frequencies of observed alleles. Similarly, the second
-        function gives the frequency of an observed allele. """
+    """ Returns the functions joint_frequencies, which extracts from the
+        dictionary hap_dict the joint frequencies of observed alleles. """
     
     N = len(next(iter(hap_dict.values())))
 
     def intrenal_hap_dict(*alleles):
         """ This function allows treatment of alleles and haplotypes on an
         equal footing. This is done in three steps: (1) All the alleles and
-        haplotypes are enumerated. (2) Tuples in the reference panels, associated
-        with alleles within each haplotype, are intersected. (3) A dictionary
-        that lists all the alleles and haplotypes by their index is returned.
-        The dictionary gives for each allele and haplotype their associated
-        tuple and intersected tuple, respectively.  """ 
+        haplotypes are enumerated. (2) For each given haplotype, tuples in the
+        reference panels, corresponding to the haplotype's alleles, are
+        intersected. (3) A dictionary that lists all the alleles and haplotypes
+        by their index is returned. The dictionary gives for each allele and
+        haplotype their associated tuple and intersected tuple, respectively. """ 
         hap = dict()
             
         for i, X in enumerate(alleles):
@@ -126,31 +97,18 @@ def create_frequencies(hap_dict):
             a,b = zip(*i)
             result[a] = sum(itertools.compress(b[0], map(operator.and_,b[1],b[2]))) / N
         
-        for r in range(4,len(alleles)+1):
+        for r in range(4,len(alleles)):
             for i in itertools.combinations(hap.items(), r):
                 a,b = zip(*i)
                 result[a] = sum(itertools.compress(b[0], map(all,zip(*b[1:])))) / N
         
+        if len(alleles)>=4:
+            a,b = zip(*hap.items())
+            result[a] = sum(itertools.compress(b[0], map(all,zip(*b[1:])))) / N
+        
         return result
 
-    def frequency(allele):
-        """ Return the frequency of an allele/haplotype in the population. """
-        if type(allele[0])==tuple:
-            n = len(allele)
-            if n==1:
-                X = hap_dict[allele[0]]
-            elif n==2:
-                X = tuple(map(operator.and_,hap_dict[allele[0]],hap_dict[allele[1]]))
-            else:
-                X = tuple(map(all, zip(*(hap_dict[x] for x in allele))))
-        elif type(allele[0])==int:
-            X = hap_dict[allele]
-        else:
-            raise Exception('error: frequency only accepts an allele or a haplotype (tuple/list of alleles).')
-        result = X.count(True) / N
-        return result
-    
-    return joint_frequencies, frequency
+    return joint_frequencies
 
 
 def create_LLR(models_dict,joint_frequencies):
@@ -159,134 +117,40 @@ def create_LLR(models_dict,joint_frequencies):
     joint frequncies. Based on these arguments it creates the function
     LLR, which calculates the log-likelihood BPH/SPH ratio."""
     
-    def test(groups,overlaps):
-        """ Checks whether overlapping alleles are contained in the same group. """ 
-        return True
-        #return all(any(o.issubset(g) for g in groups) for o in overlaps)
-    
+   
     def LLR(alleles,overlaps):
-        """ Calculates the log-likelihood BPH/SPH ratio for a tuple of alleles.
-        BPH (Both Parental Homologs) denotes three unmatched haplotypes,
-        while SPH (Single Parental Homolog) denotes two matched haplotypes
-        out of three.
-        
-        The function recives two arguemnts. The first tuple, alleles contains
-        alleles and haplotypes (a tuple of alleles that were observed in the
-        same read). The second argument, overlaps is a tuple of sets; Each set
-        contains indices associated with alleles/haplotypes that share the same
-        alleles in the regions where they overlap one another. The indices
-        refer to the appearance order of the haplotypes/alleles in the first
-        argument. """
+        """ Calculates the log-likelihood BPH/SPH ratio for a tuple that contains
+        alleles and haplotypes. """
                 
         l = len(alleles)
         freq = joint_frequencies(*alleles)
-        BPH = sum((A[0]/A[1]* sum((prod((freq[b] for b in B)) 
-                for B in C if test(B,overlaps)))
+        BPH = sum((A[0]/A[1]* sum((math.prod((freq[b] for b in B)) for B in C))
                    for A,C in models_dict[l]['BPH'].items()))
-        SPH = sum((A[0]/A[1]* sum((prod((freq[b] for b in B)) 
-                for B in C if test(B,overlaps))) 
+        SPH = sum((A[0]/A[1]* sum((math.prod((freq[b] for b in B)) for B in C)) 
                    for A,C in models_dict[l]['SPH'].items()))
         
         result = None if SPH<1e-16 else math.log(BPH/SPH)
-        
-        ###### print(BPH>SPH,BPH,SPH,len(alleles),len(overlaps))
-        
+                
         return result
     
     return LLR
 
-def wrapper_func_of_create_LLR_1(obs_filename,leg_filename,hap_filename,models_filename):
-    """ Wraps the function create_LLR. It receives an observations file, IMPUTE2
-        legend file, IMPUTE2 haplotypes file, and the statistical model. Based
-        on the given data it creates and returns the LLR function."""
-    
-    if not os.path.isfile(obs_filename): raise Exception('Error: OBS file does not exist.')
-    if not os.path.isfile(leg_filename): raise Exception('Error: LEGEND file does not exist.')
-    if not os.path.isfile(hap_filename): raise Exception('Error: HAP file does not exist.')
-    if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
-
-    leg_tab = read_impute2(leg_filename, filetype='legend')
-    hap_tab = read_impute2(hap_filename, filetype='hap')
-    with open(obs_filename, 'rb') as f:
-        obs_tab = pickle.load(f)
-        #info = pickle.load(f)
-    with open(models_filename, 'rb') as f:
-        models_dict = pickle.load(f)
-    
-    hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
-    joint_frequencies, frequency = create_frequencies(hap_dict)
-    LLR = create_LLR(models_dict,joint_frequencies)     
-    
-    return LLR, frequency
-
-def wrapper_func_of_create_LLR_2(obs_tab,leg_tab,hap_tab):
+def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab):
     """ Wraps the fuction create_LLR. It receives an observations array, legend
         array and haplotypes array. Based on the given data it creates and
-        returns the functions LLR and frequencies."""
+        returns the function LLR."""
         
     if not os.path.isfile('MODELS.p'): raise Exception('Error: MODELS file does not exist.')
     with open('MODELS.p', 'rb') as models:
         models_dict = pickle.load(models)
-    joint_frequencies, frequency = create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))
-    LLR = create_LLR(models_dict,joint_frequencies)
-    return LLR, frequency
+    
+    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)))
+    return LLR
         
 ###############################################################################
 
 if __name__ != "__main__": 
     print("The module LLR_CALCULATOR was imported.")   
 else:
-    print("Executed when invoked directly")
+    print("Executed when the module LLR_CALCULATOR is invoked directly")
     sys.exit(0)
-    a = time.time()
-    obs_filename = 'results/mixed2haploids.X0.03.SRR10393062.SRR151495.0-2.hg38.OBS.p'
-    hap_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.legend'
-    
-    hap_tab = read_impute2(hap_filename, filetype='hap')
-    leg_tab = read_impute2(leg_filename, filetype='legend')
-    
-
-    with open(obs_filename, 'rb') as f:
-        obs_tab = pickle.load(f)
-        #info = pickle.load(f)
-    
-    with open('MODELS.p', 'rb') as f:
-        models_dict = pickle.load(f)
-        
-    hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
-    #aux_dict = build_aux_dict(obs_tab, leg_tab)
-    
-    positions = tuple(hap_dict.keys())
-    
-    frequencies, frequency = create_frequencies(hap_dict)
-    
-    LLR = create_LLR(models_dict,frequencies) 
-    
-    pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
-    
-    print(frequencies(positions[0]))
-    print(frequency(positions[0]))
-    print(frequencies(positions[:4]))
-    print(frequency(positions[:4]))
-    print('-----')
-    print(pos)
-    print(frequencies(*pos))
-    print(LLR(pos,()))
-    print('-----')
-    print(positions[:2])
-    print(frequencies(*positions[:2]))
-    print(LLR(positions[:2],()))
-    print('-----')
-    print(positions[:3])
-    print(frequencies(*positions[:3]))
-    print(LLR(positions[:3],()))
-    print('-----')
-    print(positions[:4])
-    print(frequencies(*positions[:4]))
-    print(LLR(positions[:4],()))
-
-    b = time.time()
-
-    print('Done in %.3f sec.' % ((b-a)))
-    
