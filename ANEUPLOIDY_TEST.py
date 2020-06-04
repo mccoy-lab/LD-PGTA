@@ -124,7 +124,7 @@ def group_alleles(aux_dict,positions,**thresholds):
     OVERLAPS = tuple(overlap for pos in positions for allele in aux_dict[pos]
                               if len(overlap:={read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs})>1)
 
-    OVERLAPS2 = tuple(overlap for (i,j) in zip(OVERLAPS[1:],OVERLAPS[:-1]) if len(overlap:=i.intersection(j))>1) #Reads with at least two overlapping alleles.  
+    OVERLAPS2 = tuple(overlap for i,j,k in zip(OVERLAPS[:-2],OVERLAPS[1:-1],OVERLAPS[2:]) if len(overlap:=i.intersection(j,k))>1) #Reads with at least two overlapping alleles.  
     print(OVERLAPS,OVERLAPS2)
     #OVERPLAPS = tuple({read_IDs.index(read_id) for read_id in aux_dict[pos][allele] if read_id in read_IDs}
     #            for pos in positions
