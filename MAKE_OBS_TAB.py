@@ -39,8 +39,6 @@ def read_impute2(impute2_filename,**kwargs):
         impute2_tab = tuple(parse(line) for line in impute2_in)
     return impute2_tab
 
-time0 = time.time()
-
 def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename):
     """ Retrives observed bases from known SNPs position. """
     time0 = time.time()

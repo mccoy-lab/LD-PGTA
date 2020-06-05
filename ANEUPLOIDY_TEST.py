@@ -82,7 +82,8 @@ def group_alleles(aux_dict,positions,**thresholds):
     
     if thresholds.get('min_alleles_per_read',None):    
         for read_id,alleles in tuple(reads.items()):
-            if len(alleles)<thresholds['min_alleles_per_read']: del reads[read_id]
+            if len(alleles)<thresholds['min_alleles_per_read']: 
+                del reads[read_id]
     
     if thresholds.setdefault('min_reads_per_block',2):        
         if len(reads)<thresholds['min_reads_per_block']: return None
@@ -217,9 +218,9 @@ if __name__ == "__main__":
                 block_size = 1e5,
                 offset = 0,
                 output_filename = None,
-                min_alleles_per_block = 1,
-                min_alleles_per_read = 1,
-                min_reads_per_block = 4)
+                min_alleles_per_block = None,
+                min_alleles_per_read = None,
+                min_reads_per_block = 2)
     
     #LLR_dict, info = main(**args) 
     #models_filename = 'MODELS.p'
@@ -240,9 +241,9 @@ if __name__ == "__main__":
     
     blocks_dict = build_blocks_dict(**args)
     
-    thresholds = dict(min_alleles_per_block = 1,
-                      min_alleles_per_read = 1,
-                      min_reads_per_block = 4)
+    thresholds = dict(min_alleles_per_block = None,
+                      min_alleles_per_read = None,
+                      min_reads_per_block = 2)
     
     blocks_dict_grouped = {block: group_alleles(aux_dict,positions,**thresholds) for block,positions in blocks_dict.items()}
     LLR = get_LLR(obs_tab, leg_tab, hap_tab)

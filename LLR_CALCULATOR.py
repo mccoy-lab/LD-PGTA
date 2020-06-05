@@ -117,7 +117,6 @@ def create_LLR(models_dict,joint_frequencies):
     joint frequncies. Based on these arguments it creates the function
     LLR, which calculates the log-likelihood BPH/SPH ratio."""
     
-   
     def LLR(*alleles):
         """ Calculates the log-likelihood BPH/SPH ratio for a tuple that contains
         alleles and haplotypes. """
@@ -159,7 +158,7 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
     if not os.path.isfile(hap_filename): raise Exception('Error: HAP file does not exist.')
     if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
 
-    leg_tab = read_impute2(leg_filename, filetype='legend')
+    leg_tab = read_impute2(leg_filename, filetype='leg')
     hap_tab = read_impute2(hap_filename, filetype='hap')
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
@@ -167,11 +166,11 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
     with open(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
     
-    #hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
-    #frequencies = create_frequencies(hap_dict)
-    #LLR = create_LLR(models_dict,frequencies)     
+    hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
+    frequencies = create_frequencies(hap_dict)
+    LLR = create_LLR(models_dict,frequencies)     
     
-    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
+    ###LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return LLR
         
 ###############################################################################

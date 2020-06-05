@@ -48,9 +48,8 @@ def aneuploidy_test_demo(obs_filename):
                 block_size = 1e5,
                 offset = 0,
                 output_filename = None,
-                min_frequency = None,
                 min_alleles_per_block = None,
-                min_alleles_per_read = 1,
+                min_alleles_per_read = None,
                 min_reads_per_block = 2)
     args['obs_filename'] = 'results/' + obs_filename
     args['output_filename'] = 'results/'+re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
@@ -78,16 +77,16 @@ if __name__ == "__main__":
     #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.09, 'all', '')
     #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.1, 'all', '')
 
-    aneuploidy_test_demo('mixed3haploids.X0.01.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.02.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.03.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.04.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.05.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.06.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.07.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.08.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.09.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    aneuploidy_test_demo('mixed3haploids.X0.1.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.01.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.02.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.03.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.04.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.05.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.06.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.07.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.08.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.09.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    #aneuploidy_test_demo('mixed3haploids.X0.1.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
 
     #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.01, 'all', '')
     #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.02, 'all', '')
