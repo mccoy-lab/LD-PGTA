@@ -17,7 +17,7 @@ May 11st, 2020
 import collections, time, pickle, statistics, argparse, re, sys
 
 from MAKE_OBS_TAB import read_impute2
-from LLR_CALCULATOR import wrapper_func_of_create_LLR_2 as get_LLR
+from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
 
 def mean_and_std(sample):
     """ Calculates the mean and standard deviation of normally distributed
@@ -88,8 +88,7 @@ def group_alleles(aux_dict,positions,**thresholds):
         if len(reads)<thresholds['min_reads_per_block']: return None
     ###########################################################################
      
-    read_IDs, HAPLOTYPES = zip(*sorted(reads.items(), key=lambda x: len(x[1]), reverse=True)[:16])
-            
+    HAPLOTYPES = sorted(reads.values(), key=len, reverse=True)[:16]
     return HAPLOTYPES
     
 def build_blocks_dict(positions,block_size,offset):
@@ -127,7 +126,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
         obs_tab = pickle.load(f)
         info = pickle.load(f)
     
-    LLR, frequency = get_LLR(obs_tab, leg_tab, hap_tab)
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab)
     
     aux_dict = build_aux_dict(obs_tab, leg_tab)
         
@@ -135,7 +134,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
     blocks_dict_grouped = {block: group_alleles(aux_dict,positions,**thresholds) 
                                for block,positions in blocks_dict.items()}
     
-    LLR_dict = {block: LLR(*arg) if arg!=None else None for block,arg in blocks_dict_grouped.items()}
+    LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_grouped.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
     mean, std = mean_and_std(population)

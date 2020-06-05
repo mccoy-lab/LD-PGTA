@@ -13,7 +13,7 @@ Daniel Ariad (daniel@ariad.org)
 May 4th, 2020
 """
 
-import operator, itertools, pickle, math, time, os, sys
+import operator, itertools, pickle, math, os, sys
 
 def build_hap_dict(obs_tab,leg_tab,hap_tab):
     """ Returns a dictionary that lists chromosome positions of SNPs and gives
@@ -118,16 +118,16 @@ def create_LLR(models_dict,joint_frequencies):
     LLR, which calculates the log-likelihood BPH/SPH ratio."""
     
    
-    def LLR(alleles,overlaps):
+    def LLR(*alleles):
         """ Calculates the log-likelihood BPH/SPH ratio for a tuple that contains
         alleles and haplotypes. """
                 
         l = len(alleles)
         freq = joint_frequencies(*alleles)
-        BPH = sum((A[0]/A[1]* sum((math.prod((freq[b] for b in B)) for B in C))
-                   for A,C in models_dict[l]['BPH'].items()))
-        SPH = sum((A[0]/A[1]* sum((math.prod((freq[b] for b in B)) for B in C)) 
-                   for A,C in models_dict[l]['SPH'].items()))
+        BPH = sum(A[0]/A[1] * sum(math.prod(freq[b] for b in B) for B in C)
+                   for A,C in models_dict[l]['BPH'].items())
+        SPH = sum(A[0]/A[1] * sum(math.prod(freq[b] for b in B) for B in C) 
+                   for A,C in models_dict[l]['SPH'].items())
         
         result = None if SPH<1e-16 else math.log(BPH/SPH)
                 
@@ -146,6 +146,33 @@ def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab):
     
     LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)))
     return LLR
+
+def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
+    """ Wraps the function create_LLR. It receives an observations file, IMPUTE2
+        legend file, IMPUTE2 haplotypes file, and the statistical model. Based
+        on the given data it creates and returns the LLR function."""
+    
+    from MAKE_OBS_TAB import read_impute2
+    
+    if not os.path.isfile(obs_filename): raise Exception('Error: OBS file does not exist.')
+    if not os.path.isfile(leg_filename): raise Exception('Error: LEGEND file does not exist.')
+    if not os.path.isfile(hap_filename): raise Exception('Error: HAP file does not exist.')
+    if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
+
+    leg_tab = read_impute2(leg_filename, filetype='legend')
+    hap_tab = read_impute2(hap_filename, filetype='hap')
+    with open(obs_filename, 'rb') as f:
+        obs_tab = pickle.load(f)
+        #info = pickle.load(f)
+    with open(models_filename, 'rb') as f:
+        models_dict = pickle.load(f)
+    
+    #hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
+    #frequencies = create_frequencies(hap_dict)
+    #LLR = create_LLR(models_dict,frequencies)     
+    
+    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
+    return LLR
         
 ###############################################################################
 
@@ -154,3 +181,4 @@ if __name__ != "__main__":
 else:
     print("Executed when the module LLR_CALCULATOR is invoked directly")
     sys.exit(0)
+   
