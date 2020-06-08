@@ -12,8 +12,13 @@ in the legend file, are organized in a table.
 Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
-import sys, os, time, random, warnings, argparse, re, pickle, pysam
+import sys, os, time, random, warnings, argparse, re, pickle
 
+try:
+    import pysam
+except ModuleNotFoundError:
+    print('caution: the module pysam is missing.')
+  
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
 def read_impute2(impute2_filename,**kwargs):

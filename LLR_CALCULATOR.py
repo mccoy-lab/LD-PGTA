@@ -15,6 +15,14 @@ May 4th, 2020
 
 import operator, itertools, pickle, math, os, sys, bz2
 
+try:
+    from math import prod
+except:
+    import functools
+    def prod(iterable):
+        """ Calculates the product of all the elements in the input iterable. """
+        return functools.reduce(operator.mul, iterable, 1)
+
 def build_hap_dict(obs_tab,leg_tab,hap_tab):
     """ Returns a dictionary that lists chromosome positions of SNPs and gives
         their relevent row from haplotypes table. The row is stored as a tuple
@@ -146,9 +154,9 @@ def create_LLR(models_dict,joint_frequencies_combo):
                 
         l = len(alleles)
         freq = joint_frequencies_combo(*alleles)
-        BPH = sum(A[0]/A[1] * sum(math.prod(freq[b] for b in B) for B in C)
+        BPH = sum(A[0]/A[1] * sum(prod(freq[b] for b in B) for B in C)
                    for A,C in models_dict[l]['BPH'].items())
-        SPH = sum(A[0]/A[1] * sum(math.prod(freq[b] for b in B) for B in C) 
+        SPH = sum(A[0]/A[1] * sum(prod(freq[b] for b in B) for B in C) 
                    for A,C in models_dict[l]['SPH'].items())
         
         result = None if SPH<1e-16 else math.log(BPH/SPH)

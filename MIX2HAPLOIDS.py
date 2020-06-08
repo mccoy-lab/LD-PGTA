@@ -36,7 +36,7 @@ def compare_haploids(obs_filename1, obs_filename2):
     print('Done in %.2f sec.' % (time1-time0))
     return result
     
-def check_haploid(obs_filename, read_length, depth, handle_multiple_observations, output_filename):
+def check_haploid(obs_filename, read_length, depth, handle_multiple_observations, work_dir, output_filename):
     """ Given an observation table of a haploid sequence with a depth coverage
         of at least 1X, a new observation table is created to mimic the outcome
         of an Illumina dye sequencing."""
@@ -44,7 +44,7 @@ def check_haploid(obs_filename, read_length, depth, handle_multiple_observations
     time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
-    with open('results/'+obs_filename, 'rb') as f:
+    with open(work_dir + '/' + obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
      
@@ -93,7 +93,7 @@ def check_haploid(obs_filename, read_length, depth, handle_multiple_observations
     if output_filename!=None:
         default_output_filename = ('check_haploid.X%f' % depth).rstrip('0')+'.'+obs_filename  
         output_filename = default_output_filename if output_filename=='' else output_filename 
-        with open(  'results/' + output_filename , "wb" ) as f:
+        with open(  work_dir + '/' + output_filename , "wb" ) as f:
                 pickle.dump( obs_tab_sorted, f )
                 pickle.dump( info, f )    
         
@@ -182,7 +182,7 @@ def mix3haploids(obs_filename1, obs_filename2, obs_filename3, read_length, depth
                 pickle.dump( info, f, protocol=4)    
         
     time1 = time.time()
-    print('Done simulating the observations table of an aneuploid cell with SPH in %.2f sec.' % (time1-time0))
+    print('Done simulating the observations table of an aneuploid cell with BPH in %.2f sec.' % (time1-time0))
     return tuple(obs_tab_sorted), info
 
 ###############################################################################
@@ -255,7 +255,7 @@ def build_obs_dict(obs_tab1, obs_tab2, info, read_length, depth):
     return obs_dict, info
 
 
-def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multiple_observations, output_filename):
+def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multiple_observations, work_dir, output_filename):
     """ Wraps build_obs_dict. In addition, copies the values of obs_dict into
         the list obs_tab, while handling multiple observations at SNP positions.
         Then stores obs_tab as well as a dictionary with all the arguments that
@@ -264,11 +264,11 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
     time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
 
-    with open('results/'+obs_filename1, 'rb') as f:
+    with open(work_dir + '/' + obs_filename1, 'rb') as f:
         obs_tab1 = pickle.load(f)
         info1 = pickle.load(f)
     
-    with open('results/'+obs_filename2, 'rb') as f:
+    with open(work_dir + '/' + obs_filename2, 'rb') as f:
         obs_tab2 = pickle.load(f)
         info2 = pickle.load(f)
    
@@ -302,7 +302,7 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
     if output_filename!=None:
         default_output_filename = ('mixed2haploids.X%f' % depth).rstrip('0')+'.'+obs_filename1.lstrip().split('.')[0]+'.'+obs_filename2    
         output_filename = default_output_filename if output_filename=='' else output_filename 
-        with open(  'results/' + output_filename , "wb" ) as f:
+        with open(  work_dir + '/'  + output_filename , "wb" ) as f:
                 pickle.dump( obs_tab_sorted, f, protocol=4)
                 pickle.dump( info, f, protocol=4)    
         
