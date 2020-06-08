@@ -1,4 +1,4 @@
-#!/usr/local/python/intelpython3/bin/python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 MAKE_OBS_TAB

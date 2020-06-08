@@ -187,12 +187,34 @@ def create_frequency(hap_dict):
 def read_statistics(reads_dict):
     return collections.Counter(len(i) for i in reads_dict.values())
 
-def overlapping_reads(aux_dict):
-    A = tuple(set(a) for pos in aux_dict for base in aux_dict[pos] if len(a:=aux_dict[pos][base])>1)
-    B = set(tuple(sorted(i)) for i in A)
-    C = set(tuple(sorted(a)) for i,j in zip(A[:-1],A[1:]) if len(a:=i.intersection(j))>1)
-    D = set(tuple(sorted(a)) for i,j,k in zip(A[:-2],A[1:-1],A[2:]) if len(a:=i.intersection(j,k))>1)
-    return A,B,C,D
+def overlapping_reads(aux_dict,n):
+    A = tuple(set(a) for pos in aux_dict for base in aux_dict[pos] if len(a:=aux_dict[pos][base])>=n)
+    B = set(tuple(sorted(i)) for i in A) #overlaps atleast once
+    C = set(tuple(sorted(a)) for i,j in zip(A[:-1],A[1:]) if len(a:=i.intersection(j))>1)  #overlaps atleast twice
+    D = set(tuple(sorted(a)) for i,j,k in zip(A[:-2],A[1:-1],A[2:]) if len(a:=i.intersection(j,k))>1)  #overlaps atleast three times
+    E = set(tuple(sorted(a)) for i,j,k,l in zip(A[:-3],A[1:-2],A[2:-1],A[3:]) if len(a:=i.intersection(j,k,l))>1)  #overlaps atleast four times
+    return B,C,D,E
+
+def build_blocks_dict(positions,block_size,offset):
+    """ Returns a dictionary that lists blocks and gives all the SNP positions
+        within them."""
+    
+    a = positions[0]-(block_size-1)+offset
+    b = positions[-1]+(block_size-1)
+    boundaries = tuple(range(int(a), int(b), int(block_size)))
+    blocks = [(i,j-1) for i,j in zip(boundaries,boundaries[1:])]
+    
+    blocks_dict = collections.defaultdict(list)
+    
+    blocks_iterator = iter(blocks)
+    block = next(blocks_iterator, None)
+    for p in positions:
+        while block:
+            if block[0]<=p<=block[1]:
+                blocks_dict[block].append(p)
+                break
+            block = next(blocks_iterator, None)
+    return blocks_dict   
 
 def HIST(x):
     import matplotlib.pyplot as plt
@@ -205,11 +227,12 @@ def HIST(x):
     plt.show()
     
 if __name__=='__main__':
-    obs_filename = 'results/mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p'
-    hap_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.legend'
+    obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.LLR.p'
+    hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend'
     leg_tab,hap_tab,obs_tab = load(obs_filename,leg_filename,hap_filename)
     hap_dict = build_hap_dict(obs_tab,leg_tab,hap_tab)
     reads = build_reads_dict(obs_tab,leg_tab)
     aux_dict = build_aux_dict(obs_tab,leg_tab)
     frequency = create_frequency(hap_dict)
+    block_dict = build_blocks_dict(tuple(aux_dict),100000,0)

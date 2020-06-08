@@ -14,7 +14,7 @@ Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
 
-import collections, time, pickle, statistics, argparse, re, sys
+import collections, time, pickle, statistics, argparse, re, sys, operator, heapq
 
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
@@ -59,7 +59,7 @@ def build_aux_dict(obs_tab,leg_tab):
     return aux_dict 
 
 
-def group_alleles(aux_dict,positions,**thresholds):
+def group_alleles(aux_dict,positions,joint_frequency,**thresholds):
     """ For each chromosome position within the tuple positions, all the
     observed alleles together with their associted read id are extracted. 
     Then, all the alleles are grouped into haplotypes (essetially tuples),
@@ -74,8 +74,10 @@ def group_alleles(aux_dict,positions,**thresholds):
         for base in aux_dict[pos]:
             for read_id in aux_dict[pos][base]:
                 reads[read_id].append((pos,base))
-       
-    ######################## APPLY THRESHOLDS AND FILTERS #####################   
+    
+    ###########################################################################   
+    ###################### Applies thresholds and filters #####################   
+    ###########################################################################
     if thresholds.get('min_alleles_per_block',None):
         total_num_of_alleles = sum(len(alleles) for alleles in reads.values())
         if total_num_of_alleles<thresholds['min_alleles_per_block']: return None
@@ -88,8 +90,30 @@ def group_alleles(aux_dict,positions,**thresholds):
     if thresholds.setdefault('min_reads_per_block',2):        
         if len(reads)<thresholds['min_reads_per_block']: return None
     ###########################################################################
-     
-    HAPLOTYPES = sorted(reads.values(), key=len, reverse=True)[:16]
+    
+    ###########################################################################
+    #### Ranks each read according to the number of alleles (in that read) #### 
+    #### that overlap with other reads.                                    ####
+    ###########################################################################
+    rank = collections.defaultdict(int) 
+    for pos in positions:
+        A = tuple(read_id for base in aux_dict[pos] for read_id in aux_dict[pos][base])
+        for read_id in A:
+             rank[read_id] += len(A)
+    ###########################################################################
+    
+    ############################ WILD RANK ####################################
+    
+    halfhalf = lambda read: 1-abs(2*joint_frequency(read)-1)
+    #sorting_key = lambda read_id: (len(reads[read_id]),halfhalf(reads[read_id]),rank[read_id])
+    #sorting_key = lambda read_id: (1-abs(2*joint_frequency(reads[read_id])-1))**(1/len(reads[read_id]))
+    sorting_key = lambda read_id: halfhalf(reads[read_id])
+    
+    list_of_priorities  = heapq.nlargest(16,reads, key=sorting_key)
+    HAPLOTYPES = tuple(reads[read_id] for read_id in list_of_priorities)
+    print([len(i) for i in HAPLOTYPES])
+    print([joint_frequency(i) for i in HAPLOTYPES])
+    ####HAPLOTYPES = heapq.nlargest(16,reads.values(), key=len)
     return HAPLOTYPES
     
 def build_blocks_dict(positions,block_size,offset):
@@ -127,12 +151,12 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
         obs_tab = pickle.load(f)
         info = pickle.load(f)
     
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab)
+    LLR, joint_frequency = get_LLR(obs_tab, leg_tab, hap_tab)
     
     aux_dict = build_aux_dict(obs_tab, leg_tab)
         
     blocks_dict = build_blocks_dict(tuple(aux_dict.keys()),block_size,offset)
-    blocks_dict_grouped = {block: group_alleles(aux_dict,positions,**thresholds) 
+    blocks_dict_grouped = {block: group_alleles(aux_dict,positions,joint_frequency,**thresholds) 
                                for block,positions in blocks_dict.items()}
     
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_grouped.items()}
@@ -206,6 +230,10 @@ if __name__ == "__main__":
     sys.exit(0)
 else: 
     print("The module ANEUPLOIDY_TEST was imported.")
+
+
+
+
 
 """     
 if __name__ == "__main__": 

@@ -1,54 +1,45 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Apr 28 13:37:57 2020
+MAKE_STATISTICAL_MODEL
 
-@author: ariad
+Builds statistical models for aneuploidy cells with BPH and SPH.
+BPH (Both Parental Homologs) correspond to the presence of three unmatched
+haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
+involving identical homologs.
+
+Daniel Ariad (daniel@ariad.org)
+June 5th, 2020
 """
-import itertools,operator,math,pickle,time,collections
+import itertools, collections, math, pickle, time, bz2
 
-def DIV(a,b):
-    """ Divides two numbers by their common divisor. """
-    c = math.gcd(a,b)
-    return (a//c,b//c)
-
-def AUX(X):
-    """ Checks if the first non-zero integer in an array is one. """   
-    for i in X: 
-        if i!=0:
-            return True if i==1 else False
-
-def GROUP(X):
-    """ divide the indices of the list X according to the elements value."""
-    group = {0: [], 1: [], 2: []}
-    for i,j in enumerate(X):
-        group[j].append(i)
-    result = tuple([tuple(i) for i in group.values() if len(i)!=0])
-    return result
-
-def COMMON(X,t):
-    """ Common procedure for both the SPH and BPH functions. """
-    A = ((a,len(tuple(b))) for a,b in itertools.groupby(sorted(X)))
-    B = ((a,DIV(b,t)) for a,b in A)
-    C = collections.defaultdict(list)
-    for a,b in B:
-        C[b].append(GROUP(a))
-    result = {key: tuple(value) for key, value in C.items()} 
-    return result
+def engine(N,degeneracies):
+    model = collections.defaultdict(int)
+    for C in itertools.product(''.join(i for i in degeneracies.keys()),repeat=N):
+        groups = collections.defaultdict(list)
+        weight = 1
+        for ind,letter in enumerate(C):
+            groups[letter].append(ind)
+            weight *= degeneracies[letter]
+        haplotypes = tuple(tuple(i) for i in groups.values())
+        key = sorted(haplotypes,key=lambda x: (len(x), x[0] if len(x)>0 else 0))
+        model[tuple(key)]+=weight
     
-def SPH(x):
-    """ Returns the SPH probability function """
-    A = (i if i[0] else tuple(map(operator.not_,i)) for i in itertools.product([False,True,True],repeat=x))
-    result = COMMON(A,3**x)
-    return result
+    compact = collections.defaultdict(list)
+    T = sum(degeneracies.values())**N
+    while(len(model)!=0):
+        haplotypes, weight = model.popitem()
+        gcd = math.gcd(weight,T)
+        compact[weight//gcd,T//gcd].append(haplotypes)
+    for key in compact: compact[key] = tuple(compact[key])
+    return compact
 
-def BPH(x):
-    """ Returns the BPH probability function """
-    A = (tuple(map(lambda x: operator.mod(operator.sub(x,i[0]),3),i)) for i in itertools.product([-1,0,1],repeat=x))
-    B = (tuple(map(lambda x: x if AUX(i) else (x if x==0 else (2 if x==1 else 1)) ,i)) for i in A)
-    result = COMMON(B,3**x)
-    return result
+def SPH(N):
+    return engine(N,{'a': 1, 'b': 2})
 
+def BPH(N):
+    return engine(N,{'a': 1, 'b': 1, 'c': 1})
+    
 def BUILD(x):
     models = dict()
     for i in range(2,x+1):
@@ -57,13 +48,15 @@ def BUILD(x):
         models[i]= {'BPH': BPH(i), 'SPH': SPH(i)}
         b = time.time()
         print('Done building in %.3f sec.' % ((b-a)))
-    with open( 'MODELS.p', "wb") as f:
-            pickle.dump(models, f, protocol=4)
+    #with open( 'MODELS.p', 'wb') as f:
+    with bz2.BZ2File( 'MODELS.pbz2', 'wb') as f:
+        pickle.dump(models, f, protocol=4)
     return models
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     print("Executed when invoked directly")
     models = BUILD(16)
-else: 
+else:
     print("Executed when imported")
+   
     

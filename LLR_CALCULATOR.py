@@ -13,7 +13,7 @@ Daniel Ariad (daniel@ariad.org)
 May 4th, 2020
 """
 
-import operator, itertools, pickle, math, os, sys
+import operator, itertools, pickle, math, os, sys, bz2
 
 def build_hap_dict(obs_tab,leg_tab,hap_tab):
     """ Returns a dictionary that lists chromosome positions of SNPs and gives
@@ -40,8 +40,8 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
     return hap_dict
 
 def create_frequencies(hap_dict):
-    """ Returns the functions joint_frequencies, which extracts from the
-        dictionary hap_dict the joint frequencies of observed alleles. """
+    """ Creates and returns the functions combo_joint_frequencies and 
+        joint_frequency. """
     
     N = len(next(iter(hap_dict.values())))
 
@@ -71,7 +71,7 @@ def create_frequencies(hap_dict):
        
         return hap                
 
-    def joint_frequencies(*alleles):
+    def joint_frequencies_combo(*alleles):
         """ Based on the reference panel, it calculates joint frequencies of
             observed alleles. The function arguments are alleles, that is,
             tuples of position and base, e.g., (100,'T'), (123, 'A') and
@@ -107,11 +107,34 @@ def create_frequencies(hap_dict):
             result[a] = sum(itertools.compress(b[0], map(all,zip(*b[1:])))) / N
         
         return result
+    
+    def joint_frequency(*alleles):
+        """ Based on the reference panel, it calculates joint frequencies of
+            observed alleles. The function arguments are alleles, that is,
+            tuples of position and base, e.g., (100,'T'), (123, 'A') and
+            (386, 'C'). The function arguments can also include haplotypes,
+            that is, tuples of alleles; Haplotypes are treated in the same
+            manner as alleles. """
+           
+        hap = intrenal_hap_dict(*alleles)   
+        
+        if len(hap)==1:
+            result = hap[0].count(True) / N  
+        
+        elif len(hap)==2:
+            result = sum(itertools.compress(*hap)) / N 
+        
+        elif len(hap)==3:
+            result = sum(itertools.compress(hap[0], map(operator.and_,hap[1],hap[2]))) / N
+        elif len(hap)>=4:
+            result = sum(itertools.compress(hap[0], map(all,zip(*hap[1:])))) / N
+        
+        return result
 
-    return joint_frequencies
+    return joint_frequencies_combo, joint_frequency 
 
 
-def create_LLR(models_dict,joint_frequencies):
+def create_LLR(models_dict,joint_frequencies_combo):
     """ This function receives the dictionary models_dict with the
     statisitcal models and the function frequncies, which calculates
     joint frequncies. Based on these arguments it creates the function
@@ -122,7 +145,7 @@ def create_LLR(models_dict,joint_frequencies):
         alleles and haplotypes. """
                 
         l = len(alleles)
-        freq = joint_frequencies(*alleles)
+        freq = joint_frequencies_combo(*alleles)
         BPH = sum(A[0]/A[1] * sum(math.prod(freq[b] for b in B) for B in C)
                    for A,C in models_dict[l]['BPH'].items())
         SPH = sum(A[0]/A[1] * sum(math.prod(freq[b] for b in B) for B in C) 
@@ -139,12 +162,14 @@ def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab):
         array and haplotypes array. Based on the given data it creates and
         returns the function LLR."""
         
-    if not os.path.isfile('MODELS.p'): raise Exception('Error: MODELS file does not exist.')
-    with open('MODELS.p', 'rb') as models:
-        models_dict = pickle.load(models)
+    if not os.path.isfile('MODELS16.pbz2'): raise Exception('Error: MODELS file does not exist.')
+    ###with open('MODELS16.p', 'rb') as models:
+    with bz2.BZ2File( 'MODELS16.pbz2', 'rb') as f:
+        models_dict = pickle.load(f)
     
-    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)))
-    return LLR
+    joint_frequencies_combo, joint_frequency = create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))
+    LLR = create_LLR(models_dict,joint_frequencies_combo)
+    return LLR, joint_frequency
 
 def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
     """ Wraps the function create_LLR. It receives an observations file, IMPUTE2
@@ -163,12 +188,13 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
-    with open(models_filename, 'rb') as f:
+    ###with open(models_filename, 'rb') as f:
+    with bz2.BZ2File( 'MODELS16.pbz2', 'rb') as f:
         models_dict = pickle.load(f)
     
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
-    frequencies = create_frequencies(hap_dict)
-    LLR = create_LLR(models_dict,frequencies)     
+    joint_frequencies_combo, joint_frequency = create_frequencies(hap_dict)
+    LLR = create_LLR(models_dict,joint_frequencies_combo)     
     
     ###LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return LLR
