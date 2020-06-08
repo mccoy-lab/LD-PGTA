@@ -101,21 +101,21 @@ def check_haploid(obs_filename, read_length, depth, handle_multiple_observations
     print('Done in %.2f sec.' % (time1-time0))
     return tuple(obs_tab_sorted), info
 
-def mix3haploids(obs_filename1, obs_filename2, obs_filename3, read_length, depth, handle_multiple_observations, output_filename):
+def mix3haploids(obs_filename1, obs_filename2, obs_filename3, read_length, depth, handle_multiple_observations, work_dir, output_filename):
     """ TBA """
     
     time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
 
-    with open('results/'+obs_filename1, 'rb') as f:
+    with open(work_dir + '/' + obs_filename1, 'rb') as f:
         obs_tab1 = pickle.load(f)
         info = pickle.load(f)
     
-    with open('results/'+obs_filename2, 'rb') as f:
+    with open(work_dir + '/' + obs_filename2, 'rb') as f:
         obs_tab2 = pickle.load(f)
         info2 = pickle.load(f)
     
-    with open('results/'+obs_filename3, 'rb') as f:
+    with open(work_dir + '/' + obs_filename3, 'rb') as f:
         obs_tab3 = pickle.load(f)
         info3 = pickle.load(f)
    
@@ -177,7 +177,7 @@ def mix3haploids(obs_filename1, obs_filename2, obs_filename3, read_length, depth
     if output_filename!=None:
         default_output_filename = ('mixed3haploids.X%f' % depth).rstrip('0')+'.'+obs_filename1.lstrip().split('.')[0]+'.'+obs_filename2.lstrip().split('.')[0]+'.'+obs_filename3    
         output_filename = default_output_filename if output_filename=='' else output_filename 
-        with open(  'results/' + output_filename , "wb" ) as f:
+        with open(  work_dir + '/' + output_filename , "wb" ) as f:
                 pickle.dump( obs_tab_sorted, f, protocol=4)
                 pickle.dump( info, f, protocol=4)    
         

@@ -63,11 +63,9 @@ def group_alleles(aux_dict,positions,joint_frequency,**thresholds):
     """ For each chromosome position within the tuple positions, all the
     observed alleles together with their associted read id are extracted. 
     Then, all the alleles are grouped into haplotypes (essetially tuples),
-    according to the reads they origined from. All the haplotypes together form
-    a tuple, named HAPLOTYPES, which is sorted in descending order according to
-    the number of alleles in each haplotype. Moreover, only the 16 longest
-    haplotypes are kept in HAPLOTYPES. Finally, the tuple HAPLOTYPES is
-    returned. """
+    according to the reads they origined from. The haplotypes are sorted in
+    descending order according to the their frequency difference from 1/2.
+    Then, a tuple with the first 16 haplotypes is returned. """
     
     reads = collections.defaultdict(list)
     for pos in positions:
@@ -91,29 +89,14 @@ def group_alleles(aux_dict,positions,joint_frequency,**thresholds):
         if len(reads)<thresholds['min_reads_per_block']: return None
     ###########################################################################
     
-    ###########################################################################
-    #### Ranks each read according to the number of alleles (in that read) #### 
-    #### that overlap with other reads.                                    ####
-    ###########################################################################
-    rank = collections.defaultdict(int) 
-    for pos in positions:
-        A = tuple(read_id for base in aux_dict[pos] for read_id in aux_dict[pos][base])
-        for read_id in A:
-             rank[read_id] += len(A)
-    ###########################################################################
-    
-    ############################ WILD RANK ####################################
-    
-    halfhalf = lambda read: 1-abs(2*joint_frequency(read)-1)
-    #sorting_key = lambda read_id: (len(reads[read_id]),halfhalf(reads[read_id]),rank[read_id])
-    #sorting_key = lambda read_id: (1-abs(2*joint_frequency(reads[read_id])-1))**(1/len(reads[read_id]))
-    sorting_key = lambda read_id: halfhalf(reads[read_id])
-    
-    list_of_priorities  = heapq.nlargest(16,reads, key=sorting_key)
-    HAPLOTYPES = tuple(reads[read_id] for read_id in list_of_priorities)
-    print([len(i) for i in HAPLOTYPES])
-    print([joint_frequency(i) for i in HAPLOTYPES])
-    ####HAPLOTYPES = heapq.nlargest(16,reads.values(), key=len)
+    sorting_key = lambda read: 1-abs(2*joint_frequency(read)-1)
+    HAPLOTYPES = heapq.nlargest(16,reads.values(), key=sorting_key)
+
+    ####print([len(i) for i in HAPLOTYPES])
+    ####print([joint_frequency(i) for i in HAPLOTYPES])
+    ####if sorting_key(HAPLOTYPES[-1])<0.1: 
+    ####    print('bob!')
+    ####    return None
     return HAPLOTYPES
     
 def build_blocks_dict(positions,block_size,offset):
