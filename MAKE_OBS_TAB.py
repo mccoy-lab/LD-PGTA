@@ -105,7 +105,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                     else:
                         raise Exception('error: handle_multiple_observations only supports the options \"skip\", \"all\", \"first\" and \"random\".')
     
-        info = {'redo-BAQ': fasta_filename=='',
+        info = {'redo-BAQ': fasta_filename!='',
                 'handle-multiple-observations' : handle_multiple_observations,
                 'min-bq': min_bq,
                 'min-mq' :  min_mq,

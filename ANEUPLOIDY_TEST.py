@@ -14,7 +14,7 @@ Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
 
-import collections, time, pickle, statistics, argparse, re, sys, operator, heapq
+import collections, time, pickle, statistics, argparse, re, sys, operator, heapq, random
 
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
@@ -58,7 +58,6 @@ def build_aux_dict(obs_tab,leg_tab):
        
     return aux_dict 
 
-
 def group_alleles(aux_dict,positions,joint_frequency,**thresholds):
     """ For each chromosome position within the tuple positions, all the
     observed alleles together with their associted read id are extracted. 
@@ -88,12 +87,18 @@ def group_alleles(aux_dict,positions,joint_frequency,**thresholds):
     if thresholds.setdefault('min_reads_per_block',2):        
         if len(reads)<thresholds['min_reads_per_block']: return None
     ###########################################################################
-    
-    sorting_key = lambda read: 1-abs(2*joint_frequency(read)-1)
-    HAPLOTYPES = heapq.nlargest(16,reads.values(), key=sorting_key)
+    HAPLOTYPES = tuple(reads.values()) if len(reads)<=12 else random.sample(tuple(reads.values()),12)    
 
-    ####print([len(i) for i in HAPLOTYPES])
-    ####print([joint_frequency(i) for i in HAPLOTYPES])
+    #shuffled_reads = list(reads.values()); random.shuffle(shuffled_reads)    
+    #sorting_key = lambda read: round(1-abs(2*joint_frequency(read)-1),1)
+    #HAPLOTYPES = heapq.nlargest(16,shuffled_reads, key=sorting_key)
+
+    #sorting_key = lambda read: 1-abs(2*joint_frequency(read)-1)
+    #HAPLOTYPES = heapq.nlargest(16,reads.values(), key=sorting_key)
+    
+    #print(HAPLOTYPES)
+    #print([len(i) for i in HAPLOTYPES])
+    #print([joint_frequency(i) for i in HAPLOTYPES])
     ####if sorting_key(HAPLOTYPES[-1])<0.1: 
     ####    print('bob!')
     ####    return None
@@ -154,8 +159,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
     
     num_of_LD_blocks = len(population)
     fraction_of_negative_LLRs = sum([1 for i  in population if i<0])/len(population)
-    
-    print('Mean: %.3f, STD: %.3f' % (mean, std))
+    print('Depth: %.3f, Mean: %.3f, STD: %.3f' % (mean, std, info['depth']))
     print('Jackknife estimator: %.3f, Jackknife standard error: %.3f, Jackknife bias: %.3f' % (jk_mean, jk_std, jk_bias))
     print('Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (num_of_LD_blocks,fraction_of_negative_LLRs))
     
@@ -218,12 +222,12 @@ else:
 
 
 
-"""     
+"""   
 if __name__ == "__main__": 
     print("Executed when invoked directly")
     a = time.time()
     
-    args = dict(obs_filename = 'results/mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p',
+    args = dict(obs_filename = 'results_HapMix_EXT//mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p',
                 hap_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.hap',
                 leg_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.legend',
                 block_size = 1e5,

@@ -31,6 +31,12 @@ import collections, operator, os, pickle, itertools
 #    TOTAL = len(set(itertools.chain.from_iterable(aux_dict.values())))
 #    return OVERLAPS,TOTAL
 #"""    
+def load_llr(filename):
+    with open('results_HapMix_EXT/'+filename, 'rb') as f:
+        llr = pickle.load(f)
+        info = pickle.load(f)
+    print('%f\t%f\t%f\t%f\t%f\t%f\t\t\t%f\t%f' % (info['depth'],info['statistics']['jk_mean'],info['statistics']['jk_std'],info['statistics']['jk_bias'],info['statistics']['mean'],info['statistics']['std'],info['statistics']['num_of_LD_blocks'],info['statistics']['fraction_of_negative_LLRs']))
+    return 0
 
 def load(obs_filename,leg_filename,hap_filename):
     """ Wraps the function create_LLR. It receives an observations file, IMPUTE2
@@ -219,15 +225,18 @@ def build_blocks_dict(positions,block_size,offset):
 def HIST(x):
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
-    ax.hist(x,bins=int(len(x)**.5),histtype='step', linewidth=2.2, label='TBA')
-    ax.set_xlabel('x')
+    #ax.hist(x,bins=int(len(x)**.5),histtype='step', linewidth=2.2, label='TBA')
+    ax.hist(x,bins=100000, linewidth=0.2, label='TBA', histtype='stepfilled')
+    ax.set_xlabel('Positions')
     ax.set_ylabel('Counts')
-    ax.set_title('TBA' )
+    ax.set_title('distribution of SNPs along chromosome 21' )
+    ax.set_xticks(range(min(x), max(x),5000000)) #(max(x)-min(x))//20))
+    #ax.set_xticks(range(min(x), max(x),100000)) #(max(x)-min(x))//20))
     #ax.legend()
     plt.show()
     
 if __name__=='__main__':
-    obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.LLR.p'
+    obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.obs.p'
     hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend'
     leg_tab,hap_tab,obs_tab = load(obs_filename,leg_filename,hap_filename)

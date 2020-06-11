@@ -71,7 +71,8 @@ def create_frequencies(hap_dict):
                 elif n==2:
                     hap[i] = tuple(map(operator.and_,hap_dict[X[0]],hap_dict[X[1]]))
                 else:
-                    hap[i] = tuple(map(all, zip(*(hap_dict[allele] for allele in X))))
+                    hap[i] = tuple(map(all, zip(*operator.itemgetter(*X)(hap_dict))))
+                    
             elif type(X[0])==int: #Checks if X is a single allele.
                 hap[i] = hap_dict[X]
             else:
@@ -97,22 +98,18 @@ def create_frequencies(hap_dict):
            
         result = {(i,): A.count(True) / N  for i,A in hap.items() }
         
-        for i in itertools.combinations(hap.items(), 2):
-            a,b = zip(*i)
-            result[a] = sum(itertools.compress(*b)) / N 
+        for a in itertools.combinations(hap, 2):
+            result[a] = operator.countOf(itertools.compress(hap[a[0]],hap[a[1]]),True) / N 
         
-        for i in itertools.combinations(hap.items(), 3):
-            a,b = zip(*i)
-            result[a] = sum(itertools.compress(b[0], map(operator.and_,b[1],b[2]))) / N
-        
+        for a in itertools.combinations(hap, 3):
+            result[a] = operator.countOf(itertools.compress(hap[a[0]], map(operator.and_,hap[a[1]],hap[a[2]])),True) / N
+    
         for r in range(4,len(alleles)):
-            for i in itertools.combinations(hap.items(), r):
-                a,b = zip(*i)
-                result[a] = sum(itertools.compress(b[0], map(all,zip(*b[1:])))) / N
-        
+            for a in itertools.combinations(hap, r):
+                result[a] = operator.countOf(map(all,zip(*operator.itemgetter(*a)(hap))),True) / N
+                
         if len(alleles)>=4:
-            a,b = zip(*hap.items())
-            result[a] = sum(itertools.compress(b[0], map(all,zip(*b[1:])))) / N
+            result[tuple(hap.keys())] = operator.countOf(map(all,zip(*hap.values())),True) / N        
         
         return result
     
@@ -130,12 +127,13 @@ def create_frequencies(hap_dict):
             result = hap[0].count(True) / N  
         
         elif len(hap)==2:
-            result = sum(itertools.compress(*hap)) / N 
+            result = operator.countOf(itertools.compress(*hap),True) / N 
         
         elif len(hap)==3:
-            result = sum(itertools.compress(hap[0], map(operator.and_,hap[1],hap[2]))) / N
+            result = operator.countOf(itertools.compress(hap[0], map(operator.and_,hap[1],hap[2])),True) / N
+            
         elif len(hap)>=4:
-            result = sum(itertools.compress(hap[0], map(all,zip(*hap[1:])))) / N
+            result = operator.countOf(map(all,zip(*hap.values())),True) / N
         
         return result
 
@@ -214,4 +212,63 @@ if __name__ != "__main__":
 else:
     print("Executed when the module LLR_CALCULATOR is invoked directly")
     sys.exit(0)
-   
+"""
+if __name__ != "__main__": 
+    print("The module LLR_CALCULATOR was imported.")   
+else:
+    print("Executed when invoked directly")
+    #sys.exit(0)
+    import time
+    from MAKE_OBS_TAB import read_impute2
+    a = time.time()
+    obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.01.SRR10393062.SRR151495.0-2.hg38.obs.p'
+    hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend'
+               
+    hap_tab = read_impute2(hap_filename, filetype='hap')
+    leg_tab = read_impute2(leg_filename, filetype='leg')
+    
+
+    with open(obs_filename, 'rb') as f:
+        obs_tab = pickle.load(f)
+        #info = pickle.load(f)
+    
+    with open('MODELS16.p', 'rb') as f:
+        models_dict = pickle.load(f)
+        
+    hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
+    #aux_dict = build_aux_dict(obs_tab, leg_tab)
+    
+    positions = tuple(hap_dict.keys())
+    
+    frequencies, frequency = create_frequencies(hap_dict)
+    
+    LLR = create_LLR(models_dict,frequencies) 
+    
+    pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
+    
+    print(frequencies(positions[0]))
+    print(frequency(positions[0]))
+    print(frequencies(positions[:4]))
+    print(frequency(positions[:4]))
+    print('-----')
+    print(pos)
+    print(frequencies(*pos))
+    print(LLR(*pos))
+    print('-----')
+    print(positions[:2])
+    print(frequencies(*positions[:2]))
+    print(LLR(*positions[:2]))
+    print('-----')
+    print(positions[:3])
+    print(frequencies(*positions[:3]))
+    print(LLR(*positions[:3]))
+    print('-----')
+    print(positions[:4])
+    print(frequencies(*positions[:4]))
+    print(LLR(*positions[:4]))
+
+    b = time.time()
+
+    print('Done in %.3f sec.' % ((b-a)))   
+"""    

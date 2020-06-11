@@ -144,7 +144,7 @@ def BPH_V4(N):
     return {key: tuple(values) for key,values in compact.items()} 
 
 
-def engine(N,degeneracies):
+def engine_old(N,degeneracies):
     model = collections.defaultdict(int)
     for C in itertools.product(''.join(i for i in degeneracies.keys()),repeat=N):
         groups = collections.defaultdict(list)
@@ -160,6 +160,27 @@ def engine(N,degeneracies):
     for haplotypes,weight in model.items():
         compact[weight//(gcd:=math.gcd(weight,T)),T//gcd].append(haplotypes)
     return {key: tuple(values) for key,values in compact.items()} 
+
+def engine(N,degeneracies):
+    model = collections.defaultdict(int)
+    for C in itertools.product(''.join(i for i in degeneracies.keys()),repeat=N):
+        groups = collections.defaultdict(list)
+        weight = 1
+        for ind,letter in enumerate(C):
+            groups[letter].append(ind)
+            weight *= degeneracies[letter]
+        haplotypes = tuple(tuple(i) for i in groups.values())
+        key = sorted(haplotypes,key=lambda x: (len(x), x[0] if len(x)>0 else 0))
+        model[tuple(key)]+=weight
+    
+    compact = collections.defaultdict(list)
+    T = sum(degeneracies.values())**N
+    while(len(model)!=0):
+        haplotypes, weight = model.popitem()
+        gcd = math.gcd(weight,T)
+        compact[weight//gcd,T//gcd].append(haplotypes)
+    for key in compact: compact[key] = tuple(compact[key])
+    return compact
 
 def SPH(N):
     return engine(N,{'a': 1, 'b': 2})
