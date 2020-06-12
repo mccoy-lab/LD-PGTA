@@ -48,8 +48,8 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
     return hap_dict
 
 def create_frequencies(hap_dict):
-    """ Creates and returns the functions combo_joint_frequencies and 
-        joint_frequency. """
+    """ Returns the function combo_joint_frequencies, which extracts from the dictionary
+        hap_dict the joint frequencies of observed alleles. """
     
     N = len(next(iter(hap_dict.values())))
 
@@ -63,18 +63,18 @@ def create_frequencies(hap_dict):
         haplotype their associated tuple and intersected tuple, respectively. """ 
         hap = dict()
             
-        for i, X in enumerate(alleles):
+        for i, X in enumerate(alleles,start=65):
             if type(X[0])==tuple: #Checks if X is a tuple/list of alleles.
                 n = len(X)
                 if n==1: 
-                    hap[i] = hap_dict[X[0]] 
+                    hap[chr(i)] = hap_dict[X[0]] 
                 elif n==2:
-                    hap[i] = tuple(map(operator.and_,hap_dict[X[0]],hap_dict[X[1]]))
+                    hap[chr(i)] = tuple(map(operator.and_,hap_dict[X[0]],hap_dict[X[1]]))
                 else:
-                    hap[i] = tuple(map(all, zip(*operator.itemgetter(*X)(hap_dict))))
+                    hap[chr(i)] = tuple(map(all, zip(*operator.itemgetter(*X)(hap_dict))))
                     
             elif type(X[0])==int: #Checks if X is a single allele.
-                hap[i] = hap_dict[X]
+                hap[chr(i)] = hap_dict[X]
             else:
                 raise Exception('error: joint_frequencies only accepts alleles and tuple/list of alleles.')
        
@@ -96,48 +96,24 @@ def create_frequencies(hap_dict):
            
         hap = intrenal_hap_dict(*alleles)   
            
-        result = {(i,): A.count(True) / N  for i,A in hap.items() }
+        result = {c: A.count(True) / N  for c,A in hap.items() }
         
-        for a in itertools.combinations(hap, 2):
-            result[a] = operator.countOf(itertools.compress(hap[a[0]],hap[a[1]]),True) / N 
+        for C in itertools.combinations(hap, 2):
+            result[''.join(C)] = operator.countOf(itertools.compress(hap[C[0]],hap[C[1]]),True) / N 
         
-        for a in itertools.combinations(hap, 3):
-            result[a] = operator.countOf(itertools.compress(hap[a[0]], map(operator.and_,hap[a[1]],hap[a[2]])),True) / N
+        for C in itertools.combinations(hap, 3):
+            result[''.join(C)] = operator.countOf(itertools.compress(hap[C[0]], map(operator.and_,hap[C[1]],hap[C[2]])),True) / N
     
         for r in range(4,len(alleles)):
-            for a in itertools.combinations(hap, r):
-                result[a] = operator.countOf(map(all,zip(*operator.itemgetter(*a)(hap))),True) / N
+            for C in itertools.combinations(hap, r):
+                result[''.join(C)] = operator.countOf(map(all,zip(*operator.itemgetter(*C)(hap))),True) / N
                 
         if len(alleles)>=4:
-            result[tuple(hap.keys())] = operator.countOf(map(all,zip(*hap.values())),True) / N        
+            result[''.join(hap.keys())] = operator.countOf(map(all,zip(*hap.values())),True) / N        
         
         return result
     
-    def joint_frequency(*alleles):
-        """ Based on the reference panel, it calculates joint frequencies of
-            observed alleles. The function arguments are alleles, that is,
-            tuples of position and base, e.g., (100,'T'), (123, 'A') and
-            (386, 'C'). The function arguments can also include haplotypes,
-            that is, tuples of alleles; Haplotypes are treated in the same
-            manner as alleles. """
-           
-        hap = intrenal_hap_dict(*alleles)   
-        
-        if len(hap)==1:
-            result = hap[0].count(True) / N  
-        
-        elif len(hap)==2:
-            result = operator.countOf(itertools.compress(*hap),True) / N 
-        
-        elif len(hap)==3:
-            result = operator.countOf(itertools.compress(hap[0], map(operator.and_,hap[1],hap[2])),True) / N
-            
-        elif len(hap)>=4:
-            result = operator.countOf(map(all,zip(*hap.values())),True) / N
-        
-        return result
-
-    return joint_frequencies_combo, joint_frequency 
+    return joint_frequencies_combo
 
 
 def create_LLR(models_dict,joint_frequencies_combo):
@@ -163,19 +139,18 @@ def create_LLR(models_dict,joint_frequencies_combo):
     
     return LLR
 
-def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab):
+def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab,models_filename):
     """ Wraps the fuction create_LLR. It receives an observations array, legend
         array and haplotypes array. Based on the given data it creates and
         returns the function LLR."""
         
-    if not os.path.isfile('MODELS16.pbz2'): raise Exception('Error: MODELS file does not exist.')
+    if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
     ###with open('MODELS16.p', 'rb') as models:
-    with bz2.BZ2File( 'MODELS16.pbz2', 'rb') as f:
+    with bz2.BZ2File(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
     
-    joint_frequencies_combo, joint_frequency = create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))
-    LLR = create_LLR(models_dict,joint_frequencies_combo)
-    return LLR, joint_frequency
+    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)))
+    return LLR
 
 def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
     """ Wraps the function create_LLR. It receives an observations file, IMPUTE2
@@ -195,11 +170,11 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
     ###with open(models_filename, 'rb') as f:
-    with bz2.BZ2File( 'MODELS16.pbz2', 'rb') as f:
+    with bz2.BZ2File(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
     
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
-    joint_frequencies_combo, joint_frequency = create_frequencies(hap_dict)
+    joint_frequencies_combo = create_frequencies(hap_dict)
     LLR = create_LLR(models_dict,joint_frequencies_combo)     
     
     ###LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
@@ -212,6 +187,10 @@ if __name__ != "__main__":
 else:
     print("Executed when the module LLR_CALCULATOR is invoked directly")
     sys.exit(0)
+
+
+
+
 """
 if __name__ != "__main__": 
     print("The module LLR_CALCULATOR was imported.")   
@@ -241,16 +220,17 @@ else:
     
     positions = tuple(hap_dict.keys())
     
-    frequencies, frequency = create_frequencies(hap_dict)
+    #frequencies, frequency = create_frequencies(hap_dict)
+    frequencies = create_frequencies(hap_dict)
     
     LLR = create_LLR(models_dict,frequencies) 
     
     pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
     
     print(frequencies(positions[0]))
-    print(frequency(positions[0]))
+    #print(frequency(positions[0]))
     print(frequencies(positions[:4]))
-    print(frequency(positions[:4]))
+    #print(frequency(positions[:4]))
     print('-----')
     print(pos)
     print(frequencies(*pos))

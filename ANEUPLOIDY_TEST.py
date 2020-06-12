@@ -58,7 +58,19 @@ def build_aux_dict(obs_tab,leg_tab):
        
     return aux_dict 
 
-def group_alleles(aux_dict,positions,joint_frequency,**thresholds):
+def build_reads_dict(obs_tab,leg_tab):
+    """ Returns a dictionary that lists read IDs of reads that overlap with
+        SNPs and gives the alleles in each read. """
+    
+    reads = collections.defaultdict(list)
+
+    for (pos, ind, read_id, base) in obs_tab:
+        if base in leg_tab[ind][2:]:
+            reads[read_id].append((pos,base))  
+       
+    return reads
+
+def group_alleles(aux_dict,positions,**thresholds):
     """ For each chromosome position within the tuple positions, all the
     observed alleles together with their associted read id are extracted. 
     Then, all the alleles are grouped into haplotypes (essetially tuples),
@@ -87,21 +99,8 @@ def group_alleles(aux_dict,positions,joint_frequency,**thresholds):
     if thresholds.setdefault('min_reads_per_block',2):        
         if len(reads)<thresholds['min_reads_per_block']: return None
     ###########################################################################
-    HAPLOTYPES = tuple(reads.values()) if len(reads)<=12 else random.sample(tuple(reads.values()),12)    
-
-    #shuffled_reads = list(reads.values()); random.shuffle(shuffled_reads)    
-    #sorting_key = lambda read: round(1-abs(2*joint_frequency(read)-1),1)
-    #HAPLOTYPES = heapq.nlargest(16,shuffled_reads, key=sorting_key)
-
-    #sorting_key = lambda read: 1-abs(2*joint_frequency(read)-1)
-    #HAPLOTYPES = heapq.nlargest(16,reads.values(), key=sorting_key)
+    HAPLOTYPES = tuple(reads.values()) if len(reads)<=16 else random.sample(tuple(reads.values()),16)    
     
-    #print(HAPLOTYPES)
-    #print([len(i) for i in HAPLOTYPES])
-    #print([joint_frequency(i) for i in HAPLOTYPES])
-    ####if sorting_key(HAPLOTYPES[-1])<0.1: 
-    ####    print('bob!')
-    ####    return None
     return HAPLOTYPES
     
 def build_blocks_dict(positions,block_size,offset):
@@ -124,6 +123,40 @@ def build_blocks_dict(positions,block_size,offset):
                 break
             block = next(blocks_iterator, None)
     return blocks_dict   
+    
+def build_blocks_dict_V3(aux_dict,min_block_size,max_block_size,max_SNPs_per_block,read_length,offset):
+    """ Returns a dictionary that lists blocks and gives all the SNP positions
+        within them."""
+    
+    block_dict = dict()
+    a = next(iter(aux_dict))-offset
+    block_boundaries = [a,a+min_block_size]
+    reads_in_block = set()
+    SNPs_in_block = list()
+    for pos in aux_dict.keys():
+        if len(reads_in_block)>=max_SNPs_per_block or block_boundaries[0]+max_block_size<=pos:
+            print(tuple(block_boundaries),len(reads_in_block))
+            block_dict[tuple(block_boundaries)] = tuple(SNPs_in_block)
+            block_boundaries[0] = pos
+            block_boundaries[1] = pos + min_block_size 
+            reads_in_block = set()
+            SNPs_in_block = list()     
+        elif block_boundaries[1]<=pos<block_boundaries[0]+max_block_size: 
+                block_boundaries[1] = min(pos+read_length,block_boundaries[0]+max_block_size)
+        if block_boundaries[0]<=pos<block_boundaries[1]:
+            SNPs_in_block.append(pos)
+            #print(SNPs_in_block,pos)
+            for read_ids in aux_dict[pos].values():
+                reads_in_block.update(read_ids)
+        else:
+            print('John, something is seriously fucked up!')
+            print(tuple(block_boundaries),pos,len(reads_in_block))
+    
+    block_dict[(block_boundaries[0],pos)] = tuple(SNPs_in_block)
+          
+    return block_dict
+    
+
 
 def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,output_filename,**thresholds):
     """ Returns a dictionary that lists the boundaries of approximately
@@ -138,15 +171,18 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
-    
-    LLR, joint_frequency = get_LLR(obs_tab, leg_tab, hap_tab)
-    
+        
     aux_dict = build_aux_dict(obs_tab, leg_tab)
         
     blocks_dict = build_blocks_dict(tuple(aux_dict.keys()),block_size,offset)
-    blocks_dict_grouped = {block: group_alleles(aux_dict,positions,joint_frequency,**thresholds) 
+    
+    #blocks_dict = build_blocks_dict_V3(aux_dict,min_block_size=10000,max_block_size=100000,max_SNPs_per_block=15,read_length=150,offset=0)
+    
+    blocks_dict_grouped = {block: group_alleles(aux_dict,positions,**thresholds) 
                                for block,positions in blocks_dict.items()}
     
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.pbz2')
+
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_grouped.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
@@ -159,7 +195,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
     
     num_of_LD_blocks = len(population)
     fraction_of_negative_LLRs = sum([1 for i  in population if i<0])/len(population)
-    print('Depth: %.3f, Mean: %.3f, STD: %.3f' % (mean, std, info['depth']))
+    print('Depth: %.2f, Mean: %.3f, STD: %.3f' % (info['depth'], mean, std))
     print('Jackknife estimator: %.3f, Jackknife standard error: %.3f, Jackknife bias: %.3f' % (jk_mean, jk_std, jk_bias))
     print('Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (num_of_LD_blocks,fraction_of_negative_LLRs))
     
@@ -228,8 +264,8 @@ if __name__ == "__main__":
     a = time.time()
     
     args = dict(obs_filename = 'results_HapMix_EXT//mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p',
-                hap_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.hap',
-                leg_filename = '../build_reference_panel/ref_panel.HapMix.hg38.BCFtools/chr21_HapMix_panel.legend',
+                hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap',
+                leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend',
                 block_size = 1e5,
                 offset = 0,
                 output_filename = None,

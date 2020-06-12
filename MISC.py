@@ -157,13 +157,14 @@ def create_frequency(hap_dict):
                 elif n==2:
                     hap[i] = tuple(map(operator.and_,hap_dict[X[0]],hap_dict[X[1]]))
                 else:
-                    hap[i] = tuple(map(all, zip(*(hap_dict[allele] for allele in X))))
+                    hap[i] = tuple(map(all, zip(*operator.itemgetter(*X)(hap_dict))))
+                    
             elif type(X[0])==int: #Checks if X is a single allele.
                 hap[i] = hap_dict[X]
             else:
                 raise Exception('error: joint_frequencies only accepts alleles and tuple/list of alleles.')
        
-        return hap                
+        return hap              
 
     def joint_frequency(*alleles):
         """ Based on the reference panel, it calculates joint frequencies of
@@ -179,15 +180,16 @@ def create_frequency(hap_dict):
             result = hap[0].count(True) / N  
         
         elif len(hap)==2:
-            result = sum(itertools.compress(*hap)) / N 
+            result = operator.countOf(itertools.compress(*hap),True) / N 
         
         elif len(hap)==3:
-            result = sum(itertools.compress(hap[0], map(operator.and_,hap[1],hap[2]))) / N
+            result = operator.countOf(itertools.compress(hap[0], map(operator.and_,hap[1],hap[2])),True) / N
+            
         elif len(hap)>=4:
-            result = sum(itertools.compress(hap[0], map(all,zip(*hap[1:])))) / N
+            result = operator.countOf(map(all,zip(*hap.values())),True) / N
         
         return result
-
+    
     return joint_frequency
 
 def read_statistics(reads_dict):

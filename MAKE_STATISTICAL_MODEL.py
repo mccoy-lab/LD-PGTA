@@ -29,8 +29,9 @@ def engine(N,degeneracies):
     T = sum(degeneracies.values())**N
     while(len(model)!=0):
         haplotypes, weight = model.popitem()
+        HAPLOTYPES = tuple(''.join(chr(x+65) for x in h) for h in haplotypes)
         gcd = math.gcd(weight,T)
-        compact[weight//gcd,T//gcd].append(haplotypes)
+        compact[weight//gcd,T//gcd].append(HAPLOTYPES)
     for key in compact: compact[key] = tuple(compact[key])
     return compact
 
