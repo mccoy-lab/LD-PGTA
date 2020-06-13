@@ -70,95 +70,38 @@ def build_reads_dict(obs_tab,leg_tab):
        
     return reads
 
-def group_alleles(aux_dict,positions,**thresholds):
-    """ For each chromosome position within the tuple positions, all the
-    observed alleles together with their associted read id are extracted. 
-    Then, all the alleles are grouped into haplotypes (essetially tuples),
-    according to the reads they origined from. The haplotypes are sorted in
-    descending order according to the their frequency difference from 1/2.
-    Then, a tuple with the first 16 haplotypes is returned. """
+def pick_reads(reads_dict,read_IDs,min_reads,max_reads):
+    """ Picks randomly up to N reads out of all the reads in a given LD block. 
+        In addition, if the number of reads in a given LD block is less than
+        the minimal requirment then the block would not be considered."""
     
-    reads = collections.defaultdict(list)
-    for pos in positions:
-        for base in aux_dict[pos]:
-            for read_id in aux_dict[pos][base]:
-                reads[read_id].append((pos,base))
-    
-    ###########################################################################   
-    ###################### Applies thresholds and filters #####################   
-    ###########################################################################
-    if thresholds.get('min_alleles_per_block',None):
-        total_num_of_alleles = sum(len(alleles) for alleles in reads.values())
-        if total_num_of_alleles<thresholds['min_alleles_per_block']: return None
-    
-    if thresholds.get('min_alleles_per_read',None):    
-        for read_id,alleles in tuple(reads.items()):
-            if len(alleles)<thresholds['min_alleles_per_read']: 
-                del reads[read_id]
-    
-    if thresholds.setdefault('min_reads_per_block',2):        
-        if len(reads)<thresholds['min_reads_per_block']: return None
-    ###########################################################################
-    HAPLOTYPES = tuple(reads.values()) if len(reads)<=16 else random.sample(tuple(reads.values()),16)    
+    if len(read_IDs) < max(2,min_reads): return None
+    reads = tuple(reads_dict[read_ID] for read_ID in read_IDs)
+    HAPLOTYPES = reads if len(reads)<=max_reads else random.sample(reads,max_reads)    
     
     return HAPLOTYPES
     
-def build_blocks_dict(positions,block_size,offset):
+def build_blocks_dict(aux_dict,block_size,offset):
     """ Returns a dictionary that lists blocks and gives all the SNP positions
         within them."""
     
-    a = positions[0]-(block_size-1)+offset
-    b = positions[-1]+(block_size-1)
-    boundaries = tuple(range(int(a), int(b), int(block_size)))
+    first, *_, last = iter(aux_dict)
+    boundaries = tuple(range(int(first+offset), int(last), int(block_size)))
     blocks = [(i,j-1) for i,j in zip(boundaries,boundaries[1:])]
     
-    blocks_dict = collections.defaultdict(list)
+    blocks_dict = collections.defaultdict(set)
     
     blocks_iterator = iter(blocks)
     block = next(blocks_iterator, None)
-    for p in positions:
+    for pos in aux_dict:
         while block:
-            if block[0]<=p<=block[1]:
-                blocks_dict[block].append(p)
+            if block[0]<=pos<=block[1]:
+                for read_IDs in aux_dict[pos].values(): blocks_dict[block].update(read_IDs)
                 break
             block = next(blocks_iterator, None)
     return blocks_dict   
-    
-def build_blocks_dict_V3(aux_dict,min_block_size,max_block_size,max_SNPs_per_block,read_length,offset):
-    """ Returns a dictionary that lists blocks and gives all the SNP positions
-        within them."""
-    
-    block_dict = dict()
-    a = next(iter(aux_dict))-offset
-    block_boundaries = [a,a+min_block_size]
-    reads_in_block = set()
-    SNPs_in_block = list()
-    for pos in aux_dict.keys():
-        if len(reads_in_block)>=max_SNPs_per_block or block_boundaries[0]+max_block_size<=pos:
-            print(tuple(block_boundaries),len(reads_in_block))
-            block_dict[tuple(block_boundaries)] = tuple(SNPs_in_block)
-            block_boundaries[0] = pos
-            block_boundaries[1] = pos + min_block_size 
-            reads_in_block = set()
-            SNPs_in_block = list()     
-        elif block_boundaries[1]<=pos<block_boundaries[0]+max_block_size: 
-                block_boundaries[1] = min(pos+read_length,block_boundaries[0]+max_block_size)
-        if block_boundaries[0]<=pos<block_boundaries[1]:
-            SNPs_in_block.append(pos)
-            #print(SNPs_in_block,pos)
-            for read_ids in aux_dict[pos].values():
-                reads_in_block.update(read_ids)
-        else:
-            print('John, something is seriously fucked up!')
-            print(tuple(block_boundaries),pos,len(reads_in_block))
-    
-    block_dict[(block_boundaries[0],pos)] = tuple(SNPs_in_block)
-          
-    return block_dict
-    
 
-
-def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,output_filename,**thresholds):
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min_reads,max_reads,output_filename):
     """ Returns a dictionary that lists the boundaries of approximately
     independent blocks of linkage disequilibrium (LD). For each LD block it
     gives the associated log-likelihood BPH/SPH ratio (LLR)."""
@@ -172,17 +115,14 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
         obs_tab = pickle.load(f)
         info = pickle.load(f)
         
-    aux_dict = build_aux_dict(obs_tab, leg_tab)
-        
-    blocks_dict = build_blocks_dict(tuple(aux_dict.keys()),block_size,offset)
+    aux_dict = build_aux_dict(obs_tab,leg_tab)
+    blocks_dict = build_blocks_dict(aux_dict,block_size,offset)
     
-    #blocks_dict = build_blocks_dict_V3(aux_dict,min_block_size=10000,max_block_size=100000,max_SNPs_per_block=15,read_length=150,offset=0)
-    
-    blocks_dict_grouped = {block: group_alleles(aux_dict,positions,**thresholds) 
-                               for block,positions in blocks_dict.items()}
+    reads_dict = build_reads_dict(obs_tab,leg_tab)
+    blocks_dict_grouped = {block: pick_reads(reads_dict,read_IDs,min_reads,max_reads) 
+                               for block,read_IDs in blocks_dict.items()}
     
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.pbz2')
-
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_grouped.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
@@ -195,13 +135,18 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,out
     
     num_of_LD_blocks = len(population)
     fraction_of_negative_LLRs = sum([1 for i  in population if i<0])/len(population)
+    
     print('Depth: %.2f, Mean: %.3f, STD: %.3f' % (info['depth'], mean, std))
     print('Jackknife estimator: %.3f, Jackknife standard error: %.3f, Jackknife bias: %.3f' % (jk_mean, jk_std, jk_bias))
     print('Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (num_of_LD_blocks,fraction_of_negative_LLRs))
     
-    info.update({'block_size': block_size, 'offset': offset, 'thresholds': thresholds})
-    info['statistics'] = {'mean': mean, 'std': std, 'jk_mean': jk_mean,
-                          'jk_std': jk_std, 'jk_bias': jk_bias,
+    info.update({'block_size': block_size,
+                 'offset': offset,
+                 'min_reads': min_reads,
+                 'max_reads': max_reads})
+    
+    info['statistics'] = {'mean': mean, 'std': std,
+                          'jk_mean': jk_mean, 'jk_std': jk_std, 'jk_bias': jk_bias,
                           'num_of_LD_blocks': num_of_LD_blocks,
                           'fraction_of_negative_LLRs': fraction_of_negative_LLRs} 
     
@@ -233,17 +178,15 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--block-size', type=int, 
                         metavar='INT', default='100000', 
                         help='Specifies the typical size of the LD block. The default value is 10^5.')
-    parser.add_argument('-f', '--offset', type=int, 
+    parser.add_argument('-o', '--offset', type=int, 
                         metavar='INT', default=0,
                         help='Shifts all the LD blocks by the requested base pairs. The default value is 0.')
-    parser.add_argument('-a', '--min-alleles-per-block', type=int, metavar='INT', default=0,
-                        help='Takes into consideration only LD blocks with at least INT alleles. The default value is 0.')
-    parser.add_argument('-b', '--min-alleles-per-read', type=int, metavar='INT', default=0,
-                        help='Uses only reads that contain at least INT alleles. The default value is 0.')
-    parser.add_argument('-c', '--min-reads-per-block', type=int, metavar='INT', default=2,
-                        help='Only LD blocks with at least INT reads are taken into account. The default value is 2.'
+    parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=2,
+                        help='Takes into account only LD blocks with at least INT alleles. The default value is 2.')
+    parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=2,
+                        help='Randomly choose up to INT reads from each LD blocks. The default value is 16.'
                             'Filters a,b and c are applied sequentially, one after the other.')
-    parser.add_argument('-o', '--output-filename', type=str, metavar='output_filename',  default='',
+    parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
                         help='The output filename. The default is the input filename with the extension \".obs.p\" replaced by \".LLR#.p\".')
     args = parser.parse_args()
     
