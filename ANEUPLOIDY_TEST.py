@@ -82,8 +82,8 @@ def pick_reads(reads_dict,read_IDs,min_reads,max_reads):
     return HAPLOTYPES
     
 def build_blocks_dict(aux_dict,block_size,offset):
-    """ Returns a dictionary that lists blocks and gives all the SNP positions
-        within them."""
+    """ Returns a dictionary that lists LD blocks and gives the read IDs of 
+        reads that overlap with SNPs in the block."""
     
     first, *_, last = iter(aux_dict)
     boundaries = tuple(range(int(first+offset), int(last), int(block_size)))
