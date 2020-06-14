@@ -118,12 +118,13 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     aux_dict = build_aux_dict(obs_tab,leg_tab)
     blocks_dict = build_blocks_dict(aux_dict,block_size,offset)
     
+    random.seed(a=0, version=2) #I should set a=None after finishing to debug the code.
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-    blocks_dict_grouped = {block: pick_reads(reads_dict,read_IDs,min_reads,max_reads) 
+    blocks_dict_picked = {block: pick_reads(reads_dict,read_IDs,min_reads,max_reads) 
                                for block,read_IDs in blocks_dict.items()}
     
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.pbz2')
-    LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_grouped.items()}
+    LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
     mean, std = mean_and_std(population)

@@ -62,9 +62,9 @@ def aneuploidy_test_demo(obs_filename):
     args = dict(obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.obs.p',
                 hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap',
                 leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend',
-                block_size = 1e5,
+                block_size = 5e4,
                 offset = 0,
-                min_reads = 2,
+                min_reads = 16,
                 max_reads = 16,
                 output_filename = None)
     args['obs_filename'] = 'results_HapMix_EXT/' + obs_filename

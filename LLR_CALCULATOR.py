@@ -13,12 +13,11 @@ Daniel Ariad (daniel@ariad.org)
 May 4th, 2020
 """
 
-import operator, itertools, pickle, math, os, sys, bz2
+import operator, itertools, pickle, math, os, sys, bz2, functools
 
 try:
     from math import prod
 except:
-    import functools
     def prod(iterable):
         """ Calculates the product of all the elements in the input iterable. """
         return functools.reduce(operator.mul, iterable, 1)
@@ -31,15 +30,17 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
         
     hap_dict = dict()
     mismatches = 0
-        
+
+    bools2int = lambda x: int(''.join(str(int(i)) for i in x),2)
+    
     for (pos, ind, read_id, read) in obs_tab:
         chr_id, pos2, ref, alt = leg_tab[ind]
         if pos!=pos2:
             raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')         
         if read==alt:
-            hap_dict[(pos,read)] = tuple(hap_tab[ind])
+            hap_dict[(pos,read)] = bools2int(hap_tab[ind])
         elif read==ref:
-            hap_dict[(pos,read)] = tuple(map(operator.not_,hap_tab[ind]))
+            hap_dict[(pos,read)] = bools2int(map(operator.not_,hap_tab[ind]))
         else:
             mismatches += 1
     
@@ -47,12 +48,10 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
     
     return hap_dict
 
-def create_frequencies(hap_dict):
+def create_frequencies(hap_dict,N):
     """ Returns the function combo_joint_frequencies, which extracts from the dictionary
         hap_dict the joint frequencies of observed alleles. """
     
-    N = len(next(iter(hap_dict.values())))
-
     def intrenal_hap_dict(*alleles):
         """ This function allows treatment of alleles and haplotypes on an
         equal footing. This is done in three steps: (1) All the alleles and
@@ -69,9 +68,9 @@ def create_frequencies(hap_dict):
                 if n==1: 
                     hap[chr(i)] = hap_dict[X[0]] 
                 elif n==2:
-                    hap[chr(i)] = tuple(map(operator.and_,hap_dict[X[0]],hap_dict[X[1]]))
+                    hap[chr(i)] = hap_dict[X[0]] & hap_dict[X[1]]
                 else:
-                    hap[chr(i)] = tuple(map(all, zip(*operator.itemgetter(*X)(hap_dict))))
+                    hap[chr(i)] = functools.reduce(operator.and_,operator.itemgetter(*X)(hap_dict))
                     
             elif type(X[0])==int: #Checks if X is a single allele.
                 hap[chr(i)] = hap_dict[X]
@@ -96,21 +95,21 @@ def create_frequencies(hap_dict):
            
         hap = intrenal_hap_dict(*alleles)   
            
-        result = {c: A.count(True) / N  for c,A in hap.items() }
+        result = {c: bin(A).count('1') / N  for c,A in hap.items() }
         
         for C in itertools.combinations(hap, 2):
-            result[''.join(C)] = operator.countOf(itertools.compress(hap[C[0]],hap[C[1]]),True) / N 
+            result[''.join(C)] = bin(hap[C[0]]&hap[C[1]]).count('1') / N 
         
         for C in itertools.combinations(hap, 3):
-            result[''.join(C)] = operator.countOf(itertools.compress(hap[C[0]], map(operator.and_,hap[C[1]],hap[C[2]])),True) / N
-    
+            result[''.join(C)] = bin(hap[C[0]]&hap[C[1]]&hap[C[2]]).count('1') / N 
+        
         for r in range(4,len(alleles)):
             for C in itertools.combinations(hap, r):
-                result[''.join(C)] = operator.countOf(map(all,zip(*operator.itemgetter(*C)(hap))),True) / N
+                result[''.join(C)] = bin(functools.reduce(operator.and_,operator.itemgetter(*C)(hap))).count('1') / N
                 
         if len(alleles)>=4:
-            result[''.join(hap.keys())] = operator.countOf(map(all,zip(*hap.values())),True) / N        
-        
+            result[''.join(hap.keys())] = bin(functools.reduce(operator.and_,hap.values())).count('1') / N
+            
         return result
     
     return joint_frequencies_combo
@@ -126,12 +125,13 @@ def create_LLR(models_dict,joint_frequencies_combo):
         """ Calculates the log-likelihood BPH/SPH ratio for a tuple that contains
         alleles and haplotypes. """
                 
-        l = len(alleles)
+        model = models_dict[len(alleles)]
         freq = joint_frequencies_combo(*alleles)
+        
         BPH = sum(A[0]/A[1] * sum(prod(freq[b] for b in B) for B in C)
-                   for A,C in models_dict[l]['BPH'].items())
+                   for A,C in model['BPH'].items())
         SPH = sum(A[0]/A[1] * sum(prod(freq[b] for b in B) for B in C) 
-                   for A,C in models_dict[l]['SPH'].items())
+                   for A,C in model['SPH'].items())
         
         result = None if SPH<1e-16 else math.log(BPH/SPH)
                 
@@ -149,7 +149,7 @@ def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab,models_filename):
     with bz2.BZ2File(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
     
-    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)))
+    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab),len(hap_tab[0])))
     return LLR
 
 def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
@@ -174,7 +174,7 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
         models_dict = pickle.load(f)
     
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
-    joint_frequencies_combo = create_frequencies(hap_dict)
+    joint_frequencies_combo = create_frequencies(hap_dict,len(hap_tab[0]))
     LLR = create_LLR(models_dict,joint_frequencies_combo)     
     
     ###LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
@@ -212,7 +212,8 @@ else:
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
     
-    with open('MODELS16.p', 'rb') as f:
+    with bz2.BZ2File('MODELS/MODELS16A.pbz2', 'rb') as f:
+    #with open('MODELS16.p', 'rb') as f:
         models_dict = pickle.load(f)
         
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
@@ -221,7 +222,8 @@ else:
     positions = tuple(hap_dict.keys())
     
     #frequencies, frequency = create_frequencies(hap_dict)
-    frequencies = create_frequencies(hap_dict)
+    N = len(hap_tab[0])
+    frequencies = create_frequencies(hap_dict,N)
     
     LLR = create_LLR(models_dict,frequencies) 
     
@@ -251,4 +253,4 @@ else:
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))   
-"""    
+"""   
