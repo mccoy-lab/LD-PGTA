@@ -14,7 +14,7 @@ Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
 
-import collections, time, pickle, statistics, argparse, re, sys, operator, heapq, random
+import collections, time, pickle, statistics, argparse, re, sys, operator, random, heapq
 
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
@@ -70,17 +70,41 @@ def build_reads_dict(obs_tab,leg_tab):
        
     return reads
 
-def pick_reads(reads_dict,read_IDs,min_reads,max_reads):
+def build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab):
+    from LLR_CALCULATOR import build_hap_dict
+    
+    hap_dict = build_hap_dict(obs_tab,leg_tab,hap_tab)
+    N = len(hap_tab[0])
+    
+    rank_dict = dict()
+    for read_id in reads_dict:
+        frequencies = tuple(bin(hap_dict[allele]).count('1') / N  for allele in reads_dict[read_id])
+        rank_dict[read_id] = sum(1-abs(2*f-1) for f in frequencies) / len(frequencies)
+    
+    return rank_dict
+
+def pick_reads_V2(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
     """ Picks randomly up to N reads out of all the reads in a given LD block. 
         In addition, if the number of reads in a given LD block is less than
         the minimal requirment then the block would not be considered."""
+    
+    if len(read_IDs) < max(2,min_reads): return None
+    prioritised = heapq.nlargest(16,read_IDs, key=lambda x: rank_dict[x])
+    haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised)
+    
+    return haplotypes
+
+def pick_reads(reads_dict,read_IDs,min_reads,max_reads):
+    """ Picks randomly up to max_reads reads out of all the reads in a given LD
+        block. In addition, if the number of reads in a given LD block is less
+        than the minimal requirment then the block would not be considered."""
     
     if len(read_IDs) < max(2,min_reads): return None
     reads = tuple(reads_dict[read_ID] for read_ID in read_IDs)
     HAPLOTYPES = reads if len(reads)<=max_reads else random.sample(reads,max_reads)    
     
     return HAPLOTYPES
-    
+
 def build_blocks_dict(aux_dict,block_size,offset):
     """ Returns a dictionary that lists LD blocks and gives the read IDs of 
         reads that overlap with SNPs in the block."""
@@ -144,7 +168,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     info.update({'block_size': block_size,
                  'offset': offset,
                  'min_reads': min_reads,
-                 'max_reads': max_reads})
+                 'max_reads': max_reads,
+                 'runtime': time.time()-a})
     
     info['statistics'] = {'mean': mean, 'std': std,
                           'jk_mean': jk_mean, 'jk_std': jk_std, 'jk_bias': jk_bias,
@@ -161,7 +186,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
     return LLR_dict, info
-
+"""
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
     description='Builds a dictionary that lists linkage disequilibrium (LD) '
@@ -197,52 +222,46 @@ if __name__ == "__main__":
     sys.exit(0)
 else: 
     print("The module ANEUPLOIDY_TEST was imported.")
+"""
 
 
 
 
-
-"""   
+   
 if __name__ == "__main__": 
     print("Executed when invoked directly")
     a = time.time()
     
-    args = dict(obs_filename = 'results_HapMix_EXT//mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.OBS.p',
+    args = dict(obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.obs.p',
                 hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap',
                 leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend',
                 block_size = 1e5,
                 offset = 0,
-                output_filename = None,
-                min_alleles_per_block = None,
-                min_alleles_per_read = None,
-                min_reads_per_block = 2)
-    
-    #LLR_dict, info = main(**args) 
-    #models_filename = 'MODELS.p'
-    
-    
+                min_reads = 2,
+                max_reads = 16,
+                output_filename = None)
+     
     hap_tab = read_impute2(args['hap_filename'], filetype='hap')
     leg_tab = read_impute2(args['leg_filename'], filetype='leg')
     
     with open(args['obs_filename'], 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
-      
-    aux_dict = build_aux_dict(obs_tab, leg_tab)
+        
+    aux_dict = build_aux_dict(obs_tab,leg_tab)
+    blocks_dict = build_blocks_dict(aux_dict,args['block_size'],args['offset'])
     
-    args = {'positions': tuple(aux_dict.keys()),
-            'block_size': 1e5,
-            'offset': 0 } 
+    random.seed(a=0, version=2) #I should set a=None after finishing to debug the code.
+    reads_dict = build_reads_dict(obs_tab,leg_tab)
+    rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
+    blocks_dict_picked = {block: pick_reads_V2(reads_dict,rank_dict,read_IDs,args['min_reads'],args['max_reads'])
+                          for block,read_IDs in blocks_dict.items()}
+    #blocks_dict_picked = {block: pick_reads(reads_dict,read_IDs,args['min_reads'],args['max_reads']) 
+    #                           for block,read_IDs in blocks_dict.items()}
     
-    blocks_dict = build_blocks_dict(**args)
-    
-    thresholds = dict(min_alleles_per_block = None,
-                      min_alleles_per_read = None,
-                      min_reads_per_block = 2)
-    
-    blocks_dict_grouped = {block: group_alleles(aux_dict,positions,**thresholds) for block,positions in blocks_dict.items()}
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab)
-    LLR_dict = {block: LLR(*arg) if arg!=None else None for block,arg in blocks_dict_grouped.items()}
+    #sys.exit(0)
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.pbz2')
+    LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
     mean, std = mean_and_std(population)
@@ -255,14 +274,28 @@ if __name__ == "__main__":
     num_of_LD_blocks = len(population)
     fraction_of_negative_LLRs = sum([1 for i  in population if i<0])/len(population)
     
-    print('Mean: %.3f, STD: %.3f' % (mean, std))
+    print('Depth: %.2f, Mean: %.3f, STD: %.3f' % (info['depth'], mean, std))
     print('Jackknife estimator: %.3f, Jackknife standard error: %.3f, Jackknife bias: %.3f' % (jk_mean, jk_std, jk_bias))
     print('Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (num_of_LD_blocks,fraction_of_negative_LLRs))
     
-        
-    #A = group_alleles(aux_dict,positions[:20])
+    info.update({'block_size': args['block_size'],
+                 'offset': args['offset'],
+                 'min_reads': args['min_reads'],
+                 'max_reads': args['max_reads']})
+    
+    info['statistics'] = {'mean': mean, 'std': std,
+                          'jk_mean': jk_mean, 'jk_std': jk_std, 'jk_bias': jk_bias,
+                          'num_of_LD_blocks': num_of_LD_blocks,
+                          'fraction_of_negative_LLRs': fraction_of_negative_LLRs} 
+    
+    output_filename, obs_filename = args['output_filename'], args['obs_filename']
+    
+    if output_filename!=None:
+        default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
+        output_filename = default_filename if output_filename=='' else output_filename 
+        with open( output_filename, "wb") as f:
+            pickle.dump(obs_tab, f, protocol=4)
+            pickle.dump(info, f, protocol=4)    
     
     b = time.time()
-
-    print('Done in %.3f sec.' % ((b-a)))
-"""
+    print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
