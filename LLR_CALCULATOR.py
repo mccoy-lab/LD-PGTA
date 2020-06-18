@@ -33,14 +33,14 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
 
     bools2int = lambda x: int(''.join(str(int(i)) for i in x),2)
     
-    for (pos, ind, read_id, read) in obs_tab:
+    for (pos, ind, read_id, base) in obs_tab:
         chr_id, pos2, ref, alt = leg_tab[ind]
         if pos!=pos2:
             raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')         
-        if read==alt:
-            hap_dict[(pos,read)] = bools2int(hap_tab[ind])
-        elif read==ref:
-            hap_dict[(pos,read)] = bools2int(map(operator.not_,hap_tab[ind]))
+        if base==alt:
+            hap_dict[(pos,base)] = bools2int(hap_tab[ind])
+        elif base==ref:
+            hap_dict[(pos,base)] = bools2int(map(operator.not_,hap_tab[ind]))
         else:
             mismatches += 1
     
