@@ -145,8 +145,10 @@ def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab,models_filename):
         returns the function LLR."""
         
     if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
-    ###with open('MODELS16.p', 'rb') as models:
-    with bz2.BZ2File(models_filename, 'rb') as f:
+    ###with open(models_filename, 'rb') as f:
+    ###with bz2.BZ2File(models_filename, 'rb') as f:
+    load_model = bz2.BZ2File if models_filename.split('.')[-1]=='pbz2' else open
+    with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
     
     LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab),len(hap_tab[0])))
@@ -169,8 +171,11 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
+    
     ###with open(models_filename, 'rb') as f:
-    with bz2.BZ2File(models_filename, 'rb') as f:
+    ###with bz2.BZ2File(models_filename, 'rb') as f:
+    load_model = bz2.BZ2File if models_filename.split('.')[-1]=='pbz2' else open
+    with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
     
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)

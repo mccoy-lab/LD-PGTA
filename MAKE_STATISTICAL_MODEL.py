@@ -49,14 +49,15 @@ def BUILD(x):
         models[i]= {'BPH': BPH(i), 'SPH': SPH(i)}
         b = time.time()
         print('Done building in %.3f sec.' % ((b-a)))
-    #with open( 'MODELS.p', 'wb') as f:
+    with open( 'MODELS.p', 'wb') as f:
+        pickle.dump(models, f, protocol=4)
     with bz2.BZ2File( 'MODELS.pbz2', 'wb') as f:
         pickle.dump(models, f, protocol=4)
     return models
 
 if __name__ == "__main__":
     print("Executed when invoked directly")
-    models = BUILD(16)
+    models = BUILD(17)
 else:
     print("Executed when imported")
    
