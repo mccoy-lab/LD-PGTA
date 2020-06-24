@@ -102,11 +102,8 @@ def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
         if the number of reads in a given LD block is less than the minimal
         requirment then the block would not be considered."""
     
-    #print(tuple(rank_dict[read_ID] for read_ID in read_IDs))
-    ####read_IDs = tuple(read_ID for read_ID in read_IDs if rank_dict[read_ID]>0.65)
     if len(read_IDs) < max(2,min_reads): return None
     prioritised = heapq.nlargest(16,read_IDs, key=lambda x: rank_dict[x])
-    #print(tuple(rank_dict[read_ID] for read_ID in prioritised))
     haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised)
     
     return haplotypes
@@ -148,12 +145,11 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     aux_dict = build_aux_dict(obs_tab,leg_tab)
     blocks_dict = build_blocks_dict(aux_dict,block_size,offset)
     
-    random.seed(a=0, version=2) #I should set a=None after finishing to debug the code.
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     blocks_dict_picked = {block: pick_reads(reads_dict,read_IDs,min_reads,max_reads) 
                                for block,read_IDs in blocks_dict.items()}
     
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.pbz2')
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.p')
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
@@ -192,7 +188,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
     return LLR_dict, info
-"""
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
     description='Builds a dictionary that lists linkage disequilibrium (LD) '
@@ -228,12 +224,12 @@ if __name__ == "__main__":
     sys.exit(0)
 else: 
     print("The module ANEUPLOIDY_TEST was imported.")
-"""
 
 
 
 
-   
+
+"""   
 if __name__ == "__main__": 
     print("Executed when invoked directly")
     a = time.time()
@@ -257,7 +253,7 @@ if __name__ == "__main__":
     aux_dict = build_aux_dict(obs_tab,leg_tab)
     blocks_dict = build_blocks_dict(aux_dict,args['block_size'],args['offset'])
     
-    random.seed(a=0, version=2) #I should set a=None after finishing to debug the code.
+    #random.seed(a=0, version=2) #I should set a=None after finishing to debug the code.
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
     blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,args['min_reads'],args['max_reads'])
@@ -305,3 +301,4 @@ if __name__ == "__main__":
     
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
+"""
