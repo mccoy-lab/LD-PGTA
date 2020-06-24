@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-
 ANEUPLOIDY_TEST
-
 Builds a dictionary that lists linkage disequilibrium (LD) blocks that contain
 at least two reads and gives the associated log-likelihood BPH/SPH ratio (LLR).
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
-
 Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
 
-import collections, time, pickle, statistics, argparse, re, sys, operator, random
+import collections, time, pickle, statistics, argparse, re, sys, operator, random, heapq, itertools, functools
 
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
@@ -70,17 +67,50 @@ def build_reads_dict(obs_tab,leg_tab):
        
     return reads
 
-def pick_reads(reads_dict,read_IDs,min_reads,max_reads):
-    """ Picks randomly up to N reads out of all the reads in a given LD block. 
-        In addition, if the number of reads in a given LD block is less than
-        the minimal requirment then the block would not be considered."""
+def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
+    """ Returns a dicitonary lists read_IDs and gives their rank. The rank of a
+        read is inherited from the rank of the SNPs that are overlapped by the
+        read. Thus, the rank of a read depends on its starting position and 
+        length, but not on the alleles that it contains. """
+
+    def bools2int(x):
+        return int(''.join(str(int(i)) for i in x),2)
     
+    def rank(X,N):
+        joint_freq = bin(functools.reduce(operator.and_,X)).count('1') / N
+        return 6.75*joint_freq*(1-joint_freq)**2
+    
+    N = len(hap_tab[0])
+    nested = lambda: collections.defaultdict(list)
+    
+    hap_dict = collections.defaultdict(nested)
+    for (pos, ind, read_id, base) in obs_tab:
+        *_, ref, alt = leg_tab[ind]
+        if base==alt or base==ref: 
+            hap_dict[pos][alt] = bools2int(hap_tab[ind])
+            hap_dict[pos][ref] = bools2int(map(operator.not_,hap_tab[ind]))
+        
+    rank_dict = dict()
+    for read_id in reads_dict:
+        hap = [[h for h in hap_dict[pos].values()] for pos,base in reads_dict[read_id]]
+        rank_dict[read_id] = sum(rank(C,N) for C in itertools.product(*hap))
+    return rank_dict
+
+def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
+    """ Picks up to max_reads reads out of all the reads in a given LD block;
+        The reads are choosen according to a priority dictionary. In addition, 
+        if the number of reads in a given LD block is less than the minimal
+        requirment then the block would not be considered."""
+    
+    #print(tuple(rank_dict[read_ID] for read_ID in read_IDs))
+    ####read_IDs = tuple(read_ID for read_ID in read_IDs if rank_dict[read_ID]>0.65)
     if len(read_IDs) < max(2,min_reads): return None
-    reads = tuple(reads_dict[read_ID] for read_ID in read_IDs)
-    haplotypes = reads if len(reads)<=max_reads else random.sample(reads,max_reads)    
+    prioritised = heapq.nlargest(16,read_IDs, key=lambda x: rank_dict[x])
+    #print(tuple(rank_dict[read_ID] for read_ID in prioritised))
+    haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised)
     
     return haplotypes
-    
+
 def build_blocks_dict(aux_dict,block_size,offset):
     """ Returns a dictionary that lists LD blocks and gives the read IDs of 
         reads that overlap with SNPs in the block."""
@@ -123,7 +153,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     blocks_dict_picked = {block: pick_reads(reads_dict,read_IDs,min_reads,max_reads) 
                                for block,read_IDs in blocks_dict.items()}
     
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.p')
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.pbz2')
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
@@ -162,7 +192,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
     return LLR_dict, info
-
+"""
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
     description='Builds a dictionary that lists linkage disequilibrium (LD) '
@@ -198,12 +228,12 @@ if __name__ == "__main__":
     sys.exit(0)
 else: 
     print("The module ANEUPLOIDY_TEST was imported.")
+"""
 
 
 
 
-
-"""  
+   
 if __name__ == "__main__": 
     print("Executed when invoked directly")
     a = time.time()
@@ -211,9 +241,9 @@ if __name__ == "__main__":
     args = dict(obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.obs.p',
                 hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap',
                 leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend',
-                block_size = 2e5,
+                block_size = 1e5,
                 offset = 0,
-                min_reads = 16,
+                min_reads = 2,
                 max_reads = 16,
                 output_filename = None)
      
@@ -229,11 +259,14 @@ if __name__ == "__main__":
     
     random.seed(a=0, version=2) #I should set a=None after finishing to debug the code.
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-    blocks_dict_picked = {block: pick_reads(reads_dict,read_IDs,args['min_reads'],args['max_reads']) 
-                               for block,read_IDs in blocks_dict.items()}
+    rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
+    blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,args['min_reads'],args['max_reads'])
+                          for block,read_IDs in blocks_dict.items()}
+    #blocks_dict_picked = {block: pick_reads(reads_dict,read_IDs,args['min_reads'],args['max_reads']) 
+    #                           for block,read_IDs in blocks_dict.items()}
     
     #sys.exit(0)
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.pbz2')
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.p')
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
@@ -272,4 +305,3 @@ if __name__ == "__main__":
     
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
-"""
