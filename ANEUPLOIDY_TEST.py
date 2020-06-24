@@ -146,7 +146,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     blocks_dict = build_blocks_dict(aux_dict,block_size,offset)
     
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-    blocks_dict_picked = {block: pick_reads(reads_dict,read_IDs,min_reads,max_reads) 
+    rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
+    blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
                                for block,read_IDs in blocks_dict.items()}
     
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.p')
