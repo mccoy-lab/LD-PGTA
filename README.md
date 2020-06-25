@@ -1,4 +1,4 @@
-A method to distinguish meiotic and mitotic origins of trisomies to improve embryo selection with preimplantation genetic testing
+#A method to distinguish meiotic and mitotic origins of trisomies to improve embryo selection with preimplantation genetic testing#
 
 Aneuploidy is the leading cause of pregnancy loss and human congenital disorders, and may arise by meiotic or mitotic mechanisms. While meiotic errors affect all cells and are deleterious, mitotic errors generate mosaicism, which may be compatible with healthy live birth. Knowledge of the meiotic versus mitotic errors could therefore improve the efficacy of preimplantation genetic testing for aneuploidy (PGT-A), which seeks to rank in vitro fertilized (IVF) embryos for transfer based on their inferred ploidy status. To this end, we developed a statistical approach tailored to low-coverage sequencing-based PGT-A data to distinguish meiotic and mitotic-origin trisomies.
 
