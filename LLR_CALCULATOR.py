@@ -186,7 +186,7 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
     return LLR
         
 ###############################################################################
-
+"""
 if __name__ != "__main__": 
     print("The module LLR_CALCULATOR was imported.")   
 else:
@@ -258,4 +258,4 @@ else:
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))   
-"""   
+   
