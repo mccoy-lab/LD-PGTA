@@ -11,7 +11,7 @@ Daniel Ariad (daniel@ariad.org)
 May 11st, 2020
 """
 
-import collections, time, pickle, statistics, argparse, re, sys, operator, random, heapq, itertools, functools
+import collections, time, pickle, statistics, argparse, re, sys, operator, heapq, itertools, functools
 
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
@@ -103,7 +103,7 @@ def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
         requirment then the block would not be considered."""
     
     if len(read_IDs) < max(2,min_reads): return None
-    prioritised = heapq.nlargest(16,read_IDs, key=lambda x: rank_dict[x])
+    prioritised = heapq.nlargest(max_reads,read_IDs, key=lambda x: rank_dict[x])
     haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised)
     
     return haplotypes
@@ -150,7 +150,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
                                for block,read_IDs in blocks_dict.items()}
     
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16A.p')
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS17B.p')
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
@@ -226,7 +226,7 @@ if __name__ == "__main__":
 else: 
     print("The module ANEUPLOIDY_TEST was imported.")
 
-
+### END OF FILE ###
 
 
 

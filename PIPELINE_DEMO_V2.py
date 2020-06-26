@@ -65,7 +65,7 @@ def aneuploidy_test_demo(obs_filename):
                 block_size = 1e5,
                 offset = 0,
                 min_reads = 2,
-                max_reads = 16,
+                max_reads = 8,
                 output_filename = None)
     args['obs_filename'] = 'results_HapMix_EXT/' + obs_filename
     args['output_filename'] = 'results_HapMix_EXT/'+re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
@@ -97,8 +97,8 @@ if __name__ == "__main__":
     #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.4, 'all', 'results_HapMix_EXT', '')
     #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.5, 'all', 'results_HapMix_EXT', '')
 
-    LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.2.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
+    LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.obs.p')
+    LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.5.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
     #aneuploidy_test_demo('mixed2haploids.X0.02.SRR10393062.SRR151495.0-2.hg38.obs.p')
 
     

@@ -13,28 +13,14 @@ Daniel Ariad (daniel@ariad.org)
 May 4th, 2020
 """
 
-import pickle, os, sys, bz2
-
-from functools import reduce
-from operator import not_, and_, mul, itemgetter
-from itertools import combinations
-from math import log
+import operator, itertools, pickle, math, os, sys, bz2, functools
 
 try:
-    from gmpy2 import popcount
-except:
-    print('caution: cound not import the gmpy2 module.')
-    def popcount(x):
-        """ Counts non-zero bits in positive integer. """
-        return bin(x).count('1')
-    
-try:    
     from math import prod
 except:
-    print('caution: count not import the function prod from the math module.')
     def prod(iterable):
         """ Calculates the product of all the elements in the input iterable. """
-        return reduce(mul, iterable, 1)
+        return functools.reduce(operator.mul, iterable, 1)
 
 def build_hap_dict(obs_tab,leg_tab,hap_tab):
     """ Returns a dictionary that lists chromosome positions of SNPs and gives
@@ -45,7 +31,7 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
     hap_dict = dict()
     mismatches = 0
 
-    bools2int = lambda x: int(''.join(chr(48+i) for i in x),2)
+    bools2int = lambda x: int(''.join(str(int(i)) for i in x),2)
     
     for (pos, ind, read_id, base) in obs_tab:
         chr_id, pos2, ref, alt = leg_tab[ind]
@@ -54,7 +40,7 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
         if base==alt:
             hap_dict[(pos,base)] = bools2int(hap_tab[ind])
         elif base==ref:
-            hap_dict[(pos,base)] = bools2int(map(not_,hap_tab[ind]))
+            hap_dict[(pos,base)] = bools2int(map(operator.not_,hap_tab[ind]))
         else:
             mismatches += 1
     
@@ -76,18 +62,18 @@ def create_frequencies(hap_dict,N):
         haplotype their associated tuple and intersected tuple, respectively. """ 
         hap = dict()
             
-        for i, X in enumerate(alleles):
+        for i, X in enumerate(alleles,start=65):
             if type(X[0])==tuple: #Checks if X is a tuple/list of alleles.
                 n = len(X)
                 if n==1: 
-                    hap[1 << i] = hap_dict[X[0]] 
+                    hap[chr(i)] = hap_dict[X[0]] 
                 elif n==2:
-                    hap[1 << i] = hap_dict[X[0]] & hap_dict[X[1]]
+                    hap[chr(i)] = hap_dict[X[0]] & hap_dict[X[1]]
                 else:
-                    hap[1 << i] = reduce(and_,itemgetter(*X)(hap_dict))
+                    hap[chr(i)] = functools.reduce(operator.and_,operator.itemgetter(*X)(hap_dict))
                     
             elif type(X[0])==int: #Checks if X is a single allele.
-                hap[1 << i] = hap_dict[X]
+                hap[chr(i)] = hap_dict[X]
             else:
                 raise Exception('error: joint_frequencies only accepts alleles and tuple/list of alleles.')
        
@@ -109,21 +95,21 @@ def create_frequencies(hap_dict,N):
            
         hap = intrenal_hap_dict(*alleles)   
            
-        result = {c: popcount(A) / N  for c,A in hap.items() }
+        result = {c: bin(A).count('1') / N  for c,A in hap.items() }
         
-        for C in combinations(hap, 2):
-            result[C[0]|C[1]] = popcount(hap[C[0]]&hap[C[1]]) / N 
+        for C in itertools.combinations(hap, 2):
+            result[''.join(C)] = bin(hap[C[0]]&hap[C[1]]).count('1') / N 
         
-        for C in combinations(hap, 3):
-            result[C[0]|C[1]|C[2]] = popcount(hap[C[0]]&hap[C[1]]&hap[C[2]]) / N 
+        for C in itertools.combinations(hap, 3):
+            result[''.join(C)] = bin(hap[C[0]]&hap[C[1]]&hap[C[2]]).count('1') / N 
         
         for r in range(4,len(alleles)):
-            for C in combinations(hap, r):
-                result[sum(C)] = popcount(reduce(and_,itemgetter(*C)(hap))) / N
+            for C in itertools.combinations(hap, r):
+                result[''.join(C)] = bin(functools.reduce(operator.and_,operator.itemgetter(*C)(hap))).count('1') / N
                 
         if len(alleles)>=4:
-            result[sum(hap.keys())] = popcount(reduce(and_,hap.values())) / N
-       
+            result[''.join(hap.keys())] = bin(functools.reduce(operator.and_,hap.values())).count('1') / N
+            
         return result
     
     return joint_frequencies_combo
@@ -139,14 +125,15 @@ def create_LLR(models_dict,joint_frequencies_combo):
         """ Calculates the log-likelihood BPH/SPH ratio for a tuple that contains
         alleles and haplotypes. """
                 
+        model = models_dict[len(alleles)]
         freq = joint_frequencies_combo(*alleles)
         
         BPH = sum(A[0]/A[1] * sum(prod(freq[b] for b in B) for B in C)
-                   for A,C in models_dict[len(alleles)]['BPH'].items())
+                   for A,C in model['BPH'].items())
         SPH = sum(A[0]/A[1] * sum(prod(freq[b] for b in B) for B in C) 
-                   for A,C in models_dict[len(alleles)]['SPH'].items())
+                   for A,C in model['SPH'].items())
         
-        result = None if SPH<1e-16 else log(BPH/SPH)
+        result = None if SPH<1e-16 else math.log(BPH/SPH)
                 
         return result
     
@@ -156,7 +143,7 @@ def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab,models_filename):
     """ Wraps the fuction create_LLR. It receives an observations array, legend
         array and haplotypes array. Based on the given data it creates and
         returns the function LLR."""
-        
+    models_filename = 'MODELS/MODELS16A.pbz2'   
     if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
     ###with open(models_filename, 'rb') as f:
     ###with bz2.BZ2File(models_filename, 'rb') as f:
@@ -198,7 +185,7 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
     ###LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return LLR
         
-
+###############################################################################
 """
 if __name__ != "__main__": 
     print("The module LLR_CALCULATOR was imported.")   
@@ -206,10 +193,10 @@ else:
     print("Executed when the module LLR_CALCULATOR is invoked directly")
     sys.exit(0)
 
-###############################   END OF FILE   ###############################
+
+
 
 """
-
 if __name__ != "__main__": 
     print("The module LLR_CALCULATOR was imported.")   
 else:
@@ -230,8 +217,8 @@ else:
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
     
-    #with bz2.BZ2File('MODELS/MODELS16B.pbz2', 'rb') as f:
-    with open('MODELS/MODELS16B.p', 'rb') as f:
+    with bz2.BZ2File('MODELS/MODELS16A.pbz2', 'rb') as f:
+    #with open('MODELS16.p', 'rb') as f:
         models_dict = pickle.load(f)
         
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
@@ -242,32 +229,30 @@ else:
     #frequencies, frequency = create_frequencies(hap_dict)
     N = len(hap_tab[0])
     frequencies = create_frequencies(hap_dict,N)
-    def frequencies2(*x):
-        return {bin(a)[2:]:b for a,b in frequencies(*x).items()}
-        
+    
     LLR = create_LLR(models_dict,frequencies) 
     
     pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
     
-    print(frequencies2(positions[0]))
+    print(frequencies(positions[0]))
     #print(frequency(positions[0]))
-    print(frequencies2(positions[:4]))
+    print(frequencies(positions[:4]))
     #print(frequency(positions[:4]))
     print('-----')
     print(pos)
-    print(frequencies2(*pos))
+    print(frequencies(*pos))
     print(LLR(*pos))
     print('-----')
     print(positions[:2])
-    print(frequencies2(*positions[:2]))
+    print(frequencies(*positions[:2]))
     print(LLR(*positions[:2]))
     print('-----')
     print(positions[:3])
-    print(frequencies2(*positions[:3]))
+    print(frequencies(*positions[:3]))
     print(LLR(*positions[:3]))
     print('-----')
     print(positions[:4])
-    print(frequencies2(*positions[:4]))
+    print(frequencies(*positions[:4]))
     print(LLR(*positions[:4]))
 
     b = time.time()

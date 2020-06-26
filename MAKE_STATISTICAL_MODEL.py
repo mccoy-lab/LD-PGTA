@@ -11,7 +11,7 @@ involving identical homologs.
 Daniel Ariad (daniel@ariad.org)
 June 5th, 2020
 """
-import itertools, collections, math, pickle, time, bz2
+import itertools, collections, math, pickle, time, bz2, array, functools, operator
 
 def engine(N,degeneracies):
     model = collections.defaultdict(int)
@@ -29,7 +29,7 @@ def engine(N,degeneracies):
     T = sum(degeneracies.values())**N
     while(len(model)!=0):
         haplotypes, weight = model.popitem()
-        HAPLOTYPES = tuple(''.join(chr(x+65) for x in h) for h in haplotypes)
+        HAPLOTYPES = tuple(sum(1 << x for x in h) for h in haplotypes)
         gcd = math.gcd(weight,T)
         compact[weight//gcd,T//gcd].append(HAPLOTYPES)
     for key in compact: compact[key] = tuple(compact[key])
