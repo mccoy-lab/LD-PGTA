@@ -65,7 +65,7 @@ def aneuploidy_test_demo(obs_filename):
                 block_size = 1e5,
                 offset = 0,
                 min_reads = 2,
-                max_reads = 8,
+                max_reads = 16,
                 output_filename = None)
     args['obs_filename'] = 'results_HapMix_EXT/' + obs_filename
     args['output_filename'] = 'results_HapMix_EXT/'+re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    

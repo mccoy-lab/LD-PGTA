@@ -150,7 +150,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
                                for block,read_IDs in blocks_dict.items()}
     
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS17B.p')
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16D.p')
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    

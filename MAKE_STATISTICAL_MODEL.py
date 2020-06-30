@@ -11,9 +11,9 @@ involving identical homologs.
 Daniel Ariad (daniel@ariad.org)
 June 5th, 2020
 """
-import itertools, collections, math, pickle, time, bz2, array, functools, operator
+import itertools, collections, math, pickle, time, bz2
 
-def engine(N,degeneracies):
+def ENGINE(N,degeneracies):
     model = collections.defaultdict(int)
     for C in itertools.product(''.join(i for i in degeneracies.keys()),repeat=N):
         groups = collections.defaultdict(list)
@@ -24,7 +24,9 @@ def engine(N,degeneracies):
         haplotypes = tuple(tuple(i) for i in groups.values())
         key = sorted(haplotypes,key=lambda x: (len(x), x[0] if len(x)>0 else 0))
         model[tuple(key)]+=weight
+    return model
     
+def COMPACT(model,N,degeneracies):
     compact = {i+1: collections.defaultdict(list) for i in range(len(degeneracies))}
     T = sum(degeneracies.values())**N
     while(len(model)!=0):
@@ -34,14 +36,25 @@ def engine(N,degeneracies):
         compact[len(HAPLOTYPES)][weight//gcd,T//gcd].append(HAPLOTYPES)
     for k1 in compact:
         compact[k1] = {k2:tuple(v) for k2,v in compact[k1].items()}
-
     return compact
 
 def SPH(N):
-    return engine(N,{'a': 1, 'b': 2})
+    degeneracies = {'a': 1, 'b': 2}
+    model = ENGINE(N,degeneracies)
+    return COMPACT(model,N,degeneracies)
 
 def BPH(N):
-    return engine(N,{'a': 1, 'b': 1, 'c': 1})
+    degeneracies = {'a': 1, 'b': 1, 'c': 1}
+    model = ENGINE(N,degeneracies)
+    compact = COMPACT(model,N,degeneracies)
+    nested = lambda: collections.defaultdict(list)
+    compact3 = collections.defaultdict(nested)
+    for normalized_weight, triplets in compact[3].items():
+        for haplotypes in triplets:
+            compact3[normalized_weight][haplotypes[0]].append((haplotypes[1],haplotypes[2]))
+    for k1 in compact3:
+        compact[3][k1] = {k2:tuple(v) for k2,v in compact3[k1].items()}    
+    return(compact)    
     
 def BUILD(x):
     models = dict()
@@ -59,7 +72,7 @@ def BUILD(x):
 
 if __name__ == "__main__":
     print('The module MAKE_STATISTICAL_MODEL was invoked directly.')
-    models = BUILD(16)
+    #models = BUILD(18)
 else:
     print('The module MAKE_STATISTICAL_MODEL was imported.')
    

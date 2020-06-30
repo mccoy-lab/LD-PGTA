@@ -16,7 +16,7 @@ May 4th, 2020
 import pickle, os, sys, bz2
 
 from functools import reduce
-from operator import not_, and_, mul, itemgetter
+from operator import not_, and_, itemgetter
 from itertools import combinations
 from math import log
 
@@ -27,14 +27,6 @@ except:
     def popcount(x):
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')
-    
-try:    
-    from math import prod
-except:
-    print('caution: count not import the function prod from the math module.')
-    def prod(iterable):
-        """ Calculates the product of all the elements in the input iterable. """
-        return reduce(mul, iterable, 1)
 
 def build_hap_dict(obs_tab,leg_tab,hap_tab):
     """ Returns a dictionary that lists chromosome positions of SNPs and gives
@@ -139,25 +131,29 @@ def create_LLR(models_dict,joint_frequencies_combo):
         """ Calculates the log-likelihood BPH/SPH ratio for a tuple that contains
         alleles and haplotypes. """
                 
-        freq = joint_frequencies_combo(*alleles)
+        F = joint_frequencies_combo(*alleles)
         N = len(alleles)
         
         ### BPH ###
-        (((A0,A1),((B0,),)),) = models_dict[N]['BPH'][1].items()
-        BPH = A0/A1 * freq[B0]
+        (((A0, A1),((B0,),)),) = models_dict[N]['BPH'][1].items()
+        BPH = A0/A1 * F[B0]
         
-        BPH += sum(A0/A1 * sum(freq[B0]*freq[B1] for (B0,B1) in C) 
-                   for (A0,A1),C in models_dict[N]['BPH'][2].items())
+        BPH += sum(A0/A1 * sum(F[B0] * F[B1] for (B0,B1) in C)
+                   for (A0, A1), C in models_dict[N]['BPH'][2].items())
         
-        BPH += sum(A0/A1 * sum(freq[B0]*freq[B1]*freq[B2] for (B0,B1,B2) in C) 
-                   for (A0,A1),C in models_dict[N]['BPH'][3].items())
-
+        if N==2:
+            BPH += sum(A0/A1 * sum(F[B0] * F[B1] * F[B2] for (B0, B1, B2) in C)
+                       for (A0, A1), C in models_dict[N]['BPH'][3].items())
+        else:
+            BPH += sum(A0/A1 * sum(F[B0] * sum(F[B1] * F[B2] for (B1, B2) in C[B0]) for B0 in C)
+                       for (A0, A1), C in models_dict[N]['BPH'][3].items())
+            
         ### SPH ###        
-        (((A0,A1),((B0,),)),) = models_dict[N]['SPH'][1].items()
-        SPH = A0/A1 * freq[B0]
+        (((A0, A1),((B0,),)),) = models_dict[N]['SPH'][1].items()
+        SPH = A0/A1 * F[B0]
         
-        SPH += sum(A0/A1 * sum(freq[B0]*freq[B1] for (B0,B1) in C) 
-                   for (A0,A1),C in models_dict[N]['SPH'][2].items())
+        SPH += sum(A0/A1 * sum(F[B0] * F[B1] for (B0, B1) in C)
+                   for (A0, A1), C in models_dict[N]['SPH'][2].items())
         
         result = None if SPH<1e-16 else log(BPH/SPH)
         return result
@@ -242,8 +238,8 @@ else:
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
     
-    #with bz2.BZ2File('MODELS/MODELS16B.pbz2', 'rb') as f:
-    with open('MODELS/MODELS16B.p', 'rb') as f:
+    #with bz2.BZ2File('MODELS/MODELS16D.pbz2', 'rb') as f:
+    with open('MODELS/MODELS16D.p', 'rb') as f:
         models_dict = pickle.load(f)
         
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
@@ -262,9 +258,7 @@ else:
     pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
     
     print(frequencies2(positions[0]))
-    #print(frequency(positions[0]))
     print(frequencies2(positions[:4]))
-    #print(frequency(positions[:4]))
     print('-----')
     print(pos)
     print(frequencies2(*pos))
