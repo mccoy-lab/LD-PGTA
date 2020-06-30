@@ -123,7 +123,7 @@ def create_frequencies(hap_dict,N):
                 
         if len(alleles)>=4:
             result[sum(hap.keys())] = popcount(reduce(and_,hap.values())) / N
-       
+               
         return result
     
     return joint_frequencies_combo
@@ -140,14 +140,26 @@ def create_LLR(models_dict,joint_frequencies_combo):
         alleles and haplotypes. """
                 
         freq = joint_frequencies_combo(*alleles)
+        N = len(alleles)
         
-        BPH = sum(A[0]/A[1] * sum(prod(freq[b] for b in B) for B in C)
-                   for A,C in models_dict[len(alleles)]['BPH'].items())
-        SPH = sum(A[0]/A[1] * sum(prod(freq[b] for b in B) for B in C) 
-                   for A,C in models_dict[len(alleles)]['SPH'].items())
+        ### BPH ###
+        (((A0,A1),((B0,),)),) = models_dict[N]['BPH'][1].items()
+        BPH = A0/A1 * freq[B0]
+        
+        BPH += sum(A0/A1 * sum(freq[B0]*freq[B1] for (B0,B1) in C) 
+                   for (A0,A1),C in models_dict[N]['BPH'][2].items())
+        
+        BPH += sum(A0/A1 * sum(freq[B0]*freq[B1]*freq[B2] for (B0,B1,B2) in C) 
+                   for (A0,A1),C in models_dict[N]['BPH'][3].items())
+
+        ### SPH ###        
+        (((A0,A1),((B0,),)),) = models_dict[N]['SPH'][1].items()
+        SPH = A0/A1 * freq[B0]
+        
+        SPH += sum(A0/A1 * sum(freq[B0]*freq[B1] for (B0,B1) in C) 
+                   for (A0,A1),C in models_dict[N]['SPH'][2].items())
         
         result = None if SPH<1e-16 else log(BPH/SPH)
-                
         return result
     
     return LLR
@@ -201,9 +213,9 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
 
 """
 if __name__ != "__main__": 
-    print("The module LLR_CALCULATOR was imported.")   
+    print('The module LLR_CALCULATOR was imported.')   
 else:
-    print("Executed when the module LLR_CALCULATOR is invoked directly")
+    print('The module LLR_CALCULATOR was invoked directly')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################
