@@ -25,14 +25,16 @@ def engine(N,degeneracies):
         key = sorted(haplotypes,key=lambda x: (len(x), x[0] if len(x)>0 else 0))
         model[tuple(key)]+=weight
     
-    compact = collections.defaultdict(list)
+    compact = {i+1: collections.defaultdict(list) for i in range(len(degeneracies))}
     T = sum(degeneracies.values())**N
     while(len(model)!=0):
         haplotypes, weight = model.popitem()
         HAPLOTYPES = tuple(sum(1 << x for x in h) for h in haplotypes)
         gcd = math.gcd(weight,T)
-        compact[weight//gcd,T//gcd].append(HAPLOTYPES)
-    for key in compact: compact[key] = tuple(compact[key])
+        compact[len(HAPLOTYPES)][weight//gcd,T//gcd].append(HAPLOTYPES)
+    for k1 in compact:
+        compact[k1] = {k2:tuple(v) for k2,v in compact[k1].items()}
+
     return compact
 
 def SPH(N):
@@ -56,9 +58,9 @@ def BUILD(x):
     return models
 
 if __name__ == "__main__":
-    print("Executed when invoked directly")
-    models = BUILD(17)
+    print('The module MAKE_STATISTICAL_MODEL was invoked directly.')
+    models = BUILD(16)
 else:
-    print("Executed when imported")
+    print('The module MAKE_STATISTICAL_MODEL was imported.')
    
     
