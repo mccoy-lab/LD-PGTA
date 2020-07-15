@@ -89,7 +89,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
             if pileupcolumn.pos == pos-1:
                 
                 rows = [(pos, impute2_index, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position]) for pileupread in pileupcolumn.pileups if pileupread.query_position!=None] # query_position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment). 
-            
+                
                 if pileupcolumn.get_num_aligned()==1:
                     obs_tab.extend(rows)
                 else:

@@ -74,26 +74,42 @@ def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
         length, but not on the alleles that it contains. """
 
     def bools2int(x):
+        """ Transforms a tuple/list of bools to a int. """ 
         return int(''.join(str(int(i)) for i in x),2)
-    
+        
     def rank(X,N):
+        """ Returns the rank of a given haplotypes. """
         joint_freq = bin(functools.reduce(operator.and_,X)).count('1') / N
         return 6.75*joint_freq*(1-joint_freq)**2
     
+    def test(X,N):
+        """ Return True if the frequencies of a biallelic SNP exceeds
+            a threshold. The motivation behind this test is that if a biallelic
+            SNP admits an allele with a frequency close to zero then this SNP
+            would not contribute significantly to the rank of the read.
+            However, including these SNPs extendeds the calculation time of
+            the read rank. Thus, this function determines if the SNP should be
+            included the calculation of the rank. """
+
+        threshold = 0.01
+        return threshold<bin(X).count('1')/N<(1-threshold)
+        
     N = len(hap_tab[0])
     nested = lambda: collections.defaultdict(list)
-    
+
     hap_dict = collections.defaultdict(nested)
     for (pos, ind, read_id, base) in obs_tab:
         *_, ref, alt = leg_tab[ind]
         if base==alt or base==ref: 
             hap_dict[pos][alt] = bools2int(hap_tab[ind])
             hap_dict[pos][ref] = bools2int(map(operator.not_,hap_tab[ind]))
-        
+    
     rank_dict = dict()
     for read_id in reads_dict:
-        hap = [[h for h in hap_dict[pos].values()] for pos,base in reads_dict[read_id]]
+        hap = [[a for a in hap_dict[pos].values() if test(a,N)]
+                      for pos,base in reads_dict[read_id]]
         rank_dict[read_id] = sum(rank(C,N) for C in itertools.product(*hap))
+
     return rank_dict
 
 def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
@@ -105,7 +121,6 @@ def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
     if len(read_IDs) < max(2,min_reads): return None
     prioritised = heapq.nlargest(max_reads,read_IDs, key=lambda x: rank_dict[x])
     haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised)
-    
     return haplotypes
 
 def build_blocks_dict(aux_dict,block_size,offset):
@@ -137,20 +152,23 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
 
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')
-    
+
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
-        
+
     aux_dict = build_aux_dict(obs_tab,leg_tab)
+
     blocks_dict = build_blocks_dict(aux_dict,block_size,offset)
-    
+
     reads_dict = build_reads_dict(obs_tab,leg_tab)
+
     rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
+
     blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
                                for block,read_IDs in blocks_dict.items()}
-    
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16D.p')
+
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p')
     LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
     
     population = tuple(value for value in LLR_dict.values() if value!=None)    
