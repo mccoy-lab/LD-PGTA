@@ -72,7 +72,7 @@ def BUILD(x):
 
 if __name__ == "__main__":
     print('The module MAKE_STATISTICAL_MODEL was invoked directly.')
-    #models = BUILD(18)
+    models = BUILD(18)
 else:
     print('The module MAKE_STATISTICAL_MODEL was imported.')
    

@@ -87,9 +87,9 @@ def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
             a threshold. The motivation behind this test is that if a biallelic
             SNP admits an allele with a frequency close to zero then this SNP
             would not contribute significantly to the rank of the read.
-            However, including these SNPs extendeds the calculation time of
-            the read rank. Thus, this function determines if the SNP should be
-            included the calculation of the rank. """
+            However, including these SNPs in the calculation of the rank would
+            prolong the calculation time. Thus, this function determines if the
+            SNP should be included the calculation of the rank. """
 
         threshold = 0.01
         return threshold<bin(X).count('1')/N<(1-threshold)
@@ -231,10 +231,9 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=2,
                         help='Takes into account only LD blocks with at least INT alleles. The default value is 2.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=2,
-                        help='Randomly choose up to INT reads from each LD blocks. The default value is 16.'
-                            'Filters a,b and c are applied sequentially, one after the other.')
+                        help='Selects up to INT reads from each LD blocks. The reads in each block are ranked by a ranking algorithm and only those with the highest rank are selected. The default value is 16.')
     parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
-                        help='The output filename. The default is the input filename with the extension \".obs.p\" replaced by \".LLR#.p\".')
+                        help='The output filename. The default is the input filename with the extension \".obs.p\" replaced by \".LLR.p\".')
     args = parser.parse_args()
     
     

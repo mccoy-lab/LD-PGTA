@@ -80,7 +80,6 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                                  
         leg_tab_iterator = enumerate(leg_tab)        
         pos = 0         
-        
         for pileupcolumn in samfile.pileup(**arg):
             
             while pileupcolumn.pos > pos-1: 
@@ -110,7 +109,8 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                 'min-bq': min_bq,
                 'min-mq' :  min_mq,
                 'max-depth' :  max_depth,
-                'chr_id': chr_id} 
+                'chr_id': chr_id,
+                'depth': len(obs_tab)/len(leg_tab)} 
 
         if output_filename!=None:
             default_output_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1])+'.obs.p'

@@ -80,8 +80,8 @@ if __name__ == "__main__":
     #make_obs_tab_demo('SRR151495.0-2.hg38.bam','chr21_HapMix_EXT_panel.legend','random')
     #make_obs_tab_demo('SRR10393062.hg38.bam','chr21_HapMix_EXT_panel.legend','random')
     #make_obs_tab_demo('SRR8257209.hg38.bam','chr21_HapMix_EXT_panel.legend','random')
-    #A = make_obs_tab_demo('HG00148.SPH.bam','chr21_HapMix_EXT_panel.legend','all')
-    #B = make_obs_tab_demo('HG00148.HG00150.BPH.bam','chr21_HapMix_EXT_panel.legend','all')
+    A = make_obs_tab_demo('HG00148.SPH.bam','chr21_HapMix_EXT_panel.legend','all')
+    B = make_obs_tab_demo('HG00148.HG00150.BPH.bam','chr21_HapMix_EXT_panel.legend','all')
 
     
     #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.01, 'all', 'results_HapMix_EXT', '')
@@ -109,8 +109,8 @@ if __name__ == "__main__":
     #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.1.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
     #LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.2.SRR10393062.SRR151495.0-2.hg38.obs.p')
     #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.2.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    LLR_dict, info = aneuploidy_test_demo('HG00148.SPH.obs.p')
-    LLR_dict, info = aneuploidy_test_demo('HG00148.HG00150.BPH.obs.p')
+    #LLR_dict, info = aneuploidy_test_demo('HG00148.SPH.obs.p')
+    #LLR_dict, info = aneuploidy_test_demo('HG00148.HG00150.BPH.obs.p')
         
     #aneuploidy_test_demo('mixed2haploids.X0.02.SRR10393062.SRR151495.0-2.hg38.obs.p')
 
