@@ -118,14 +118,14 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
     hap_dict = dict()
     mismatches = 0
         
-    for (pos, ind, read_id, read) in obs_tab:
+    for (pos, ind, read_id, base) in obs_tab:
         chr_id, pos2, ref, alt = leg_tab[ind]
         if pos!=pos2:
             raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')         
-        if read==alt:
-            hap_dict[(pos,read)] = tuple(hap_tab[ind])
-        elif read==ref:
-            hap_dict[(pos,read)] = tuple(map(operator.not_,hap_tab[ind]))
+        if base==alt:
+            hap_dict[(pos,base)] = tuple(hap_tab[ind])
+        elif base==ref:
+            hap_dict[(pos,base)] = tuple(map(operator.not_,hap_tab[ind]))
         else:
             mismatches += 1
     
@@ -236,14 +236,30 @@ def HIST(x):
     #ax.set_xticks(range(min(x), max(x),100000)) #(max(x)-min(x))//20))
     #ax.legend()
     plt.show()
+
+
+def check_var(hap_tab):
+    import numpy as np
+    K = lambda x:  np.sum(0<np.mod(np.sum(x,axis=1),x.shape[1]))
+    A = np.array(hap_tab)
+    B0 = [np.sum(A[:,i]!=A[:,i+1]) for i in range(0,len(A[0,:]),2)]
+    B = [K(A[:,i:i+2]) for i in range(0,len(A[0,:]),2)]
+    C = [K(A[:,i:i+4]) for i in range(0,len(A[0,:]),4)]
+    b0 = np.sum(B0)/len(B0)/len(A)
+    b = np.sum(B)/len(B)/len(A)
+    c = np.sum(C)/len(C)/len(A)
+    return (b0,b,c)
+    
     
 if __name__=='__main__':
-    obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.obs.p'
-    hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend'
+    obs_filename = 'results_EUR/mixed2haploids.X0.5.HG00096.HG00096.B.hg38.obs.p'
+    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
     leg_tab,hap_tab,obs_tab = load(obs_filename,leg_filename,hap_filename)
-    hap_dict = build_hap_dict(obs_tab,leg_tab,hap_tab)
-    reads = build_reads_dict(obs_tab,leg_tab)
-    aux_dict = build_aux_dict(obs_tab,leg_tab)
-    frequency = create_frequency(hap_dict)
-    block_dict = build_blocks_dict(tuple(aux_dict),100000,0)
+    #hap_dict = build_hap_dict(obs_tab,leg_tab,hap_tab)
+    #reads = build_reads_dict(obs_tab,leg_tab)
+    #aux_dict = build_aux_dict(obs_tab,leg_tab)
+    #frequency = create_frequency(hap_dict)
+    #block_dict = build_blocks_dict(tuple(aux_dict),100000,0)
+
+    

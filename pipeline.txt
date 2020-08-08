@@ -1,7 +1,8 @@
-##### Table of Contents
-[Sequence Alignment](#seq_alignment)
-[Create a reference panel](#ref_panel)
-[Build a table of observed bases at SNP positions](#obs_tab)
+##### Table of Contents  
+[Sequence Alignment](#seq_alignment) \
+[Create a reference panel](#ref_panel) \
+[Build a table of observed bases at SNP positions](#obs_tab) \
+[Build a dictionary that lists LD blocks and gives their BPH/SPH LLR.](#aneuploidy_test)
 
 # Sequence Alignment #
 <a name="seq_alignment"/>
@@ -26,6 +27,12 @@ The complete GRCh38/hg38 (UCSC release, Dec. 2013) reference genome, which inclu
 `wget 'http://hgdownload.cse.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz'`\
 `gunzip hg38.fa.gz`
 
+## Creating the fasta index file ##
+
+We use the faidx command in Samtools to prepare the FASTA index file. This index file gives byte offsets in the FASTA file for each contig. Thus, it allows us to compute exactly where to find a particular reference base at specific genomic coordinates in the FASTA file.
+
+`samtools faidx ref.fasta`
+
 ## Create Reference Index ##
 For sequences made out of fragments shorter than 70bp we use the software bwa. The reference index is created from the genome reference by executing:
 
@@ -33,7 +40,7 @@ For sequences made out of fragments shorter than 70bp we use the software bwa. T
 
 See [the article](https://dx.doi.org/10.1093%2Fbioinformatics%2Fbtp324) and the [documentation of the software for more details](https://github.com/lh3/bwa).
 
-For sequences made out of fragments shorter larger than 70bp we use the software minimap2. The reference index is created from the genome reference by executing:
+For sequences made out of fragments larger than 70bp we use the software minimap2. The reference index is created from the genome reference by executing: 
 
 `minimap2 -x sr -d hg38.sr.mmi hg38.fa`
 
@@ -55,7 +62,7 @@ where the option `-t6' allows multi-threading with 6 threads.
 
 ## Convert from a SAM to a BAM format ##
 
-SAM is a text file, while BAM is essentially GZIP compressed binary forms of the text SAM file. Thus, converting from SAM to BAM format will reduce the data size and improve performance. In addition, a lot of applications (like browser viewing) require the reads in the BAM file to be coordinate-based sorted, .i.e, the reads are ordered from “left” to “right” across the reference genome just as you’d read across a line in a book.
+SAM is a text file, while BAM is essentially GZIP compressed binary forms of the text SAM file. Thus, converting from SAM to BAM format will reduce the data size and improve performance. In addition, a lot of applications (like browser viewing) require the reads in the BAM file to be coordinate-based sorted, .i.e, the reads are ordered from “left” to “right” across the reference genome just as you’d read across a line in a book. 
 
 `samtools view -bS -F 4 SRR6676163.sam | samtools sort -@ 6 -o SRR6676163.sorted.bam -`
 
@@ -79,7 +86,7 @@ VCF files from the 1000 Genome Project Phase 3 aligned against GRCh38/hg38:
 Reference: [Variant calling on the GRCh38 assembly with the data from phase three of the 1000 Genomes Project](https://wellcomeopenresearch.org/articles/4-50/v2)
 
 ## Generate list of individuals to include in the creation of the reference panel ##
-Create a file containing a list of individuals to include in subsequent analysis. Each individual ID (as defined in the VCF headerline) should be included on a separate line. In order to generate such a list for the 1000 genome project phase 1\3 visit https://www.internationalgenome.org/data-portal/sample.
+Create a file containing a list of individuals to include in subsequent analysis. Each individual ID (as defined in the VCF headerline) should be included on a separate line. In order to generate such a list for the 1000 genome project phase 1\3 visit https://www.internationalgenome.org/data-portal/sample. 
 
 ## Generate a reference panel ##
 Here we create a reference panel using BCFtools.  First, the reference panel is stored in a BCF format:
@@ -87,10 +94,10 @@ Here we create a reference panel using BCFtools.  First, the reference panel is 
 `bcftools view \`\
 `ALL.chr21.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz \`\
 `--samples-file EUR_indv_phase3.txt \`\
-`--exclude-types indels,mnps,ref,bnd,other\`\
+`--exclude-types indels,mnps,ref,bnd,other \`\
 `--min-alleles 2 \`\
 `--max-alleles 2 \`\
-`--min-af 0.02 \`\
+`--min-ac 1 \`\
 `--phased \`\
 `--exclude 'AN!=2*N_SAMPLES' \`\
 `--output-file chr21_EUR_panel.bcf \`\
@@ -98,13 +105,13 @@ Here we create a reference panel using BCFtools.  First, the reference panel is 
 
 The arguments that were used:
 
-`--sample-file EUR_indv_phase3.txt` _File of sample names to include with one sample per line. The sample order is updated to reflect that given in the input file._
+`--samples-file EUR_indv_phase3.txt` _File of sample names to include with one sample per line. The sample order is updated to reflect that given in the input file._
 
 `--exclude-types indels,mnps,ref,bnd,other` _Select only sites with SNP variants across all samples, by excluding any other type. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags._
 
 `--min-alleles 2 --max-alleles 2` _Select only biallelic SNPs, by selecting sites with (at least and at most) two alleles listed in REF and ALT columns._
 
-`--min-af 0.1 ` _Minimum allele frequency (minor allele count / allele number)._
+`--min-ac 1:minor` _Select only SNPs with a minor allele count that reach the threshold._
 
 `--phased --exclude 'AN!=2*N_SAMPLES'` _An IMPUTE reference-panel format requires phased data and bi-allelic sites. In order to make sure that no data is missing, sites that total number of alleles across all samples is not equal to twice the number of samples are excluded._
 
@@ -125,36 +132,42 @@ Then, it builds a nested list that contains observed alleles at SNPs positions t
 
 We run the script with the following arguments and flags:
 
-`python3 MAKE_OBS_TAB.py SRR6676163.bam chr21_EUR_panel.impute.legend
---samtools-dir ../samtools-1.10 --min-bq 30 --min-mq 30 --max-cov 0 --verbose`,
+`python3 MAKE_OBS_TAB.py SRR6676163.bam EUR_panel.chr21.legend --min-bq 30 --min-mq 30 --max-depth 0 --handle-multiple-observations all`,
 
-where the first argument is the filename of the BAM file, containing reads mapped to a reference sequence. The second argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. In addition, we used the following flags:
+where the first argument is the filename of the BAM file, containing reads mapped to a reference sequence. The second required argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. In addition, the following flags are supported:
 
-`--fasta_filename` <FILENAME> _The faidx-indexed reference file in the FASTA format. Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8._
+`--fasta_filename <FILENAME>` _The faidx-indexed reference file in the FASTA format. Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8._
 
-`--handle-multiple-observations` <all/first/random/skip> _We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to skip the SNP. However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) keep all the observed bases._
+`--handle-multiple-observations <all/first/random/skip>` _We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to skip the SNP. However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) keep all the observed bases._
 
-`--min-bq` <INT> _Minimum base quaility for observations. Default value is 30._
+`--min-bq  <INT>` _Minimum base quaility for observations. Default value is 30._
 
-`--min-mq` <INT> _Minimum mapping quaility for observations. Default value 30._
+`--min-mq <INT>` _Minimum mapping quaility for observations. Default value 30._
 
-`--max-depth` <FLOAT> _Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit._
-`--output-filename` <FILENAME> _Output filename. The default filename is the same as the BAM filename, but with an extension of .obs.p ._
+`--max-depth <FLOAT>` _Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit._
 
+`--output-filename <FILENAME>` _Output filename. The default filename is the same as the BAM filename, but with an extension of .obs.p ._
+    
 
 * In order to use the script, the Python module Pysam must be present. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
 
-# Build a dictionary that lists pairs/triplets of SNPs and gives their log-likelihood BPH/SPH ratio. #
+# Builds a dictionary that lists LD blocks and gives their BPH/SPH LLR. # 
+<a name="aneuploidy_test"/>
 
-`python3 MAKE_LLR_DICT.py SRR6676163.hg38.OBS.p chr21_EUR_panel.legend chr21_EUR_panel.hap'
---method triplets --frag-length 200 --hap-length 1e5 --grade 25`
+The script ANEUPLOIDY_TEST.py builds a dictionary that lists linkage disequilibrium (LD) blocks that contain at least two reads and gives the associated log-likelihood BPH/SPH ratio (LLR); BPH (Both Parental Homologs) correspond to the presence of three unmatched haplotypes, while SPH (Single Parental Homolog). In addition, the dictionary is analyzed and summary statistics are reported. The summary includes the mean LLR, the standard error, number of informative LD blocks and fraction of LD blocks with a negative LLR.
 
-where the first argument, SRR6676163.hg38.OBS.p is the filename of a pickle file created by MAKE_OBS_TAB.py. The second and third arguments refer to an IMPUTE2 legend file and hap file, containing our reference panel.  In addition, we used the following flags:
+We run the script with the following arguments and flags:
 
-`--method pairs/triplets` _Use the statistical models of pairs/triplet of SNPs._
+`python3 ANEUPLOIDY_TEST.py SRR6676163.obs.p EUR_panel.chr21.legend EUR_panel.chr21.hap ----block-size 50000 --min-reads 2 --max-reads 18`,
 
-`--frag-length <integer>` _DNA fragments length. The LLR is calculated for SNPs separated by at least the fragment length. The default value is 200._
+where the first argument is the filename of a pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions. The second argument is the filename of the IMPUTE2 legend file, which lists the SNPs in our reference panel. The third required argument is the filename of the IMPUTE2 haplotype file, which lists the haplotypes in our reference panel. In addition, the following flags are supported:
 
-`--hap-length <integer>` _Haplotype maximal length. The LLR is calculated for SNPs separated by at most the haplotype length. Setting the value to 0 removes the limit. The default value is 10^5._
+`--block-size <INT>` _Specifies the typical size of the LD block. The default value is 10^5._
 
-`--grade <integer>` _Downgrade percentage for the overall observations. Default value is 100, meaning no downgrading._
+`--offset <INT>` _Shifts all the LD blocks by the requested base pairs. The default value is 0._
+
+`--min-reads <INT>` _Takes into account only LD blocks with at least INT reads, admitting non-zero rank. The default value is 2._
+
+`--max-reads <INT>` _Selects up to INT reads from each LD blocks. The reads in each block are selected in a descending order according to their rank. The default value is 16._
+
+`--output-filename <FILENAME>` _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._
