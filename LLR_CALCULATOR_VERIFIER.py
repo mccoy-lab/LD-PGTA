@@ -67,7 +67,7 @@ def joint_frequencies_combo(*alleles,hap_dict,norm_const,normalize):
     return result
 
 def LLR2(*alleles,hap_dict,N):
-    F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,N=N)
+    F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,norm_const=N,normalize=True)
     a, b, ab = F['A'], F['B'], F['AB']
     BPH = (ab+2*a*b)/3 #The probability of three unmatched haplotypes.
     SPH = (5*ab+4*a*b)/9 #The probability of two identical haplotypes out three.
@@ -75,7 +75,7 @@ def LLR2(*alleles,hap_dict,N):
     return result
 
 def LLR3(*alleles,hap_dict,N):
-    F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,N=N)
+    F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,norm_const=N,normalize=True)
     a, b, c, ab, ac, bc, abc = F['A'], F['B'], F['C'], F['AB'], F['AC'], F['BC'], F['ABC']
     BPH = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The probability of three unmatched haplotypes.
     SPH = abc/3+2*(ab*c+ac*b+bc*a)/9  #The probability of two identical haplotypes out three.
@@ -83,7 +83,7 @@ def LLR3(*alleles,hap_dict,N):
     return result
 
 def LLR4(*alleles,hap_dict,N):
-    F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,N=N)
+    F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,norm_const=N,normalize=True)
     a, b, c, d = F['A'], F['B'], F['C'], F['D'],
     ab, ac, ad, bc, bd, cd = F['AB'], F['AC'], F['AD'], F['BC'], F['BD'], F['CD'],
     abc, abd, acd, bcd = F['ABC'], F['ABD'], F['ACD'], F['BCD']
@@ -98,9 +98,9 @@ if __name__ != "__main__":
 else:
     print("Executed when invoked directly")
     a = time()
-    obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.01.SRR10393062.SRR151495.0-2.hg38.obs.p'
-    hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend'
+    obs_filename = 'results_EUR/mixed2haploids.X0.5.HG00096.HG00096.B.hg38.obs.p'
+    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
 
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')
