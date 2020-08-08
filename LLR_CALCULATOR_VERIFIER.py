@@ -58,7 +58,7 @@ def intrenal_hap_dict(*alleles,hap_dict):
     return hap
 
 def joint_frequencies_combo(*alleles,hap_dict,norm_const,normalize):
-    N = norm_const if normalized else 1
+    N = norm_const if normalize else 1
     hap = intrenal_hap_dict(*alleles,hap_dict=hap_dict)
     result = {c:  A.count(True) / N  for c,A in hap.items() }
     for r in range(2,len(alleles)+1):
