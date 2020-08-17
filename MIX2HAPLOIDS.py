@@ -9,14 +9,13 @@ two haploids.
 MIX2HAPLOIDS
 
 Daniel Ariad (daniel@ariad.org)
-May 15st, 2020
+Aug 14st, 2020
 
 """
 import pickle, time, random, operator, collections, warnings, argparse, sys
+from random import choices, randrange
 
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
-
-###############################################################################
 
 def compare_haploids(obs_filename1, obs_filename2):
     """ Given observation tables of twp haploid sequences with a depth coverage
@@ -35,155 +34,6 @@ def compare_haploids(obs_filename1, obs_filename2):
     time1 = time.time()
     print('Done in %.2f sec.' % (time1-time0))
     return result
-    
-def check_haploid(obs_filename, read_length, depth, handle_multiple_observations, work_dir, output_filename):
-    """ Given an observation table of a haploid sequence with a depth coverage
-        of at least 1X, a new observation table is created to mimic the outcome
-        of an Illumina dye sequencing."""
-    
-    time0 = time.time()
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
-
-    with open(work_dir + '/' + obs_filename, 'rb') as f:
-        obs_tab = pickle.load(f)
-        info = pickle.load(f)
-     
-    chr_id = info['chr_id']
-    
-    num_of_reads = number_of_reads(chr_id,read_length,depth)
-    
-    cache = dict()
-    
-    for offset in range(read_length):
-        cache.update(build_dictionary_of_reads(obs_tab,chr_id,read_length,offset)) 
-    
-    obs_dict = collections.defaultdict(list)
-    
-    for i in range(num_of_reads):
-        p = random.randrange(chr_length(chr_id))+1
-        read_boundaries = (p,p+read_length-1)
-        reads_id = '%d.%d.%d' % (read_boundaries[0],read_boundaries[1],i) 
-        for pos, impute2_ind, _, obs_base in cache.get(read_boundaries,[]):
-            obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
-
-    info.update({'depth': depth, 'read_length': read_length})
-           
-    obs_tab = list()
-    
-    for rows in obs_dict.values():
-        if len(rows)==1:
-            obs_tab.extend(rows)
-        else:
-            warnings.warn('Multiple reads were found to overlap at one or more SNP positions.')
-            if handle_multiple_observations=='all':
-                obs_tab.extend(rows)
-            elif handle_multiple_observations=='first':
-                if len(rows)>0: obs_tab.append(rows[0])
-            elif handle_multiple_observations=='random':
-                if len(rows)>0: obs_tab.append(random.choice(rows))
-            elif handle_multiple_observations=='skip':
-                pass
-            else:
-                raise Exception('error: handle_multiple_observations only supports the options \"skip\", \"all\", \"first\" and \"random\".')
-  
-    obs_tab_sorted =  sorted(obs_tab, key=operator.itemgetter(0))
-    
-    info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
-    
-    if output_filename!=None:
-        default_output_filename = ('check_haploid.X%f' % depth).rstrip('0')+'.'+obs_filename  
-        output_filename = default_output_filename if output_filename=='' else output_filename 
-        with open(  work_dir + '/' + output_filename , "wb" ) as f:
-                pickle.dump( obs_tab_sorted, f )
-                pickle.dump( info, f )    
-        
-    time1 = time.time()
-    print('Done in %.2f sec.' % (time1-time0))
-    return tuple(obs_tab_sorted), info
-
-def mix3haploids(obs_filename1, obs_filename2, obs_filename3, read_length, depth, handle_multiple_observations, work_dir, output_filename):
-    """ TBA """
-    
-    time0 = time.time()
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
-
-    with open(work_dir + '/' + obs_filename1, 'rb') as f:
-        obs_tab1 = pickle.load(f)
-        info = pickle.load(f)
-    
-    with open(work_dir + '/' + obs_filename2, 'rb') as f:
-        obs_tab2 = pickle.load(f)
-        info2 = pickle.load(f)
-    
-    with open(work_dir + '/' + obs_filename3, 'rb') as f:
-        obs_tab3 = pickle.load(f)
-        info3 = pickle.load(f)
-   
-    if info['chr_id']!=info2['chr_id'] or info2['chr_id']!=info3['chr_id']:
-        raise Exception('Error: the chr_id differs from one OBS file to another.')   
-    
-    chr_id = info['chr_id']
-    
-    num_of_reads = number_of_reads(chr_id,read_length,depth)
-    
-    cache1, cache2, cache3 = dict(), dict(), dict()
-    
-    for offset in range(read_length):
-        cache1.update(build_dictionary_of_reads(obs_tab1,chr_id,read_length,offset)) 
-        cache2.update(build_dictionary_of_reads(obs_tab2,chr_id,read_length,offset)) 
-        cache3.update(build_dictionary_of_reads(obs_tab3,chr_id,read_length,offset)) 
-
-    
-    obs_dict = collections.defaultdict(list)
-    
-    for i in range(num_of_reads):
-        p = random.randrange(chr_length(chr_id))+1
-        read_boundaries = (p,p+read_length-1)
-        rnd = random.randrange(3)
-        if rnd==0:
-            rand_dict, ID = (cache1,'A')
-        elif rnd==1:
-            rand_dict, ID = (cache2,'B')
-        elif rnd==2:
-            rand_dict, ID = (cache3,'C')
-        reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1],ID,i) 
-        for pos, impute2_ind, _, obs_base in rand_dict.get(read_boundaries,[]):
-            obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
-
-    info.update({'depth': depth, 'read_length': read_length})
-    
-    obs_tab = list()
-    
-    for rows in obs_dict.values():
-        if len(rows)==1:
-            obs_tab.extend(rows)
-        else:
-            warnings.warn('Multiple reads were found to overlap at one or more SNP positions.')
-            if handle_multiple_observations=='all':
-                obs_tab.extend(rows)
-            elif handle_multiple_observations=='first':
-                if len(rows)>0: obs_tab.append(rows[0])
-            elif handle_multiple_observations=='random':
-                if len(rows)>0: obs_tab.append(random.choice(rows))
-            elif handle_multiple_observations=='skip':
-                pass
-            else:
-                raise Exception('error: handle_multiple_observations only supports the options \"skip\", \"all\", \"first\" and \"random\".')
-  
-    obs_tab_sorted =  sorted(obs_tab, key=operator.itemgetter(0))
-    
-    info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
-    
-    if output_filename!=None:
-        default_output_filename = ('mixed3haploids.X%f' % depth).rstrip('0')+'.'+obs_filename1.lstrip().split('.')[0]+'.'+obs_filename2.lstrip().split('.')[0]+'.'+obs_filename3    
-        output_filename = default_output_filename if output_filename=='' else output_filename 
-        with open(  work_dir + '/' + output_filename , "wb" ) as f:
-                pickle.dump( obs_tab_sorted, f, protocol=4)
-                pickle.dump( info, f, protocol=4)    
-        
-    time1 = time.time()
-    print('Done simulating the observations table of an aneuploid cell with BPH in %.2f sec.' % (time1-time0))
-    return tuple(obs_tab_sorted), info
 
 ###############################################################################
 
@@ -223,60 +73,7 @@ def build_dictionary_of_reads(obs_tab,chr_id,read_length,offset):
             read = next(reads_iterator, None)
     return obs_dict
 
-def build_obs_dict(obs_tab1, obs_tab2, info, read_length, depth):
-    """ Mixes simulated reads to mimic the outcome of an Illumina dye sequencing
-        for an aneuploid cell with two matched haplotypes (‘single parental
-        homolog’; SPH). """ 
-    
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
-    
-    chr_id = info['chr_id']
-    
-    num_of_reads = number_of_reads(chr_id,read_length,depth)
-    
-    cache1, cache2 = dict(), dict()
-    
-    for offset in range(read_length):
-        cache1.update(build_dictionary_of_reads(obs_tab1,chr_id,read_length,offset)) 
-        cache2.update(build_dictionary_of_reads(obs_tab2,chr_id,read_length,offset)) 
-    
-    obs_dict = collections.defaultdict(list)
-    
-    for i in range(num_of_reads):
-        p = random.randrange(chr_length(chr_id))+1
-        read_boundaries = (p,p+read_length-1)
-        rand_dict, ID = (cache1,'A') if random.randrange(3)==0 else (cache2,'B')  
-        reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1],ID,i) 
-        for pos, impute2_ind, _, obs_base in rand_dict.get(read_boundaries,[]):
-            obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
-
-    info.update({'depth': depth, 'read_length': read_length})
-
-    return obs_dict, info
-
-
-def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multiple_observations, work_dir, output_filename):
-    """ Wraps build_obs_dict. In addition, copies the values of obs_dict into
-        the list obs_tab, while handling multiple observations at SNP positions.
-        Then stores obs_tab as well as a dictionary with all the arguments that
-        were used. """
-    
-    time0 = time.time()
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
-
-    with open(work_dir + '/' + obs_filename1, 'rb') as f:
-        obs_tab1 = pickle.load(f)
-        info1 = pickle.load(f)
-    
-    with open(work_dir + '/' + obs_filename2, 'rb') as f:
-        obs_tab2 = pickle.load(f)
-        info2 = pickle.load(f)
-   
-    if info1!=info2:
-        raise Exception("Error: mismatch between the details of %s and %s." % (obs_filename1, obs_filename2))    
-    
-    obs_dict, info = build_obs_dict(obs_tab1, obs_tab2, info1, read_length, depth)
-    
+def sort_obs_tab(obs_dict, handle_multiple_observations):
     obs_tab = list()
     
     for rows in obs_dict.values():
@@ -297,31 +94,99 @@ def mix2haploids(obs_filename1, obs_filename2, read_length, depth, handle_multip
   
     obs_tab_sorted =  sorted(obs_tab, key=operator.itemgetter(0))
     
+    return obs_tab_sorted
+
+def build_obs_dict(obs_tabs, chr_id, read_length, depth, recombination_spot):
+    """ Mixes simulated reads to mimic Illumina dye sequencing of a trisomic cell. """ 
+    
+    L = len(obs_tabs)
+    num_of_reads = number_of_reads(chr_id,read_length,depth)
+    
+    cache = [{} for _ in range(len(obs_tabs))]
+    
+    for i,obs_tab in enumerate(obs_tabs):
+        for offset in range(read_length):
+            cache[i].update(build_dictionary_of_reads(obs_tab,chr_id,read_length,offset)) 
+            
+    obs_dict = collections.defaultdict(list)
+    
+    for i in range(num_of_reads):
+        p = randrange(chr_length(chr_id))+1
+        read_boundaries = (p,p+read_length-1)
+        if L==1:
+            W = [1,]
+        elif L==2:
+            W = [2,1]
+        elif L==3:
+            W = [1,1,1] if p > recombination_spot * chr_length(chr_id) else [2,0,1]
+        else:
+            raise Exception('Error: given more than three OBS files.')   
+           
+        rnd = choices(range(len(W)), weights=W, k=1)[0]
+        reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1],chr(65+rnd),i) 
+        for pos, impute2_ind, _, obs_base in cache[rnd].get(read_boundaries,[]):
+            obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
+
+    return obs_dict
+
+def MixHaploids(obs_filenames, read_length, depth, **kwargs):
+    """ Given N observation tables of haploid sequences, an observation
+        table that depicts a trisomic cell is created. """    
+        
+    time0 = time.time()
+    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
+    
+    handle_multiple_observations = kwargs.get('handle_multiple_observations','all')
+    recombination_spot = kwargs.get('recombination_spot',0)
+    work_dir = kwargs.get('work_dir', '')
+    output_filename = kwargs.get('output_filename','')
+    
+    work_dir += '/' if len(work_dir)!=0 and work_dir[-1]!='/' else ''
+    
+    obs_tabs, info_dicts = [], []
+    for filename in obs_filenames:
+        with open(work_dir + filename, 'rb') as f:
+            obs_tabs.append(pickle.load(f))
+            info_dicts.append(pickle.load(f))
+        
+    chr_id = info_dicts[0]['chr_id'] 
+
+    if not all(info['chr_id']==chr_id for info in info_dicts):
+        raise Exception('Error: the chr_id differs from one OBS file to another.')   
+    
+    obs_dict = build_obs_dict(obs_tabs, chr_id, read_length, depth, recombination_spot)
+    
+    info = info_dicts[0]
+    info.update({'depth': depth, 'read_length': read_length})
+    
+    obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
+    
     info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
     
     if output_filename!=None:
-        default_output_filename = ('mixed2haploids.X%f' % depth).rstrip('0')+'.'+obs_filename1.lstrip().split('.')[0]+'.'+obs_filename2    
+        MIX = '.'.join(filename.strip().split('/')[-1].strip().split('.')[0] for filename in obs_filenames)
+        RECOMB = ('.recomb.%.2f' % recombination_spot) if recombination_spot!=0 else '.'
+        default_output_filename = ('mixed%dhaploids.X%.2f.' % (len(obs_filenames),depth)) + MIX + RECOMB + '.obs.p'    
         output_filename = default_output_filename if output_filename=='' else output_filename 
-        with open(  work_dir + '/'  + output_filename , "wb" ) as f:
+        with open(  work_dir + output_filename , "wb" ) as f:
                 pickle.dump( obs_tab_sorted, f, protocol=4)
                 pickle.dump( info, f, protocol=4)    
         
     time1 = time.time()
-    print('Done simulating the observations table of an aneuploid cell with SPH in %.2f sec.' % (time1-time0))
+    print('Done simulating the observations table of a trisomic cell in %.2f sec.' % (time1-time0))
     return tuple(obs_tab_sorted), info
-    
+
+def MixHaploids2(*obs_filenames, read_length, depth, **kwargs):
+    return MixHaploids(obs_filenames, read_length, depth, **kwargs)
+
 if __name__ == "__main__":     
     parser = argparse.ArgumentParser(
-        description='Simulates observed bases at known SNP positions from an aneuploid cell '
-                    'with two matched haplotypes (‘single parental homolog’; SPH), by mixing '
-                    'two haploids.')
-    parser.add_argument('obs_filename1', metavar='OBS_FILENAME1', type=str, 
-                        help='A pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions.')
-    parser.add_argument('obs_filename2', metavar='OBS_FILENAME2', type=str, 
-                        help='A pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions.')
+        description='Simulates observed bases at known SNP positions from a trisomic cell.')
+    parser.add_argument('obs_filenames', metavar='OBS_FILENAME', type=str, nargs='+',
+                        help='Pickle files created by MAKE_OBS_TAB, containing base observations at known SNP positions.')
     parser.add_argument('-d', '--depth', type=float, 
-                        metavar='FLOAT', default=0.01, 
-                        help='The average coverage for a whole genome.  Default value 0.01')
+                        metavar='FLOAT', default=0.1, 
+                        help='The average coverage for a whole genome.  Default value 0.1')
     parser.add_argument('-l', '--read-length', type=int, 
                         metavar='INT', default=150,
                         help='The number of base pairs (bp) sequenced from a DNA fragment. Default value 150.')
@@ -334,5 +199,5 @@ if __name__ == "__main__":
                              'and (c) skip the SNP.')
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
                         help='Output filename. The default filename is a combination of both obs filenames.')    
-    mix2haploids(**vars(parser.parse_args()))    
+    MixHaploids(**vars(parser.parse_args()))    
     sys.exit(0)
