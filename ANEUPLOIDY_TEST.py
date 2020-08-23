@@ -178,7 +178,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     population = tuple(value for value in LLR_dict.values() if value!=None)
     mean, std = mean_and_std(population)
 
-    w0 = [len(blocks_dict[key]) for key,value in LLR_dict.items() if value!=None]
+    w0 = [len(blocks_dict_picked[key]) for key,value in LLR_dict.items() if value!=None]
     W = sum(w0)
     weights = [i/W for i in w0]
     jk_mean, jk_std, jk_bias = jackknifing(population,weights)
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     population = tuple(value for value in LLR_dict.values() if value!=None)
     mean, std = mean_and_std(population)
 
-    w0 = [len(blocks_dict[key]) for key,value in LLR_dict.items() if value!=None]
+    w0 = [len(blocks_dict_picked[key]) for key,value in LLR_dict.items() if value!=None]
     W = sum(w0)
     weights = [i/W for i in w0]
     jk_mean, jk_std, jk_bias = jackknifing(population,weights)
