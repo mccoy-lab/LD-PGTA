@@ -39,20 +39,6 @@ def jackknifing(sample,weights):
     jackknife_bias = (N-1)*t0-sum((t*(h-1)/h for t,h in zip(T,H)))
     return jackknife_estimator, jackknife_variance**.5 , jackknife_bias
 
-def build_aux_dict(obs_tab,leg_tab):
-    """ Returns a dictionary that lists chromosome positions of SNPs and gives
-        a dictionary that lists the observed bases at these postions. The
-        nested dictionary gives all the read IDs that contain the observed base
-        at the specific chromosome position. """
-
-    nested = lambda: collections.defaultdict(list)
-    aux_dict = collections.defaultdict(nested)
-
-    for (pos, ind, read_id, base) in obs_tab:
-        if base in leg_tab[ind][2:]:
-            aux_dict[pos][base].append(read_id)
-
-    return aux_dict
 
 def build_reads_dict(obs_tab,leg_tab):
     """ Returns a dictionary that lists read IDs of reads that overlap with
@@ -83,33 +69,18 @@ def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
         result = threshold<=joint_freq<=(1-threshold)
         return result
 
-    def test(X,N):
-        """ Return True if the frequencies of a biallelic SNP exceeds
-            a threshold. The motivation behind this test is that if a biallelic
-            SNP admits an allele with a frequency close to zero then this SNP
-            would not contribute significantly to the rank of the read.
-            However, including these SNPs in the calculation of the rank would
-            prolong the calculation time. Thus, this function determines if the
-            SNP should be included the calculation of the rank. """
-
-        threshold = 0.01
-        return threshold<bin(X).count('1')/N<(1-threshold)
-
     N = len(hap_tab[0])
-    nested = lambda: collections.defaultdict(list)
 
-    hap_dict = collections.defaultdict(nested)
+    hap_dict = dict()
     for (pos, ind, read_id, base) in obs_tab:
-        *_, ref, alt = leg_tab[ind]
-        if base==alt or base==ref:
-            hap_dict[pos][alt] = bools2int(hap_tab[ind])
-            hap_dict[pos][ref] = bools2int(map(operator.not_,hap_tab[ind]))
-
+        ref, alt = leg_tab[ind][2:]
+        if (base==alt or base==ref) and (0.01<hap_tab[ind].count(1)/N<0.99): # if a biallelic SNP admits an allele with a frequency close to zero then this SNP would not contribute significantly to the rank of the read. However, including these SNPs in the calculation of the rank would prolong the calculation time. Thus, this function determines if the SNP should be included the calculation of the rank. 
+            hap_dict[pos] = (bools2int(hap_tab[ind]), bools2int(map(operator.not_,hap_tab[ind])))
+ 
     rank_dict = dict()
     for read_id in reads_dict:
-        hap = [[a for a in hap_dict[pos].values() if test(a,N)]
-                      for pos,base in reads_dict[read_id]]
-        rank_dict[read_id] = sum(rank(C,N) for C in itertools.product(*hap))
+        hap = (hap_dict[pos] for pos,base in reads_dict[read_id] if pos in hap_dict)
+        rank_dict[read_id] = sum(rank(C,N) for C in itertools.product(*hap) if len(C)!=0)
 
     return rank_dict
 
@@ -120,33 +91,38 @@ def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
         requirment then the block would not be considered."""
 
     prioritised = heapq.nlargest(max_reads,read_IDs, key=lambda x: rank_dict[x] + random.random())
-    haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised if rank_dict[read_ID] > 1e-12)
+    #print(collections.Counter(rank_dict[read_ID] for read_ID in prioritised))
+    haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised if rank_dict[read_ID] > 1)
     result = haplotypes if len(haplotypes) >= max(2,min_reads) else None
     return result
     
-def build_blocks_dict(aux_dict,block_size,offset):
-    """ Returns a dictionary that lists LD blocks and gives the read IDs of
-        reads that overlap with SNPs in the block."""
+def iter_blocks(obs_tab,leg_tab,block_size,offset):
+    """ Returns an iterator over the LD blocks together with read IDs of
+        the reads that overlap with SNPs in the block. """
 
+    aux_dict = collections.defaultdict(list) ### aux_dict is a dictionary that lists chromosome positions of SNPs and gives a list of read IDs for all the reads that overlap with the SNP.  
+
+    for (pos, ind, read_id, base) in obs_tab:
+        if base in leg_tab[ind][2:]:
+            aux_dict[pos].append(read_id)
+            
     first, *_, last = iter(aux_dict)
     boundaries = tuple(range(int(first+offset), int(last), int(block_size)))
-    blocks = [(i,j-1) for i,j in zip(boundaries,boundaries[1:])]
-
-    blocks_dict = collections.defaultdict(set)
-    
-    aux_dict = {pos:read_IDs for pos,read_IDs in aux_dict.items() if pos>=boundaries[0]} 
-
-    blocks_iterator = iter(blocks)
+    blocks_iterator = ((i,j-1) for i,j in zip(boundaries,boundaries[1:]))
+   
+    readIDs_in_block = set()
     block = next(blocks_iterator, None)
+    
     for pos in aux_dict:
+        if pos<boundaries[0]: continue
         while block:
             if block[0]<=pos<=block[1]:
-                for read_IDs in aux_dict[pos].values(): blocks_dict[block].update(read_IDs)
+                for read_IDs in aux_dict[pos]: readIDs_in_block.add(read_IDs)
                 break
-            block = next(blocks_iterator, None)
-    return blocks_dict
+            yield (block, readIDs_in_block)
+            block, readIDs_in_block = next(blocks_iterator, None), set()
 
-def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min_reads,max_reads,output_filename):
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples,offset,min_reads,max_reads,output_filename):
     """ Returns a dictionary that lists the boundaries of approximately
     independent blocks of linkage disequilibrium (LD). For each LD block it
     gives the associated log-likelihood BPH/SPH ratio (LLR)."""
@@ -154,26 +130,43 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
     a = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
-    hap_tab = read_impute2(hap_filename, filetype='hap')
-    leg_tab = read_impute2(leg_filename, filetype='leg')
-
+    print('Filename: %s' % obs_filename)
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
-
-    aux_dict = build_aux_dict(obs_tab,leg_tab)
-
-    blocks_dict = build_blocks_dict(aux_dict,block_size,offset)
+        
+    hap_tab = read_impute2(hap_filename, filetype='hap')
+    leg_tab = read_impute2(leg_filename, filetype='leg')
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
 
     rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
 
-    blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
-                               for block,read_IDs in blocks_dict.items()}
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
+        
+    #blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
+    #                           for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
+    
+    #LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
 
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p')
-    LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
+
+    LLR_dict0 = collections.defaultdict(list)
+
+    for k in range(subsamples):
+        sys.stdout.write('\r')
+        sys.stdout.write(f"[{'=' * int(k+1):{subsamples}s}] {int(100*(k+1)/subsamples)}% ")
+        sys.stdout.flush()
+        
+        blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
+                           for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
+
+        for block,haplotypes in blocks_dict_picked.items():
+            if haplotypes!=None:
+                LLR_dict0[block].append(LLR(*haplotypes))
+            else:
+                LLR_dict0[block].append(None)
+ 
+    LLR_dict = {block: sum(LLRs)/len(LLRs) for block,LLRs in LLR_dict0.items() if None not in LLRs}
 
     population = tuple(value for value in LLR_dict.values() if value!=None)
     mean, std = mean_and_std(population)
@@ -185,11 +178,11 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
 
     num_of_LD_blocks = len(population)
     fraction_of_negative_LLRs = sum([1 for i  in population if i<0])/len(population)
-
-    print('Depth: %.2f, Mean: %.3f, STD: %.3f' % (info['depth'], mean, std))
+    
+    print('\nDepth: %.2f, Mean: %.3f, STD: %.3f' % (info['depth'], mean, std))
     print('Jackknife estimator: %.3f, Jackknife standard error: %.3f, Jackknife bias: %.3f' % (jk_mean, jk_std, jk_bias))
     print('Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (num_of_LD_blocks,fraction_of_negative_LLRs))
-
+    
     info.update({'block_size': block_size,
                  'offset': offset,
                  'min_reads': min_reads,
@@ -205,12 +198,12 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,offset,min
         default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)
         output_filename = default_filename if output_filename=='' else output_filename
         with open( output_filename, "wb") as f:
-            pickle.dump(LLR_dict, f, protocol=4)
+            pickle.dump(LLR_dict0, f, protocol=4)
             pickle.dump(info, f, protocol=4)
 
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
-    return LLR_dict, info
+    return LLR_dict0, info
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -226,9 +219,12 @@ if __name__ == "__main__":
                         help='IMPUTE2 legend file')
     parser.add_argument('hap_filename', metavar='HAP_FILENAME', type=str,
                         help='IMPUTE2 haplotype file')
-    parser.add_argument('-s', '--block-size', type=int,
+    parser.add_argument('-b', '--block-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the typical size of the LD block. The default value is 10^5.')
+    parser.add_argument('-s', '--subsamples', type=int,
+                        metavar='INT', default='32',
+                        help='Sets the number of subsamples per LD block. The default value is 32.')
     parser.add_argument('-o', '--offset', type=int,
                         metavar='INT', default=0,
                         help='Shifts all the LD blocks by the requested base pairs. The default value is 0.')
@@ -287,7 +283,7 @@ if __name__ == "__main__":
     population = tuple(value for value in LLR_dict.values() if value!=None)
     mean, std = mean_and_std(population)
 
-    w0 = [len(blocks_dict_picked[key]) for key,value in LLR_dict.items() if value!=None]
+    w0 = [len(blocks_dict[key]) for key,value in LLR_dict.items() if value!=None]
     W = sum(w0)
     weights = [i/W for i in w0]
     jk_mean, jk_std, jk_bias = jackknifing(population,weights)
@@ -321,3 +317,15 @@ if __name__ == "__main__":
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
 """
+
+def test(X,N):
+     """ Return True if the frequencies of a biallelic SNP exceeds
+         a threshold. The motivation behind this test is that if a biallelic
+         SNP admits an allele with a frequency close to zero then this SNP
+         would not contribute significantly to the rank of the read.
+         However, including these SNPs in the calculation of the rank would
+         prolong the calculation time. Thus, this function determines if the
+         SNP should be included the calculation of the rank. """
+
+     threshold = 0.01
+     return threshold<bin(X).count('1')/N<(1-threshold)
