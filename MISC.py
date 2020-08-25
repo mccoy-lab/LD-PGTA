@@ -57,6 +57,12 @@ def load(obs_filename,leg_filename,hap_filename):
    
     return leg_tab,hap_tab,obs_tab
 
+def load_model(models_filename):
+    load_model = bz2.BZ2File if models_filename.split('.')[-1]=='pbz2' else open
+    with load_model(models_filename, 'rb') as f:
+        models_dict = pickle.load(f)
+    return models_dict
+    
 def read_impute2(impute2_filename,**kwargs):
     """ Reads an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE) and builds a list
         of lists, containing the dataset. """
