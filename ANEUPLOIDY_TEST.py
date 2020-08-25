@@ -317,15 +317,3 @@ if __name__ == "__main__":
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
 """
-
-def test(X,N):
-     """ Return True if the frequencies of a biallelic SNP exceeds
-         a threshold. The motivation behind this test is that if a biallelic
-         SNP admits an allele with a frequency close to zero then this SNP
-         would not contribute significantly to the rank of the read.
-         However, including these SNPs in the calculation of the rank would
-         prolong the calculation time. Thus, this function determines if the
-         SNP should be included the calculation of the rank. """
-
-     threshold = 0.01
-     return threshold<bin(X).count('1')/N<(1-threshold)
