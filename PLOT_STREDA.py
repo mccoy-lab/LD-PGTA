@@ -67,21 +67,23 @@ def plot_streda(LLR_dict0,**kwargs):
     
     return 1
 
-def analyze(LLR_dict):
+def analyze(LLR_dict0):
+    LLR_dict = {block: sum(LLRs)/len(LLRs) for block,LLRs in LLR_dict0.items() if None not in LLRs}
     K,V = zip(*((k,v) for k,v in LLR_dict.items() if v!=None))
     A = dict()
     B = dict()
     for i in range(10):
-        print(i+1)
+        #print(i+1)
         a = len(V)//(i+1)
         A[i] = tuple(sum(k<0 for k in V[j*a:(j+1)*a])/len(V[j*a:(j+1)*a]) for j in range(i+1))
-        print(A)
+        print('A%d:'%i,A[i])
         B[i] = tuple(((i,K[j*a][0]),(i,K[min((j+1)*a,len(K)-1)][-1])) for j in range(i+1))
-        print(B)
+        print('B%d:'%i,B[i])
     return tuple(B.values()),tuple(A.values())
 
-def LDblockHIST(LLR_dict):
+def LDblockHIST(LLR_dict0):    
     import matplotlib.pyplot as plt
+    LLR_dict = {block: sum(LLRs)/len(LLRs) for block,LLRs in LLR_dict0.items() if None not in LLRs}
     fig, ax = plt.subplots()
     x = [i for i in LLR_dict.values() if i!=None]
     ax.hist(x,bins=int(len(x)**.5),histtype='step', linewidth=2.2, label='LLR distribution accross LD blocks')
