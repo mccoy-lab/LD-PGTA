@@ -23,7 +23,7 @@ def mean_and_std(sample):
     std = statistics.pstdev(sample, mu=mean)/len(sample)**.5
     return mean, std
 
-def jackknifing(sample,weights):
+def jackknife(sample,weights):
     """ Given sample elements and the weight of each element, the jackknife
     estimator, the jackknife standard error and the Jackknife bias (RB)
     are calculated. More information about delete-m jackknife for unequal m
@@ -87,9 +87,10 @@ def build_weight_dict(reads_dict,obs_tab,leg_tab, hap_tab):
 
 def pick_reads(reads_dict,weight_dict,read_IDs,min_reads,max_reads):
     """ Picks up to max_reads reads out of all the reads in a given LD block;
-        The reads are drawn from a weighted random distribution. In addition,
-        if the number of reads in a given LD block is less than the minimal
-        requirment then the block would not be considered."""
+        The reads are drawn randomly from a categorical distribution, where the
+        weight of each read is determined by a weighting algorithm. 
+        In addition, if the number of reads in a given LD block is less than
+        the minimal requirment then the block would not be considered."""
 
     
     #prioritised = heapq.nlargest(max_reads,read_IDs, key=lambda x: weight_dict[x] + random.random())
@@ -150,7 +151,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     weight_dict = build_weight_dict(reads_dict,obs_tab,leg_tab,hap_tab)
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
-    LLR_dict0 = collections.defaultdict(list)
+    LLR_dict = collections.defaultdict(list)
 
     for k in range(subsamples):
         sys.stdout.write('\r')
@@ -162,16 +163,16 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
 
         for block,haplotypes in blocks_dict_picked.items():
             if haplotypes!=None:
-                LLR_dict0[block].append(LLR(*haplotypes))
+                LLR_dict[block].append(LLR(*haplotypes))
             else:
-                LLR_dict0[block].append(None)
+                LLR_dict[block].append(None)
  
-    LLR_stat = {block: mean_and_std(LLRs) for block,LLRs in LLR_dict0.items() if None not in LLRs}
+    LLR_stat = {block: mean_and_std(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
     
     M, V = zip(*LLR_stat.values())
     mean, std = sum(M)/len(M), sum(V)**.5/len(V) #The standard deviation is calculated according to the Bienaymé formula.
 
-    LLR_jack = {block: jackknifing(LLRs,[1/len(LLRs)]*len(LLRs)) for block,LLRs in LLR_dict0.items() if None not in LLRs}
+    LLR_jack = {block: jackknife(LLRs,[1/len(LLRs)]*len(LLRs)) for block,LLRs in LLR_dict.items() if None not in LLRs}
     M_jack, V_jack = zip(*LLR_jack.values())
     jk_mean, jk_std = sum(M_jack)/len(M_jack), sum(V_jack)**.5/len(V_jack)
 
@@ -196,12 +197,12 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
         default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)
         output_filename = default_filename if output_filename=='' else output_filename
         with open( output_filename, "wb") as f:
-            pickle.dump(LLR_dict0, f, protocol=4)
+            pickle.dump(LLR_dict, f, protocol=4)
             pickle.dump(info, f, protocol=4)
 
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
-    return LLR_dict0, info
+    return LLR_dict, info
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -284,7 +285,7 @@ if __name__ == "__main__":
     w0 = [len(blocks_dict[key]) for key,value in LLR_dict.items() if value!=None]
     W = sum(w0)
     weights = [i/W for i in w0]
-    jk_mean, jk_std, jk_bias = jackknifing(population,weights)
+    jk_mean, jk_std, jk_bias = jackknife(population,weights)
 
     num_of_LD_blocks = len(population)
     fraction_of_negative_LLRs = sum([1 for i  in population if i<0])/len(population)
