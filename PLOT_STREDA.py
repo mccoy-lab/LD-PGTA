@@ -11,7 +11,10 @@ def load_llr(filename):
     with open('results_EUR/'+filename, 'rb') as f:
         llr = pickle.load(f)
         info = pickle.load(f)
-    print('%f\t%f\t%f\t%f\t%f\t%f\t\t\t%f\t%f' % (info['depth'],info['statistics']['jk_mean'],info['statistics']['jk_std'],info['statistics']['jk_bias'],info['statistics']['mean'],info['statistics']['std'],info['statistics']['num_of_LD_blocks'],info['statistics']['fraction_of_negative_LLRs']))
+    print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], info['statistics']['num_of_LD_blocks'],info['statistics']['fraction_of_negative_LLRs']))
+    print('Mean: %.3f, Standard error: %.3f, Jackknife standard error: %.3f' % ( info['statistics']['mean'], info['statistics']['std'], info['statistics']['jk_std']))
+    print('Calculation was done in %.3f sec.' % info['runtime'])
+
     return llr, info
 
 def plot_streda(LLR_dict0,**kwargs):
@@ -27,7 +30,7 @@ def plot_streda(LLR_dict0,**kwargs):
 
     K,V = zip(*((k,v) for k,v in LLR_dict.items() if v!=None))
     B, C = {}, {}
-    for i in range(10):
+    for i in range(12):
         a = len(V)//(i+1)
         B[i] = tuple(((i,K[j*a][0]),(i,K[min((j+1)*a,len(K)-1)][-1])) for j in range(i+1))
         C[i] = tuple(sum(k<0 for k in V[j*a:(j+1)*a])/len(V[j*a:(j+1)*a]) for j in range(i+1))
@@ -72,7 +75,7 @@ def analyze(LLR_dict0):
     K,V = zip(*((k,v) for k,v in LLR_dict.items() if v!=None))
     A = dict()
     B = dict()
-    for i in range(10):
+    for i in range(12):
         #print(i+1)
         a = len(V)//(i+1)
         A[i] = tuple(sum(k<0 for k in V[j*a:(j+1)*a])/len(V[j*a:(j+1)*a]) for j in range(i+1))

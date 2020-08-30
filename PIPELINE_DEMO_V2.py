@@ -10,22 +10,8 @@ Feb 27, 2020
 """
 import time, pickle, re, sys
 from multiprocessing import Process
+from MIX2HAPLOIDS import MixHaploids2
 
-from MIX2HAPLOIDS import mix2haploids
-from MIX2HAPLOIDS import check_haploid
-from MIX2HAPLOIDS import mix3haploids
-from ANEUPLOIDY_TEST import aneuploidy_test
-
-def LDblockHIST(x):
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    ax.hist(x,bins=int(len(x)**.5),histtype='step', linewidth=2.2, label='LLR distribution accross LD blocks')
-    ax.set_xlabel('Aggregated log-likelihood ratio')
-    ax.set_ylabel('Counts')
-    ax.set_title('LLR distribution accross LD blocks' )
-    #ax.legend()
-    plt.show()
-    
 def runInParallel(*fns):
     proc = []
     for fn in fns:
@@ -40,7 +26,40 @@ def runInParallel(*fns):
           p.join()
         except:
             None
+
+def make_obs_tab_demo2(bam_filename,legend_filename,handle):
+    from MAKE_OBS_TAB import retrive_bases
+    args = {'bam_filename': '../For_Rajiv/'+bam_filename,
+            'legend_filename': '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/'+legend_filename,
+            'max_depth': 0,
+            'min_bq': 30,
+            'min_mq': 30,
+            'handle_multiple_observations': handle,
+            'fasta_filename': '',#'../genome_ref_hg38/hg38.fa', 
+            'output_filename': ''}
     
+    args['output_filename'] = 'results_EUR/'+re.sub('.bam$','',args['bam_filename'].strip().split('/')[-1])+'.obs.p'
+
+    result = retrive_bases(**args)
+    
+    return result
+ 
+def aneuploidy_test_demo(obs_filename,chr_id):
+    from ANEUPLOIDY_TEST import aneuploidy_test
+    args = dict(obs_filename = 'results_EUR/HG00096.HG00097.0.5.BPH.obs.p',
+                hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/%s_EUR_panel.hap' % chr_id,
+                leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/%s_EUR_panel.legend' % chr_id,
+                block_size = 1e5,
+                subsamples = 32,
+                offset = 0,
+                min_reads = 2,
+                max_reads = 16,
+                output_filename = None)
+    args['obs_filename'] = 'results_EUR/' + obs_filename
+    args['output_filename'] = 'results_EUR/'+re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
+    LLR_dict, info = aneuploidy_test(**args)
+    return LLR_dict, info
+   
 def make_obs_tab_demo(bam_filename,legend_filename,handle):
     from MAKE_OBS_TAB import retrive_bases
     args = {'bam_filename': '../BAMs_hg38/'+bam_filename,
@@ -57,33 +76,45 @@ def make_obs_tab_demo(bam_filename,legend_filename,handle):
     result = retrive_bases(**args)
     
     return result
-
-def aneuploidy_test_demo(obs_filename):
-    from ANEUPLOIDY_TEST import aneuploidy_test
-    args = dict(obs_filename = 'results_EUR/HG00096.HG00097.0.5.BPH.obs.p',
-                hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap',
-                leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend',
-                block_size = 1e5,
-                offset = 0,
-                min_reads = 2,
-                max_reads = 16,
-                output_filename = None)
-    args['obs_filename'] = 'results_EUR/' + obs_filename
-    args['output_filename'] = 'results_EUR/'+re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
-    LLR_dict, info = aneuploidy_test(**args)
-    
-    return LLR_dict, info
         
 if __name__ == "__main__":
-    LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.5.HG00096.HG00096.B.hg38.obs.p')
-    LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.5.HG00096.HG00096.HG00097.A.hg38.obs.p')
+    #A = MixHaploids2('HG00096A.chr13.hg38.obs.p', 'HG00096B.chr13.hg38.obs.p', 'HG00097A.chr13.hg38.obs.p', read_length=36, depth=0.01, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
+    #A = MixHaploids2('HG00096A.chr6.hg38.obs.p', 'HG00096B.chr6.hg38.obs.p', 'HG00097A.chr6.hg38.obs.p', read_length=36, depth=0.01, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
+    #A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00096B.chr21.hg38.obs.p', 'HG00097A.chr21.hg38.obs.p', read_length=36, depth=0.01, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
+    
+    
+    #for i in range(0,11):
+    #   print('Recombination spot: %.2f' % (i * 0.1))
+    #    LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.recomb.%.2f.obs.p' % (i * 0.1))       
+    
+    filenames = ('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
+    functions = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\')' % (f,'chr21')) for f in filenames)
+    runInParallel(*functions)
+    #filenames = ('mixed3haploids.X0.01.HG00096A.HG00096B.HG00097A.chr6.recomb.%.2f.obs.p' % (i * 0.1) for i in range(5,11))
+    #functions = (eval('lambda: aneuploidy_test_demo2(\'%s\',\'%s\')' % (f,'chr6')) for f in filenames)
+    #runInParallel(*functions)
+    
+    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.01.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21')
+    
+    
+    #A = aneuploidy_test_demo2('11909FA_2.merged.hg38.obs.p','chr6')
+    #A = aneuploidy_test_demo2('11694FA_3.merged.hg38.obs.p','chr13')
+    
+    
+    #A = aneuploidy_test_demo2('11909FA_2_T1.chr6.hg38.obs.p','chr6')
+    #A = aneuploidy_test_demo2('11909FA_2_T2.chr6.hg38.obs.p','chr6')
+    #A = aneuploidy_test_demo2('11909FA_2_I1.chr6.hg38.obs.p','chr6')
+    #A = aneuploidy_test_demo2('11909FA_2_I2.chr6.hg38.obs.p','chr6')
+    #A = aneuploidy_test_demo2('11694FA_3_T1.chr13.hg38.obs.p','chr13')
+    #A = aneuploidy_test_demo2('11694FA_3_T2.chr13.hg38.obs.p','chr13')
+    #A = aneuploidy_test_demo2('11694FA_3_I1.chr13.hg38.obs.p','chr13')
 
-
-    
-    
-    
     #sys.exit(0)
     #make_obs_tab_demo('SRR10965088.hg38.bam','chr21_EUR_panel.legend')
+    
+    #make_obs_tab_demo2('chr6/11909FA_2.merged.hg38.bam','chr6_EUR_panel.legend','all')
+    #make_obs_tab_demo2('chr13/11694FA_3.merged.hg38.bam','chr13_EUR_panel.legend','all')
+    
     #make_obs_tab_demo('SRR6676163.hg38.bam','chr21_MixHap_panel.legend','all')
     #make_obs_tab_demo('SRR151495.0-2.hg38.bam','chr21_HapMix_panel.legend','random')
     #make_obs_tab_demo('SRR10393062.hg38.bam','chr21_HapMix_panel.legend','random')
@@ -110,107 +141,18 @@ if __name__ == "__main__":
     #B = make_obs_tab_demo('HG01880.HG01885.0.1.BPH.bam','chr21_EUR_panel.legend','all')
 
     
-    #A = mix3haploids('HG00096.A.hg38.obs.p', 'HG00096.B.hg38.obs.p', 'HG00097.A.hg38.obs.p', 150, 0.5, 'all', 'results_EUR', '')
-    #B = mix2haploids('HG00096.A.hg38.obs.p', 'HG00096.B.hg38.obs.p', 150, 0.5, 'all', 'results_EUR', '')
-
-
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.01, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.02, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.03, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.04, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.05, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.06, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.07, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.08, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.09, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.1, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.2, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.3, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.4, 'all', 'results_HapMix', '')
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.5, 'all', 'results_HapMix', '')
-
-    #LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.3.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.3.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.4.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.4.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.5.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.1.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.2.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.2.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.0.5.SPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.HG00097.0.5.BPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.0.4.SPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.HG00097.0.4.BPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.0.3.SPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.HG00097.0.3.BPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.0.2.SPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.HG00097.0.2.BPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.0.1.SPH.obs.p')
-    #LLR_dict, info = aneuploidy_test_demo('HG00096.HG00097.0.1.BPH.obs.p')    
-        
-    #aneuploidy_test_demo('mixed2haploids.X0.02.SRR10393062.SRR151495.0-2.hg38.obs.p')
+    #A = MixHaploids('HG00096.A.hg38.obs.p', 'HG00096.B.hg38.obs.p', 'HG00097.A.hg38.obs.p', read_length=150, depth=0.5, work_dir='results_EUR', recombination_spot=0)
+    #B = MixHaploids('HG00096.A.hg38.obs.p', 'HG00097.A.hg38.obs.p', read_length=150, depth=0.5, work_dir='results_EUR', recombination_spot=0)
+   
+    #for i in range(11):
+    #    A = MixHaploids2('HG00096A.hg38.obs.p', 'HG00096B.hg38.obs.p', 'HG00097A.hg38.obs.p', read_length=36, depth=0.01, work_dir='results_EUR', recombination_spot=i/10)
+        #B = MixHaploids2('HG00096A.hg38.obs.p', 'HG00097A.hg38.obs.p', read_length=36, depth=0.01, work_dir='results_EUR', recombination_spot=i/10)
+    
+    #LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.50.HG00096A.HG00097A.recomb.0.90.obs.p')
+    #LLR_dict, info = aneuploidy_test_demo('mixed2haploids.X0.50.HG00096A.HG00097A.recomb.0.00.obs.p')
 
     
-    #A = lambda: aneuploidy_test_demo('mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #B = lambda: aneuploidy_test_demo('mixed2haploids.X0.2.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #C = lambda: aneuploidy_test_demo('mixed2haploids.X0.3.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #D = lambda: aneuploidy_test_demo('mixed2haploids.X0.4.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #E = lambda: aneuploidy_test_demo('mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #runInParallel(A,B,C,D,E)
     
-    #aneuploidy_test_demo('mixed2haploids.X0.02.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #aneuploidy_test_demo('mixed2haploids.X0.2.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #aneuploidy_test_demo('mixed2haploids.X0.3.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #aneuploidy_test_demo('mixed2haploids.X0.4.SRR10393062.SRR151495.0-2.hg38.obs.p')
-    #aneuploidy_test_demo('mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.obs.p')
- 
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.01, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.02, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.03, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.04, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.05, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.06, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.07, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.08, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.09, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.1, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.2, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.3, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.4, 'all', 'results_HapMix', '')
-    #A = mix3haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 'HG002_NA24385_A.hg38.obs.p', 150, 0.5, 'all', 'results_HapMix', '')
-
-    #aneuploidy_test_demo('mixed3haploids.X0.1.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #aneuploidy_test_demo('mixed3haploids.X0.2.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #aneuploidy_test_demo('mixed3haploids.X0.3.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #aneuploidy_test_demo('mixed3haploids.X0.4.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #aneuploidy_test_demo('mixed3haploids.X0.5.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-
-    #A = aneuploidy_test_demo('mixed3haploids.X0.1.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #B = aneuploidy_test_demo('mixed3haploids.X0.2.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #C = aneuploidy_test_demo('mixed3haploids.X0.3.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #D = aneuploidy_test_demo('mixed3haploids.X0.4.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #E = aneuploidy_test_demo('mixed3haploids.X0.5.SRR10393062.SRR151495.HG002_NA24385_A.hg38.obs.p')
-    #runInParallel(A,B,C,D,E)
-  
-    #A = check_haploid('SRR10393062.hg38.obs.p', 150, 0.1, 'all')
-    #A = check_haploid('SRR151495.0-2.hg38.obs.p', 150, 0.1, 'all')
-    #A = check_haploid('SRR151495.0-2.hg38.obs.p', 150, 0.05, 'all')
-    #A = check_haploid('SRR151495.0-2.hg38.obs.p', 150, 0.15, 'all')
-    #A = check_haploid('SRR151495.0-2.hg38.obs.p', 150, 0.2, 'all')
-
-
-
-    #A = mix2haploids('SRR10393062.hg38.obs.p', 'SRR151495.0-2.hg38.obs.p', 150, 0.1)
-    #make_llr_dict_demo('mixed2haploids.X0.025.SRR10393062.SRR151495.0-2.hg38.obs.p','chr21','pair',100)
-    #make_llr_dict_demo('mixed2haploids.X0.025.SRR10393062.SRR151495.0-2.hg38.obs.p','chr21','triplet',100)
-    #make_llr_dict_demo('mixed2haploids.X0.1.SRR10393062.SRR151495.0-2.hg38.obs.p','chr21','quartet',100)
-
-    #make_llr_dict_demo('SRR10965088.hg38.obs.p','chr21','quartet',50)
-    #make_llr_dict_demo('SRR10393062.hg38.obs.p','chr21','quartet',25)
-
-
     pass
     
     

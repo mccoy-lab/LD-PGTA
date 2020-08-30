@@ -12,6 +12,7 @@ May 11st, 2020
 """
 
 import collections, time, pickle, statistics, argparse, re, sys, operator, heapq, itertools, functools, random
+from numpy.random import choice as np_choice
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
 
@@ -36,8 +37,8 @@ def jackknifing(sample,weights):
     pseudo_values = [h*t0-(h-1)*t for t,h in zip(T,H)]
     jackknife_estimator = sum((p/h for p,h in zip(pseudo_values,H)))
     jackknife_variance = sum(((p-jackknife_estimator)**2/(h-1) for p,h in zip(pseudo_values,H)))/N
-    jackknife_bias = (N-1)*t0-sum((t*(h-1)/h for t,h in zip(T,H)))
-    return jackknife_estimator, jackknife_variance**.5 , jackknife_bias
+    #jackknife_bias = (N-1)*t0-sum((t*(h-1)/h for t,h in zip(T,H)))
+    return jackknife_estimator, jackknife_variance**.5# , jackknife_bias
 
 
 def build_reads_dict(obs_tab,leg_tab):
@@ -52,18 +53,18 @@ def build_reads_dict(obs_tab,leg_tab):
 
     return reads
 
-def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
-    """ Returns a dicitonary lists read_IDs and gives their rank. The rank of a
-        read is inherited from the rank of the SNPs that are overlapped by the
-        read. Thus, the rank of a read depends on its starting position and
+def build_weight_dict(reads_dict,obs_tab,leg_tab, hap_tab):
+    """ Returns a dicitonary lists read_IDs and gives their weight. The weight of a
+        read is inherited from the weight of the SNPs that are overlapped by the
+        read. Thus, the weight of a read depends on its starting position and
         length, but not on the alleles that it contains. """
 
     def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
         return int(''.join(str(int(i)) for i in x),2)
 
-    def rank(X,N):
-        """ Returns the rank of a given haplotypes. """
+    def weight(X,N):
+        """ Returns the weight of a given haplotypes. """
         threshold = 0.05
         joint_freq = bin(functools.reduce(operator.and_,X)).count('1') / N
         result = threshold<=joint_freq<=(1-threshold)
@@ -74,25 +75,33 @@ def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
     hap_dict = dict()
     for (pos, ind, read_id, base) in obs_tab:
         ref, alt = leg_tab[ind][2:]
-        if (base==alt or base==ref) and (0.01<hap_tab[ind].count(1)/N<0.99): # if a biallelic SNP admits an allele with a frequency close to zero then this SNP would not contribute significantly to the rank of the read. However, including these SNPs in the calculation of the rank would prolong the calculation time. Thus, this function determines if the SNP should be included the calculation of the rank. 
+        if (base==alt or base==ref) and (0.01<hap_tab[ind].count(1)/N<0.99): # if a biallelic SNP admits an allele with a frequency close to zero then this SNP would not contribute significantly to the weight of the read. However, including these SNPs in the calculation of the weight would prolong the calculation time. Thus, this function determines if the SNP should be included the calculation of the weight. 
             hap_dict[pos] = (bools2int(hap_tab[ind]), bools2int(map(operator.not_,hap_tab[ind])))
  
-    rank_dict = dict()
+    weight_dict = dict()
     for read_id in reads_dict:
         hap = (hap_dict[pos] for pos,base in reads_dict[read_id] if pos in hap_dict)
-        rank_dict[read_id] = sum(rank(C,N) for C in itertools.product(*hap) if len(C)!=0)
+        weight_dict[read_id] = sum(weight(C,N) for C in itertools.product(*hap) if len(C)!=0)
 
-    return rank_dict
+    return weight_dict
 
-def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
+def pick_reads(reads_dict,weight_dict,read_IDs,min_reads,max_reads):
     """ Picks up to max_reads reads out of all the reads in a given LD block;
-        The reads are choosen according to a priority dictionary. In addition,
+        The reads are drawn from a weighted random distribution. In addition,
         if the number of reads in a given LD block is less than the minimal
         requirment then the block would not be considered."""
 
-    prioritised = heapq.nlargest(max_reads,read_IDs, key=lambda x: rank_dict[x] + random.random())
-    #print(collections.Counter(rank_dict[read_ID] for read_ID in prioritised))
-    haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised if rank_dict[read_ID] > 1)
+    
+    #prioritised = heapq.nlargest(max_reads,read_IDs, key=lambda x: weight_dict[x] + random.random())
+    #print(collections.Counter(weight_dict[read_ID] for read_ID in prioritised))
+    #haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised if weight_dict[read_ID] > 1)
+    
+    def pop(A,x): del A[x]; return x
+    W = {read_ID:(weight_dict[read_ID]-1) for read_ID in read_IDs if weight_dict[read_ID]>1}
+    drawn_read_IDs = (pop(W,*random.choices([*W], weights=[*W.values()])) for i in range(min(max_reads,len(W))))
+    #drawn_read_IDs = tuple(*drawn_read_IDs); print(collections.Counter(weight_dict[read_ID] for read_ID in drawn_read_IDs))
+    #print(collections.Counter(W.values()))
+    haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
     result = haplotypes if len(haplotypes) >= max(2,min_reads) else None
     return result
     
@@ -139,17 +148,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     leg_tab = read_impute2(leg_filename, filetype='leg')
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-
-    rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
-
+    weight_dict = build_weight_dict(reads_dict,obs_tab,leg_tab,hap_tab)
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
-        
-    #blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
-    #                           for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
-    
-    #LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
-
-
     LLR_dict0 = collections.defaultdict(list)
 
     for k in range(subsamples):
@@ -157,7 +157,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
         sys.stdout.write(f"[{'=' * int(k+1):{subsamples}s}] {int(100*(k+1)/subsamples)}% ")
         sys.stdout.flush()
         
-        blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
+        blocks_dict_picked = {block: pick_reads(reads_dict,weight_dict,read_IDs,min_reads,max_reads)
                            for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
 
         for block,haplotypes in blocks_dict_picked.items():
@@ -166,22 +166,21 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
             else:
                 LLR_dict0[block].append(None)
  
-    LLR_dict = {block: sum(LLRs)/len(LLRs) for block,LLRs in LLR_dict0.items() if None not in LLRs}
-
-    population = tuple(value for value in LLR_dict.values() if value!=None)
-    mean, std = mean_and_std(population)
-
-    w0 = [len(blocks_dict_picked[key]) for key,value in LLR_dict.items() if value!=None]
-    W = sum(w0)
-    weights = [i/W for i in w0]
-    jk_mean, jk_std, jk_bias = jackknifing(population,weights)
-
-    num_of_LD_blocks = len(population)
-    fraction_of_negative_LLRs = sum([1 for i  in population if i<0])/len(population)
+    LLR_stat = {block: mean_and_std(LLRs) for block,LLRs in LLR_dict0.items() if None not in LLRs}
     
-    print('\nDepth: %.2f, Mean: %.3f, STD: %.3f' % (info['depth'], mean, std))
-    print('Jackknife estimator: %.3f, Jackknife standard error: %.3f, Jackknife bias: %.3f' % (jk_mean, jk_std, jk_bias))
-    print('Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (num_of_LD_blocks,fraction_of_negative_LLRs))
+    M, V = zip(*LLR_stat.values())
+    mean, std = sum(M)/len(M), sum(V)**.5/len(V) #The standard deviation is calculated according to the Bienaymé formula.
+
+    LLR_jack = {block: jackknifing(LLRs,[1/len(LLRs)]*len(LLRs)) for block,LLRs in LLR_dict0.items() if None not in LLRs}
+    M_jack, V_jack = zip(*LLR_jack.values())
+    jk_mean, jk_std = sum(M_jack)/len(M_jack), sum(V_jack)**.5/len(V_jack)
+
+
+    num_of_LD_blocks = len(M_jack)
+    fraction_of_negative_LLRs = sum([1 for i  in M_jack if i<0])/len(M_jack)
+    
+    print('\nDepth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
+    print('Mean: %.3f, Standard error: %.3f, Jackknife standard error: %.3f' % ( mean, std, jk_std))
     
     info.update({'block_size': block_size,
                  'offset': offset,
@@ -189,8 +188,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
                  'max_reads': max_reads,
                  'runtime': time.time()-a})
 
-    info['statistics'] = {'mean': mean, 'std': std,
-                          'jk_mean': jk_mean, 'jk_std': jk_std, 'jk_bias': jk_bias,
+    info['statistics'] = {'mean': mean, 'std': std, 'jk_std': jk_std, 
                           'num_of_LD_blocks': num_of_LD_blocks,
                           'fraction_of_negative_LLRs': fraction_of_negative_LLRs}
 
@@ -229,9 +227,9 @@ if __name__ == "__main__":
                         metavar='INT', default=0,
                         help='Shifts all the LD blocks by the requested base pairs. The default value is 0.')
     parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=2,
-                        help='Takes into account only LD blocks with at least INT reads, admitting non-zero rank. The default value is 2.')
+                        help='Takes into account only LD blocks with at least INT reads, admitting non-zero weight. The default value is 2.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=16,
-                        help='Selects up to INT reads from each LD blocks. The reads in each block are selected in a descending order according to their rank. The default value is 16.')
+                        help='Selects up to INT reads from each LD blocks. The default value is 16.')
     parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
                         help='The output filename. The default is the input filename with the extension \".obs.p\" replaced by \".LLR.p\".')
     args = parser.parse_args()
@@ -273,8 +271,8 @@ if __name__ == "__main__":
     blocks_dict = build_blocks_dict(aux_dict,args['block_size'],args['offset'])
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-    rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
-    blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,args['min_reads'],args['max_reads'])
+    weight_dict = build_weight_dict(reads_dict,obs_tab,leg_tab,hap_tab)
+    blocks_dict_picked = {block: pick_reads(reads_dict,weight_dict,read_IDs,args['min_reads'],args['max_reads'])
                           for block,read_IDs in blocks_dict.items()}
     
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16D.p')
