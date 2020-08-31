@@ -56,7 +56,7 @@ def aneuploidy_test_demo(obs_filename,chr_id):
                 max_reads = 16,
                 output_filename = None)
     args['obs_filename'] = 'results_EUR/' + obs_filename
-    args['output_filename'] = 'results_EUR/'+re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
+    args['output_filename'] = 'results_EUR/'+re.sub('(.*)obs','\\1LLR_TESTyyy2', obs_filename.split('/')[-1],1)    
     LLR_dict, info = aneuploidy_test(**args)
     return LLR_dict, info
    
@@ -80,14 +80,14 @@ def make_obs_tab_demo(bam_filename,legend_filename,handle):
 if __name__ == "__main__":
     #A = MixHaploids2('HG00096A.chr13.hg38.obs.p', 'HG00096B.chr13.hg38.obs.p', 'HG00097A.chr13.hg38.obs.p', read_length=150, depth=0.20, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
     #A = MixHaploids2('HG00096A.chr6.hg38.obs.p', 'HG00096B.chr6.hg38.obs.p', 'HG00097A.chr6.hg38.obs.p', read_length=36, depth=0.01, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
-    A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00096B.chr21.hg38.obs.p', 'HG00097A.chr21.hg38.obs.p', read_length=36, depth=0.10, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
+    #A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00096B.chr21.hg38.obs.p', 'HG00097A.chr21.hg38.obs.p', read_length=150, depth=0.10, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
     
     
     #for i in range(0,11):
     #   print('Recombination spot: %.2f' % (i * 0.1))
     #    LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.recomb.%.2f.obs.p' % (i * 0.1))       
     
-    #filenames = ('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
+    #filenames = ('mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
     #functions = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\')' % (f,'chr21')) for f in filenames)
     #runInParallel(*functions)
     
@@ -95,7 +95,8 @@ if __name__ == "__main__":
     #functions = (eval('lambda: aneuploidy_test_demo2(\'%s\',\'%s\')' % (f,'chr6')) for f in filenames)
     #runInParallel(*functions)
     
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.01.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21')
+    LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21')
+    LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21')
     
     
     #A = aneuploidy_test_demo2('11909FA_2.merged.hg38.obs.p','chr6')

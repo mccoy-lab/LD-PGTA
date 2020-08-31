@@ -10,7 +10,7 @@ The observed alleles, together with their chromosome position and line number
 in the legend file, are organized in a table.
 
 Daniel Ariad (daniel@ariad.org)
-May 11st, 2020
+AUG 31, 2020
 """
 import sys, os, time, random, warnings, argparse, re, pickle
 

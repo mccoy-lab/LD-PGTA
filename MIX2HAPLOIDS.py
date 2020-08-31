@@ -55,7 +55,7 @@ def number_of_reads(chr_id,reads_length,depth):
 def build_dictionary_of_reads(obs_tab,chr_id,read_length,offset):
     """ Cuts the sequence of chromosome chr_id into simulated reads of length
         read_length. Then, creates a dictionary that matches a simulated read 
-        with the observed bases at SNPs within the read."""
+        with the observed alleles at SNPs that overlap with the read."""
     
     positions = next(zip(*obs_tab))    
     a = positions[0]-(read_length-1)+offset
@@ -96,18 +96,23 @@ def sort_obs_tab(obs_dict, handle_multiple_observations):
     
     return obs_tab_sorted
 
-def build_obs_dict(obs_tabs, chr_id, read_length, depth, recombination_spot):
-    """ Mixes simulated reads to mimic Illumina dye sequencing of a trisomic cell. """ 
-    
-    L = len(obs_tabs)
-    num_of_reads = number_of_reads(chr_id,read_length,depth)
+def build_cache(obs_tabs,chr_id, read_length):
+    """ Caches the dictionary of reads. """
     
     cache = [{} for _ in range(len(obs_tabs))]
-    
     for i,obs_tab in enumerate(obs_tabs):
         for offset in range(read_length):
             cache[i].update(build_dictionary_of_reads(obs_tab,chr_id,read_length,offset)) 
-            
+
+    return cache
+
+def build_obs_dict(cache, chr_id, read_length, depth, recombination_spot):
+    """ Mixes simulated reads to mimic Illumina dye sequencing of a trisomic cell. """ 
+    
+    num_of_reads = number_of_reads(chr_id,read_length,depth)
+         
+    L = len(cache)
+        
     obs_dict = collections.defaultdict(list)
     
     for i in range(num_of_reads):
@@ -137,9 +142,9 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
     
     handle_multiple_observations = kwargs.get('handle_multiple_observations','all')
-    recombination_spot = kwargs.get('recombination_spot',0)
+    recombination_spots = kwargs.get('recombination_spots', [0,])
     work_dir = kwargs.get('work_dir', '')
-    output_filename = kwargs.get('output_filename','')
+    given_output_filename = kwargs.get('output_filename','')
     
     work_dir += '/' if len(work_dir)!=0 and work_dir[-1]!='/' else ''
     
@@ -154,23 +159,31 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
     if not all(info['chr_id']==chr_id for info in info_dicts):
         raise Exception('Error: the chr_id differs from one OBS file to another.')   
     
-    obs_dict = build_obs_dict(obs_tabs, chr_id, read_length, depth, recombination_spot)
+    cache = build_cache(obs_tabs,chr_id, read_length)
     
-    info = info_dicts[0]
-    info.update({'depth': depth, 'read_length': read_length})
-    
-    obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
-    
-    info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
-    
-    if output_filename!=None:
-        MIX = '.'.join(filename.strip().split('/')[-1].strip().split('.')[0] for filename in obs_filenames)
-        RECOMB = ('.recomb.%.2f' % recombination_spot) if recombination_spot!=0 else '.'
-        default_output_filename = ('mixed%dhaploids.X%.2f.' % (len(obs_filenames),depth)) + MIX + RECOMB + '.obs.p'    
-        output_filename = default_output_filename if output_filename=='' else output_filename 
-        with open(  work_dir + output_filename , "wb" ) as f:
-                pickle.dump( obs_tab_sorted, f, protocol=4)
-                pickle.dump( info, f, protocol=4)    
+    for u, recombination_spot in enumerate(recombination_spots,start=1):
+        
+        obs_dict = build_obs_dict(cache, chr_id, read_length, depth, recombination_spot)
+        
+        info = info_dicts[0]
+        info.update({'depth': depth, 'read_length': read_length})
+        
+        obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
+        
+        info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
+        
+        if given_output_filename!=None:
+            MIX = '.'.join(filename.strip().split('/')[-1].strip().split('.')[0] for filename in obs_filenames)
+            RECOMB = ('.recomb.%.2f' % recombination_spot) if len(obs_filenames)==3 else ''
+            default_output_filename = ('mixed%dhaploids.X%.2f.' % (len(obs_filenames),depth)) + MIX + RECOMB + '.obs.p'    
+            output_filename = default_output_filename if given_output_filename=='' else ('%d.' % u)+given_output_filename 
+            with open(  work_dir + output_filename , "wb" ) as f:
+                    pickle.dump( obs_tab_sorted, f, protocol=4)
+                    pickle.dump( info, f, protocol=4)    
+        
+        sys.stdout.write('\r')
+        sys.stdout.write(f"[{'=' * int(u):{len(recombination_spots)}s}] {int(100*u/len(recombination_spots))}% ")
+        sys.stdout.flush()
         
     time1 = time.time()
     print('Done simulating the observations table of a trisomic cell in %.2f sec.' % (time1-time0))

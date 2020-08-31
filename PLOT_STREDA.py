@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Aug 18 01:12:11 2020
-
-@author: ariad
+PLOT_STREDA
+Daniel Ariad (daniel@ariad.org)
+Aug 31, 2020
 """
+
 import pickle
 from ANEUPLOIDY_TEST import mean_and_std, jackknife
 def load_llr(filename):

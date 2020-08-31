@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jun 29 23:18:10 2020
+LLR_CALCULATOR_VERIFIER
 
-@author: ariad
+Daniel Ariad (daniel@ariad.org)
+Aug 31, 2020
 """
 
 import pickle

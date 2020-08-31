@@ -11,7 +11,7 @@ haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
 
 Daniel Ariad (daniel@ariad.org)
-Aug 2th, 2020
+Aug 31, 2020
 """
 
 import pickle, os, sys, bz2
@@ -152,7 +152,7 @@ def create_LLR(models_dict,joint_frequencies_combo,D):
         SPH += sum(A0/A1 * sum(F[B0] * F[B1] for (B0, B1) in C)
                    for (A0, A1), C in models_dict[N]['SPH'][2].items()) / D**2
 
-        result = 0.123456789 if SPH<1e-16 else log(BPH/SPH)
+        result = 1.23456789 if SPH<1e-18 else log(BPH/SPH)
         return result
 
     return LLR

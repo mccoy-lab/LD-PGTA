@@ -9,7 +9,7 @@ haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
 
 Daniel Ariad (daniel@ariad.org)
-June 5th, 2020
+AUG 31, 2020
 """
 import itertools, collections, math, pickle, time, bz2
 

@@ -8,11 +8,10 @@ BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
 Daniel Ariad (daniel@ariad.org)
-May 11st, 2020
+Aug 31, 2020
 """
 
 import collections, time, pickle, statistics, argparse, re, sys, operator, heapq, itertools, functools, random
-from numpy.random import choice as np_choice
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
 
@@ -86,22 +85,13 @@ def build_weight_dict(reads_dict,obs_tab,leg_tab, hap_tab):
     return weight_dict
 
 def pick_reads(reads_dict,weight_dict,read_IDs,min_reads,max_reads):
-    """ Picks up to max_reads reads out of all the reads in a given LD block;
-        The reads are drawn randomly from a categorical distribution, where the
-        weight of each read is determined by a weighting algorithm. 
-        In addition, if the number of reads in a given LD block is less than
-        the minimal requirment then the block would not be considered."""
+    """ Draws up to max_reads reads from a given LD block; Only reads with a
+        weight larger than one are sampled. In addition, if the number of reads
+        in a given LD block is less than the minimal requirment then the block
+        would not be considered."""
 
-    
-    #prioritised = heapq.nlargest(max_reads,read_IDs, key=lambda x: weight_dict[x] + random.random())
-    #print(collections.Counter(weight_dict[read_ID] for read_ID in prioritised))
-    #haplotypes = tuple(reads_dict[read_ID] for read_ID in prioritised if weight_dict[read_ID] > 1)
-    
-    def pop(A,x): del A[x]; return x
-    W = {read_ID:(weight_dict[read_ID]-1) for read_ID in read_IDs if weight_dict[read_ID]>1}
-    drawn_read_IDs = (pop(W,*random.choices([*W], weights=[*W.values()])) for i in range(min(max_reads,len(W))))
-    #drawn_read_IDs = tuple(*drawn_read_IDs); print(collections.Counter(weight_dict[read_ID] for read_ID in drawn_read_IDs))
-    #print(collections.Counter(W.values()))
+    read_IDs_filtered = tuple(read_ID for read_ID in read_IDs if weight_dict[read_ID]>1)
+    drawn_read_IDs = random.sample(read_IDs_filtered, min(max_reads,len(read_IDs_filtered)))
     haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
     result = haplotypes if len(haplotypes) >= max(2,min_reads) else None
     return result
@@ -140,7 +130,6 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     a = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
-    print('Filename: %s' % obs_filename)
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
@@ -162,10 +151,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
                            for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
 
         for block,haplotypes in blocks_dict_picked.items():
-            if haplotypes!=None:
-                LLR_dict[block].append(LLR(*haplotypes))
-            else:
-                LLR_dict[block].append(None)
+            LLR_dict[block].append(LLR(*haplotypes) if haplotypes!=None else None)
  
     LLR_stat = {block: mean_and_std(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
     
@@ -180,7 +166,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     num_of_LD_blocks = len(M_jack)
     fraction_of_negative_LLRs = sum([1 for i  in M_jack if i<0])/len(M_jack)
     
-    print('\nDepth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
+    print('\nFilename: %s' % obs_filename)
+    print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
     print('Mean: %.3f, Standard error: %.3f, Jackknife standard error: %.3f' % ( mean, std, jk_std))
     
     info.update({'block_size': block_size,
@@ -256,55 +243,61 @@ if __name__ == "__main__":
                 hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap',
                 leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend',
                 block_size = 1e5,
+                subsamples = 32,
                 offset = 0,
                 min_reads = 2,
                 max_reads = 16,
                 output_filename = None)
 
-    hap_tab = read_impute2(args['hap_filename'], filetype='hap')
-    leg_tab = read_impute2(args['leg_filename'], filetype='leg')
-
-    with open(args['obs_filename'], 'rb') as f:
+        with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
-
-    aux_dict = build_aux_dict(obs_tab,leg_tab)
-    blocks_dict = build_blocks_dict(aux_dict,args['block_size'],args['offset'])
+        
+    hap_tab = read_impute2(hap_filename, filetype='hap')
+    leg_tab = read_impute2(leg_filename, filetype='leg')
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     weight_dict = build_weight_dict(reads_dict,obs_tab,leg_tab,hap_tab)
-    blocks_dict_picked = {block: pick_reads(reads_dict,weight_dict,read_IDs,args['min_reads'],args['max_reads'])
-                          for block,read_IDs in blocks_dict.items()}
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
+    LLR_dict = collections.defaultdict(list)
+
+    for k in range(subsamples):
+        sys.stdout.write('\r')
+        sys.stdout.write(f"[{'=' * int(k+1):{subsamples}s}] {int(100*(k+1)/subsamples)}% ")
+        sys.stdout.flush()
+        
+        blocks_dict_picked = {block: pick_reads(reads_dict,weight_dict,read_IDs,min_reads,max_reads)
+                           for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
+
+        for block,haplotypes in blocks_dict_picked.items():
+            LLR_dict[block].append(LLR(*haplotypes) if haplotypes!=None else None)
+ 
+    LLR_stat = {block: mean_and_std(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
     
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS16D.p')
-    LLR_dict = {block: LLR(*haplotypes) if haplotypes!=None else None for block,haplotypes in blocks_dict_picked.items()}
+    M, V = zip(*LLR_stat.values())
+    mean, std = sum(M)/len(M), sum(V)**.5/len(V) #The standard deviation is calculated according to the Bienaymé formula.
 
-    population = tuple(value for value in LLR_dict.values() if value!=None)
-    mean, std = mean_and_std(population)
+    LLR_jack = {block: jackknife(LLRs,[1/len(LLRs)]*len(LLRs)) for block,LLRs in LLR_dict.items() if None not in LLRs}
+    M_jack, V_jack = zip(*LLR_jack.values())
+    jk_mean, jk_std = sum(M_jack)/len(M_jack), sum(V_jack)**.5/len(V_jack)
 
-    w0 = [len(blocks_dict[key]) for key,value in LLR_dict.items() if value!=None]
-    W = sum(w0)
-    weights = [i/W for i in w0]
-    jk_mean, jk_std, jk_bias = jackknife(population,weights)
 
-    num_of_LD_blocks = len(population)
-    fraction_of_negative_LLRs = sum([1 for i  in population if i<0])/len(population)
+    num_of_LD_blocks = len(M_jack)
+    fraction_of_negative_LLRs = sum([1 for i  in M_jack if i<0])/len(M_jack)
+    
+    print('\nFilename: %s' % obs_filename)
+    print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
+    print('Mean: %.3f, Standard error: %.3f, Jackknife standard error: %.3f' % ( mean, std, jk_std))
+    
+    info.update({'block_size': block_size,
+                 'offset': offset,
+                 'min_reads': min_reads,
+                 'max_reads': max_reads,
+                 'runtime': time.time()-a})
 
-    print('Depth: %.2f, Mean: %.3f, STD: %.3f' % (info['depth'], mean, std))
-    print('Jackknife estimator: %.3f, Jackknife standard error: %.3f, Jackknife bias: %.3f' % (jk_mean, jk_std, jk_bias))
-    print('Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (num_of_LD_blocks,fraction_of_negative_LLRs))
-
-    info.update({'block_size': args['block_size'],
-                 'offset': args['offset'],
-                 'min_reads': args['min_reads'],
-                 'max_reads': args['max_reads']})
-
-    info['statistics'] = {'mean': mean, 'std': std,
-                          'jk_mean': jk_mean, 'jk_std': jk_std, 'jk_bias': jk_bias,
+    info['statistics'] = {'mean': mean, 'std': std, 'jk_std': jk_std, 
                           'num_of_LD_blocks': num_of_LD_blocks,
                           'fraction_of_negative_LLRs': fraction_of_negative_LLRs}
-
-    output_filename, obs_filename = args['output_filename'], args['obs_filename']
 
     if output_filename!=None:
         default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)
