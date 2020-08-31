@@ -34,18 +34,18 @@ def build_reads_dict(obs_tab,leg_tab):
 
     return reads
 
-def build_weight_dict(reads_dict,obs_tab,leg_tab, hap_tab):
-    """ Returns a dicitonary lists read_IDs and gives their weight. The weight of a
-        read is inherited from the weight of the SNPs that are overlapped by the
-        read. Thus, the weight of a read depends on its starting position and
+def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
+    """ Returns a dicitonary lists read_IDs and gives their rank. The rank of a
+        read is inherited from the rank of the SNPs that are overlapped by the
+        read. Thus, the rank of a read depends on its starting position and
         length, but not on the alleles that it contains. """
 
     def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
         return int(''.join(str(int(i)) for i in x),2)
 
-    def weight(X,N):
-        """ Returns the weight of a given haplotypes. """
+    def rank(X,N):
+        """ Returns the rank of a given haplotypes. """
         threshold = 0.05
         joint_freq = bin(functools.reduce(operator.and_,X)).count('1') / N
         result = threshold<=joint_freq<=(1-threshold)
@@ -56,23 +56,23 @@ def build_weight_dict(reads_dict,obs_tab,leg_tab, hap_tab):
     hap_dict = dict()
     for (pos, ind, read_id, base) in obs_tab:
         ref, alt = leg_tab[ind][2:]
-        if (base==alt or base==ref) and (0.01<hap_tab[ind].count(1)/N<0.99): # if a biallelic SNP admits an allele with a frequency close to zero then this SNP would not contribute significantly to the weight of the read. However, including these SNPs in the calculation of the weight would prolong the calculation time. Thus, this function determines if the SNP should be included the calculation of the weight. 
+        if (base==alt or base==ref) and (0.01<hap_tab[ind].count(1)/N<0.99): # if a biallelic SNP admits an allele with a frequency close to zero then this SNP would not contribute significantly to the rank of the read. However, including these SNPs in the calculation of the rank would prolong the calculation time. Thus, this function determines if the SNP should be included the calculation of the rank. 
             hap_dict[pos] = (bools2int(hap_tab[ind]), bools2int(map(operator.not_,hap_tab[ind])))
  
-    weight_dict = dict()
+    rank_dict = dict()
     for read_id in reads_dict:
         hap = (hap_dict[pos] for pos,base in reads_dict[read_id] if pos in hap_dict)
-        weight_dict[read_id] = sum(weight(C,N) for C in itertools.product(*hap) if len(C)!=0)
+        rank_dict[read_id] = sum(rank(C,N) for C in itertools.product(*hap) if len(C)!=0)
 
-    return weight_dict
+    return rank_dict
 
-def pick_reads(reads_dict,weight_dict,read_IDs,min_reads,max_reads):
+def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
     """ Draws up to max_reads reads from a given LD block; Only reads with a
-        weight larger than one are sampled. In addition, if the number of reads
+        rank larger than one are sampled. In addition, if the number of reads
         in a given LD block is less than the minimal requirment then the block
         would not be considered."""
 
-    read_IDs_filtered = tuple(read_ID for read_ID in read_IDs if weight_dict[read_ID]>1)
+    read_IDs_filtered = tuple(read_ID for read_ID in read_IDs if rank_dict[read_ID]>1)
     drawn_read_IDs = random.sample(read_IDs_filtered, min(max_reads,len(read_IDs_filtered)))
     haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
     result = haplotypes if len(haplotypes) >= max(2,min_reads) else None
@@ -120,7 +120,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     leg_tab = read_impute2(leg_filename, filetype='leg')
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-    weight_dict = build_weight_dict(reads_dict,obs_tab,leg_tab,hap_tab)
+    rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
     LLR_dict = collections.defaultdict(list)
 
@@ -129,7 +129,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
         sys.stdout.write(f"[{'=' * int(k+1):{subsamples}s}] {int(100*(k+1)/subsamples)}% ")
         sys.stdout.flush()
         
-        blocks_dict_picked = {block: pick_reads(reads_dict,weight_dict,read_IDs,min_reads,max_reads)
+        blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
                            for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
 
         for block,haplotypes in blocks_dict_picked.items():
@@ -192,7 +192,7 @@ if __name__ == "__main__":
                         metavar='INT', default=0,
                         help='Shifts all the LD blocks by the requested base pairs. The default value is 0.')
     parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=2,
-                        help='Takes into account only LD blocks with at least INT reads, admitting non-zero weight. The default value is 2.')
+                        help='Takes into account only LD blocks with at least INT reads, admitting non-zero rank. The default value is 2.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=16,
                         help='Selects up to INT reads from each LD blocks. The default value is 16.')
     parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
@@ -234,7 +234,7 @@ if __name__ == "__main__":
     leg_tab = read_impute2(leg_filename, filetype='leg')
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-    weight_dict = build_weight_dict(reads_dict,obs_tab,leg_tab,hap_tab)
+    rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
     LLR_dict = collections.defaultdict(list)
 
@@ -243,7 +243,7 @@ if __name__ == "__main__":
         sys.stdout.write(f"[{'=' * int(k+1):{subsamples}s}] {int(100*(k+1)/subsamples)}% ")
         sys.stdout.flush()
         
-        blocks_dict_picked = {block: pick_reads(reads_dict,weight_dict,read_IDs,min_reads,max_reads)
+        blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
                            for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
 
         for block,haplotypes in blocks_dict_picked.items():

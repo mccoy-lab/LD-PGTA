@@ -51,7 +51,7 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
         else:
             mismatches += 1
 
-    print('%%%.2f of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
+    print('%.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
 
     return hap_dict
 
