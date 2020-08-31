@@ -7,16 +7,19 @@ Aug 31, 2020
 """
 
 import pickle
-from ANEUPLOIDY_TEST import mean_and_std, jackknife
+from ANEUPLOIDY_TEST import mean_and_var
+
 def load_llr(filename):
     with open('results_EUR/'+filename, 'rb') as f:
-        llr = pickle.load(f)
+        LLR_dict = pickle.load(f)
         info = pickle.load(f)
+    
+    print('\nFilename: %s' % filename)
     print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], info['statistics']['num_of_LD_blocks'],info['statistics']['fraction_of_negative_LLRs']))
-    print('Mean: %.3f, Standard error: %.3f, Jackknife standard error: %.3f' % ( info['statistics']['mean'], info['statistics']['std'], info['statistics']['jk_std']))
+    print('Mean: %.3f, Standard error: %.3f' % ( info['statistics']['mean'], info['statistics']['std']))
     print('Calculation was done in %.3f sec.' % info['runtime'])
 
-    return llr, info
+    return LLR_dict, info
 
 def plot_streda(LLR_dict0,**kwargs):
     import numpy as np

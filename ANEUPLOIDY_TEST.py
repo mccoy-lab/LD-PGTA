@@ -15,30 +15,12 @@ import collections, time, pickle, statistics, argparse, re, sys, operator, heapq
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
 
-def mean_and_std(sample):
+def mean_and_var(sample):
     """ Calculates the mean and standard deviation of normally distributed
         random variables. """
     mean = statistics.mean(sample)
-    std = statistics.pstdev(sample, mu=mean)/len(sample)**.5
-    return mean, std
-
-def jackknife(sample,weights):
-    """ Given sample elements and the weight of each element, the jackknife
-    estimator, the jackknife standard error and the Jackknife bias (RB)
-    are calculated. More information about delete-m jackknife for unequal m
-    can be found in F.M.Busing et al. (1999), [DOI:10.1023/A:1008800423698]. """
-
-    N = len(sample)
-    t0 = sum(sample) / N
-    H = [1/w for w in weights]
-    ###H = [N for w in weights]
-    T = [sum(sample[:i]+sample[i+1:])/(N-1) for i in range(N)]
-    pseudo_values = [h*t0-(h-1)*t for t,h in zip(T,H)]
-    jackknife_estimator = sum((p/h for p,h in zip(pseudo_values,H)))
-    jackknife_variance = sum(((p-jackknife_estimator)**2/(h-1) for p,h in zip(pseudo_values,H)))/N
-    #jackknife_bias = (N-1)*t0-sum((t*(h-1)/h for t,h in zip(T,H)))
-    return jackknife_estimator, jackknife_variance**.5# , jackknife_bias
-
+    var = statistics.pvariance(sample, mu=mean)
+    return mean, var
 
 def build_reads_dict(obs_tab,leg_tab):
     """ Returns a dictionary that lists read IDs of reads that overlap with
@@ -153,22 +135,17 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
         for block,haplotypes in blocks_dict_picked.items():
             LLR_dict[block].append(LLR(*haplotypes) if haplotypes!=None else None)
  
-    LLR_stat = {block: mean_and_std(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
+    LLR_stat = {block: mean_and_var(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
     
     M, V = zip(*LLR_stat.values())
     mean, std = sum(M)/len(M), sum(V)**.5/len(V) #The standard deviation is calculated according to the Bienaymé formula.
 
-    LLR_jack = {block: jackknife(LLRs,[1/len(LLRs)]*len(LLRs)) for block,LLRs in LLR_dict.items() if None not in LLRs}
-    M_jack, V_jack = zip(*LLR_jack.values())
-    jk_mean, jk_std = sum(M_jack)/len(M_jack), sum(V_jack)**.5/len(V_jack)
-
-
-    num_of_LD_blocks = len(M_jack)
-    fraction_of_negative_LLRs = sum([1 for i  in M_jack if i<0])/len(M_jack)
+    num_of_LD_blocks = len(M)
+    fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
     
     print('\nFilename: %s' % obs_filename)
     print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
-    print('Mean: %.3f, Standard error: %.3f, Jackknife standard error: %.3f' % ( mean, std, jk_std))
+    print('Mean: %.3f, Standard error: %.3f' % ( mean, std))
     
     info.update({'block_size': block_size,
                  'offset': offset,
@@ -176,7 +153,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
                  'max_reads': max_reads,
                  'runtime': time.time()-a})
 
-    info['statistics'] = {'mean': mean, 'std': std, 'jk_std': jk_std, 
+    info['statistics'] = {'mean': mean, 'std': std,
                           'num_of_LD_blocks': num_of_LD_blocks,
                           'fraction_of_negative_LLRs': fraction_of_negative_LLRs}
 
