@@ -145,7 +145,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     
     print('\nFilename: %s' % obs_filename)
     print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
-    print('Mean: %.3f, Standard error: %.3f' % ( mean, std))
+    print('Mean: %.3f, Standard error of the mean: %.3f' % ( mean, std))
     
     info.update({'block_size': block_size,
                  'offset': offset,
@@ -226,7 +226,7 @@ if __name__ == "__main__":
                 max_reads = 16,
                 output_filename = None)
 
-        with open(obs_filename, 'rb') as f:
+    with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
         
@@ -249,22 +249,17 @@ if __name__ == "__main__":
         for block,haplotypes in blocks_dict_picked.items():
             LLR_dict[block].append(LLR(*haplotypes) if haplotypes!=None else None)
  
-    LLR_stat = {block: mean_and_std(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
+    LLR_stat = {block: mean_and_var(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
     
     M, V = zip(*LLR_stat.values())
     mean, std = sum(M)/len(M), sum(V)**.5/len(V) #The standard deviation is calculated according to the Bienaymé formula.
 
-    LLR_jack = {block: jackknife(LLRs,[1/len(LLRs)]*len(LLRs)) for block,LLRs in LLR_dict.items() if None not in LLRs}
-    M_jack, V_jack = zip(*LLR_jack.values())
-    jk_mean, jk_std = sum(M_jack)/len(M_jack), sum(V_jack)**.5/len(V_jack)
-
-
-    num_of_LD_blocks = len(M_jack)
-    fraction_of_negative_LLRs = sum([1 for i  in M_jack if i<0])/len(M_jack)
+    num_of_LD_blocks = len(M)
+    fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
     
     print('\nFilename: %s' % obs_filename)
     print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
-    print('Mean: %.3f, Standard error: %.3f, Jackknife standard error: %.3f' % ( mean, std, jk_std))
+    print('Mean: %.3f, Standard error of the mean: %.3f' % ( mean, std))
     
     info.update({'block_size': block_size,
                  'offset': offset,
@@ -272,7 +267,7 @@ if __name__ == "__main__":
                  'max_reads': max_reads,
                  'runtime': time.time()-a})
 
-    info['statistics'] = {'mean': mean, 'std': std, 'jk_std': jk_std, 
+    info['statistics'] = {'mean': mean, 'std': std,
                           'num_of_LD_blocks': num_of_LD_blocks,
                           'fraction_of_negative_LLRs': fraction_of_negative_LLRs}
 
