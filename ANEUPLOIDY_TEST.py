@@ -19,7 +19,7 @@ def mean_and_var(sample):
     """ Calculates the mean and standard deviation of normally distributed
         random variables. """
     mean = statistics.mean(sample)
-    var = statistics.pvariance(sample, mu=mean)
+    var = statistics.variance(sample, xbar=mean)
     return mean, var
 
 def build_reads_dict(obs_tab,leg_tab):
