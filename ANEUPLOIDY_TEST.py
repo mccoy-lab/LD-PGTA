@@ -16,8 +16,7 @@ from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
 
 def mean_and_var(sample):
-    """ Calculates the mean and standard deviation of normally distributed
-        random variables. """
+    """ Calculates the mean and the sample standard deviation. """
     mean = statistics.mean(sample)
     var = statistics.variance(sample, xbar=mean)
     return mean, var
@@ -143,9 +142,15 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     num_of_LD_blocks = len(M)
     fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
     
+    
+    reads_per_LLR = [len(haplotypes) for haplotypes in blocks_dict_picked.values() if haplotypes!=None]
+    reads_mean = statistics.mean(reads_per_LLR)
+    reads_var = statistics.pstdev(reads_per_LLR, mu=reads_mean)
+    
     print('\nFilename: %s' % obs_filename)
     print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
-    print('Mean: %.3f, Standard error of the mean: %.3f' % ( mean, std))
+    print('Mean and standard error of the number of consumed reads per LLR calculation: %.1f, %.1f.' % (reads_mean, reads_var))
+    print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( mean, std))
     
     info.update({'block_size': block_size,
                  'offset': offset,
@@ -155,7 +160,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
 
     info['statistics'] = {'mean': mean, 'std': std,
                           'num_of_LD_blocks': num_of_LD_blocks,
-                          'fraction_of_negative_LLRs': fraction_of_negative_LLRs}
+                          'fraction_of_negative_LLRs': fraction_of_negative_LLRs,
+                          'reads_mean': reads_mean, 'reads_var': reads_var}
 
     if output_filename!=None:
         default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)

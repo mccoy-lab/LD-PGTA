@@ -49,14 +49,14 @@ def aneuploidy_test_demo(obs_filename,chr_id):
     args = dict(obs_filename = 'results_EUR/HG00096.HG00097.0.5.BPH.obs.p',
                 hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/%s_EUR_panel.hap' % chr_id,
                 leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/%s_EUR_panel.legend' % chr_id,
-                block_size = 1e5,
-                subsamples = 32,
+                block_size = 5e4,
+                subsamples = 100,
                 offset = 0,
                 min_reads = 2,
                 max_reads = 16,
                 output_filename = None)
     args['obs_filename'] = 'results_EUR/' + obs_filename
-    args['output_filename'] = 'results_EUR/'+re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
+    args['output_filename'] = 'results_EUR/'+re.sub('(.*)obs','\\1LLR_x100_LD5e4', obs_filename.split('/')[-1],1)    
     LLR_dict, info = aneuploidy_test(**args)
     return LLR_dict, info
    
@@ -87,11 +87,12 @@ if __name__ == "__main__":
     #   print('Recombination spot: %.2f' % (i * 0.1))
     #    LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.recomb.%.2f.obs.p' % (i * 0.1))       
 
-    filenames = ('mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
+    
+    filenames = ('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
     functions = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\')' % (f,'chr21')) for f in filenames)
     runInParallel(*functions)
     
-    filenames = ('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
+    filenames = ('mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
     functions = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\')' % (f,'chr21')) for f in filenames)
     runInParallel(*functions)
     
@@ -100,8 +101,8 @@ if __name__ == "__main__":
     #functions = (eval('lambda: aneuploidy_test_demo2(\'%s\',\'%s\')' % (f,'chr6')) for f in filenames)
     #runInParallel(*functions)
     
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21')
-    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21')
+    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21')
+    #LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21')
     
     
     #A = aneuploidy_test_demo2('11909FA_2.merged.hg38.obs.p','chr6')
