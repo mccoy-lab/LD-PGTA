@@ -16,7 +16,7 @@ def load_llr(filename):
     
     print('\nFilename: %s' % filename)
     print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], info['statistics']['num_of_LD_blocks'],info['statistics']['fraction_of_negative_LLRs']))
-    print('Mean and standard error of the number of consumed reads per LLR calculation: %.1f, %.1f.' % (info['statistics']['reads_mean'], info['statistics']['reads_var']))
+    print('Mean and standard error of meaningful reads per LD block: %.1f, %.1f.' % (info['statistics']['reads_mean'], info['statistics']['reads_var']))
     print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( info['statistics']['mean'], info['statistics']['std']))
     print('Calculation was done in %.3f sec.' % info['runtime'])
 

@@ -120,6 +120,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
+    blocks_dict = {block: read_IDs for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
     LLR_dict = collections.defaultdict(list)
 
@@ -129,7 +130,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
         sys.stdout.flush()
         
         blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
-                           for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
+                           for block,read_IDs in blocks_dict.items()}
 
         for block,haplotypes in blocks_dict_picked.items():
             LLR_dict[block].append(LLR(*haplotypes) if haplotypes!=None else None)
@@ -143,13 +144,14 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
     
     
-    reads_per_LLR = [len(haplotypes) for haplotypes in blocks_dict_picked.values() if haplotypes!=None]
-    reads_mean = statistics.mean(reads_per_LLR)
-    reads_var = statistics.pstdev(reads_per_LLR, mu=reads_mean)
+    reads_per_LDblock = [sum(1 for read_ID in read_IDs if rank_dict[read_ID]>1) for read_IDs in blocks_dict.values()]
+    reads_per_LDblock_filtered = [i for i in reads_per_LDblock if i>1]
+    reads_mean = statistics.mean(reads_per_LDblock_filtered)
+    reads_var = statistics.pstdev(reads_per_LDblock_filtered, mu=reads_mean)
     
     print('\nFilename: %s' % obs_filename)
     print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
-    print('Mean and standard error of the number of consumed reads per LLR calculation: %.1f, %.1f.' % (reads_mean, reads_var))
+    print('Mean and standard error of meaningful reads per LD block: %.1f, %.1f.' % (reads_mean, reads_var))
     print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( mean, std))
     
     info.update({'block_size': block_size,
@@ -215,14 +217,13 @@ else:
 ### END OF FILE ###
 
 
-
 """
 if __name__ == "__main__":
     print("Executed when invoked directly")
     a = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
-    args = dict(obs_filename = 'results_EUR/mixed2haploids.X0.5.SRR10393062.SRR151495.0-2.hg38.obs.p',
+    args = dict(obs_filename = 'results_EUR/mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p',
                 hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap',
                 leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend',
                 block_size = 1e5,
@@ -232,25 +233,27 @@ if __name__ == "__main__":
                 max_reads = 16,
                 output_filename = None)
 
-    with open(obs_filename, 'rb') as f:
+    with open(args['obs_filename'], 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
         
-    hap_tab = read_impute2(hap_filename, filetype='hap')
-    leg_tab = read_impute2(leg_filename, filetype='leg')
+    hap_tab = read_impute2(args['hap_filename'], filetype='hap')
+    leg_tab = read_impute2(args['leg_filename'], filetype='leg')
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
+    blocks_dict = {block: read_IDs for block,read_IDs in iter_blocks(obs_tab,leg_tab,args['block_size'],args['offset'])}
+    
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if args['max_reads']>16 else 'MODELS/MODELS16D.p')
     LLR_dict = collections.defaultdict(list)
 
-    for k in range(subsamples):
+    for k in range(args['subsamples']):
         sys.stdout.write('\r')
-        sys.stdout.write(f"[{'=' * int(k+1):{subsamples}s}] {int(100*(k+1)/subsamples)}% ")
+        sys.stdout.write(f"[{'=' * int(k+1):{args['subsamples']}s}] {int(100*(k+1)/args['subsamples'])}% ")
         sys.stdout.flush()
         
-        blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)
-                           for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}
+        blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,args['min_reads'],args['max_reads'])
+                           for block,read_IDs in blocks_dict.items()}
 
         for block,haplotypes in blocks_dict_picked.items():
             LLR_dict[block].append(LLR(*haplotypes) if haplotypes!=None else None)
@@ -263,27 +266,47 @@ if __name__ == "__main__":
     num_of_LD_blocks = len(M)
     fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
     
-    print('\nFilename: %s' % obs_filename)
-    print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
-    print('Mean: %.3f, Standard error of the mean: %.3f' % ( mean, std))
     
-    info.update({'block_size': block_size,
-                 'offset': offset,
-                 'min_reads': min_reads,
-                 'max_reads': max_reads,
+    reads_per_LDblock = [sum(1 for read_ID in read_IDs if rank_dict[read_ID]>1) for read_IDs in blocks_dict.values()]
+    reads_per_LDblock_filtered = [i for i in reads_per_LDblock if i>1]
+    reads_mean = statistics.mean(reads_per_LDblock_filtered)
+    reads_var = statistics.pstdev(reads_per_LDblock_filtered, mu=reads_mean)
+    
+    print('\nFilename: %s' % args['obs_filename'])
+    print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], num_of_LD_blocks,fraction_of_negative_LLRs))
+    print('Mean and standard error of meaningful reads per LD block: %.1f, %.1f.' % (reads_mean, reads_var))
+    print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( mean, std))
+    
+    info.update({'block_size': args['block_size'],
+                 'offset': args['offset'],
+                 'min_reads': args['min_reads'],
+                 'max_reads': args['max_reads'],
                  'runtime': time.time()-a})
 
     info['statistics'] = {'mean': mean, 'std': std,
                           'num_of_LD_blocks': num_of_LD_blocks,
-                          'fraction_of_negative_LLRs': fraction_of_negative_LLRs}
+                          'fraction_of_negative_LLRs': fraction_of_negative_LLRs,
+                          'reads_mean': reads_mean, 'reads_var': reads_var}
 
-    if output_filename!=None:
-        default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)
-        output_filename = default_filename if output_filename=='' else output_filename
+    if args['output_filename']!=None:
+        default_filename = re.sub('(.*)obs','\\1LLR', args['obs_filename'].split('/')[-1],1)
+        output_filename = default_filename if args['output_filename']=='' else args['output_filename']
         with open( output_filename, "wb") as f:
             pickle.dump(LLR_dict, f, protocol=4)
             pickle.dump(info, f, protocol=4)
-
+    
+    
+    ##filename = 'results_EUR/mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.LLR_100x.p' % (i * 0.1)
+    ##with open(filename, 'rb') as f:
+    ##    LLR_dict = pickle.load(f)
+    ##    info = pickle.load(f)
+    ##info['statistics']['reads_mean']=reads_mean
+    ##info['statistics']['reads_var']=reads_var
+    ##with open( filename, "wb") as f:
+    ##    pickle.dump(LLR_dict, f, protocol=4)
+    ##    pickle.dump(info, f, protocol=4)
+    ##print(i)
+    
     b = time.time()
     print('Done calculating LLRs for all the LD block in %.3f sec.' % ((b-a)))
 """
