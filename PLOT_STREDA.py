@@ -6,8 +6,45 @@ Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
 """
 
-import pickle
-from ANEUPLOIDY_TEST import mean_and_var
+import pickle, statistics, itertools
+
+def mean_and_var(sample):
+    """ Calculates the mean and the sample standard deviation. """
+    mean = statistics.mean(sample)
+    var = statistics.variance(sample, xbar=mean)
+    return mean, var
+
+def jackknife_std(sample,weights):
+    """ Given sample elements and the weight of each element, the jackknife
+    standard deviation is calculated. 
+    
+    *** More information about delete-m jackknife for unequal m can be found in
+    F.M.Busing et al. (1999), [DOI:10.1023/A:1008800423698]. """
+
+    N = len(sample)
+    t0 = sum(sample) / N
+    S = sum(weights)
+    H = [S/w for w in weights]
+    T = [sum(sample[:i]+sample[i+1:])/(N-1) for i in range(N)]
+    pseudo_values = [h*t0-(h-1)*t for t,h in zip(T,H)]
+    jackknife_estimator = sum((p/h for p,h in zip(pseudo_values,H)))
+    jackknife_variance = sum(((p-jackknife_estimator)**2/(h-1) for p,h in zip(pseudo_values,H)))/N
+    return jackknife_variance**.5
+
+def std_of_mean(variances):
+    """ Standard error of the mean of uncorrelated variables, based on the
+        Bienaymé formula. """
+    return sum(variances)**.5/len(variances)
+    
+def chr_length(chr_id):
+    """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
+    #The data of chromosome length was taken from https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh38
+    length_dict = {'chr1': 248956422, 'chr2': 242193529, 'chr3': 198295559, 'chr4': 190214555, 'chr5': 181538259,
+                  'chr6': 170805979, 'chr7': 159345973, 'chr8': 145138636, 'chr9': 138394717, 'chr10': 133797422,
+                  'chr11': 135086622, 'chr12': 133275309, 'chr13': 114364328, 'chr14': 107043718, 'chr15': 101991189,
+                  'chr16': 90338345, 'chr17':  83257441, 'chr18': 80373285, 'chr19': 58617616, 'chr20': 64444167,
+                  'chr21': 46709983, 'chr22': 50818468, 'chrX': 156040895, 'chrY': 57227415}
+    return length_dict[chr_id]
 
 def load_llr(filename):
     with open('results_EUR/'+filename, 'rb') as f:
@@ -20,10 +57,9 @@ def load_llr(filename):
     print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( info['statistics']['mean'], info['statistics']['std']))
     print('Calculation was done in %.3f sec.' % info['runtime'])
 
-
     return LLR_dict, info
 
-def plot_streda(LLR_dict,**kwargs):
+def plot_streda(LLR_dict,info,N,**kwargs):
     import numpy as np
     import matplotlib as mpl
     import matplotlib.pyplot as plt
@@ -31,15 +67,17 @@ def plot_streda(LLR_dict,**kwargs):
     save = kwargs.get('save', '') 
 
     font_size=16
-    
+       
     M_dict = {block: sum(LLRs)/len(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
 
-    K,V = zip(*((k,v) for k,v in M_dict.items() if v!=None))
+    K,V = zip(*M_dict.items())
     B, C = {}, {}
-    for i in range(12):
-        a = len(V)//(i+1)
-        B[i] = tuple(((i,K[j*a][0]/K[-1][-1]),(i,K[min((j+1)*a,len(K)-1)][-1]/K[-1][-1])) for j in range(i+1))
-        C[i] = tuple(sum(k<0 for k in V[j*a:(j+1)*a])/len(V[j*a:(j+1)*a]) for j in range(i+1))
+    l = chr_length(info['chr_id'])
+    F = lambda j: (j+1)*a if j!=i-1 else len(K)-1
+    for i in range(1,N+1):
+        a = len(V)//i
+        B[i] = tuple(((i,K[j*a][0]/l),(i,K[F(j)][0]/l)) for j in range(i))
+        C[i] = tuple(sum(v<0 for v in V[j*a:F(j)])/len(V[j*a:F(j)]) for j in range(i))
 
     segs = np.array([j for i in B.values() for j in i ])
     colors = np.array([j for i in C.values() for j in i ])
@@ -57,7 +95,7 @@ def plot_streda(LLR_dict,**kwargs):
     cmaplistBWR = plt.cm.seismic(bounds)
     cmap = mpl.colors.LinearSegmentedColormap.from_list('BWR', cmaplistBWR, 20)
     
-    line_segments = LineCollection(segs, array=colors, linewidth=40, linestyle='solid', cmap=cmap, norm=norm)
+    line_segments = LineCollection(segs, array=colors, linewidth=10, linestyle='solid', cmap=cmap, norm=norm)
     ax.add_collection(line_segments)
     ax.set_title('.'.join(save.split('.')[:-2]),fontsize=font_size) 
     tick = np.linspace(0,1,11,endpoint=True)
@@ -76,32 +114,43 @@ def plot_streda(LLR_dict,**kwargs):
     
     return 1
 
-def plot_test(LLR_dict,N,**kwargs):
+def plot_test(LLR_dict,info,N,**kwargs):
     import numpy as np
     import matplotlib.pyplot as plt
     save = kwargs.get('save', '')
-
-    LLR_stat = {block: mean_and_var(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
-
-    K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
-
-    a = len(V)//N
     
-    X = tuple(.5*(K[j*a][0] + K[min((j+1)*a,len(K)-1)][-1]) for j in range(N))    
-    widths = tuple((K[min((j+1)*a,len(K)-1)][0]-K[j*a][0]) for j in range(N))    
-    ####X_boundaries = tuple(k for j in range(N+1) for k in (K[j*a][0], K[min((j+1)*a,len(K)-1)][-1]))
-    X_ticks = [K[j*a][0] for j in range(N)]+[K[-1][-1]]  
-    X_labels = [('%.2f' % (h/K[-1][-1])) for h in X_ticks] 
-    Y = tuple(sum(M[j*a:(j+1)*a])/len(M[j*a:(j+1)*a]) for j in range(N))
-    E = tuple(1.96*sum(V[j*a:(j+1)*a])**.5/len(V[j*a:(j+1)*a]) for j in range(N))
     # Create lists for the plot
+
+    TEST = [num_of_reads>info['max_reads']  
+            for num_of_reads in info['statistics']['reads_per_LDblock_dict'].values() if num_of_reads>=info['min_reads'] ]    
+    
+    WEIGHTS = [min(num_of_reads,info['max_reads'])   
+               for num_of_reads in info['statistics']['reads_per_LDblock_dict'].values() if num_of_reads>=info['min_reads']]    
+    
+    LLR_stat = {block: mean_and_var(LLRs)  
+                for block,LLRs in LLR_dict.items() if None not in LLRs}
+    
+    K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
+            
+    i = lambda j: j*(len(V)//N)
+    f = lambda j: (j+1)*(len(V)//N) if j!=N-1 else len(K)-1
+    x = lambda p,q: .5*(K[p][0] + K[q][-1])
+    y = lambda p,q: statistics.mean(M[p:q])
+    e = lambda p,q: std_of_mean(V[p:q]) if all(TEST[p:q]) else jackknife_std(M[p:q],WEIGHTS[p:q])
+    
+    X,Y,E = ([func(i(j),f(j)) for j in range(N)] for func in (x,y,e))
+
+    widths = tuple((K[f(j)][0]-K[i(j)][0]) for j in range(N))    
+    #X_boundaries = tuple(k for j in range(N+1) for k in (K[j*a][0], K[min((j+1)*a,len(K)-1)][-1]))
+    X_ticks = [K[i(j)][0] for j in range(N)]+[K[-1][-1]]  
+    X_labels = [('%.2f' % (j/chr_length(info['chr_id']))) for j in X_ticks] 
+ 
     # Build the plot
     fig, ax = plt.subplots(1, 1, figsize=(16, 9))  # setup the plot
     fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.07) 
-    ax.bar(X, Y, yerr=E, align='center', alpha=0.5, ecolor='black', capsize=10, width=widths, color=[np.random.rand(3,) for r in range(N+1)])
+    ax.bar(X, Y, yerr=E, align='center', alpha=0.5, ecolor='black', capsize=10, width=widths, color=[np.random.rand(3,) for _ in range(N+1)])
     ax.set_ylabel('log-likelihood BPH/SPH ratio')
     ax.set_xlabel('Normalized chromosome position')
-
     ax.set_xticks(X_ticks)
     ax.set_xticklabels(X_labels)
     ax.set_title('.'.join(save.split('.')[:-2]))
@@ -109,8 +158,8 @@ def plot_test(LLR_dict,N,**kwargs):
     #ax.yaxis.grid(True)
 
     
-    for l in range(N):
-        plt.text(X[l], .5*(Y[l]-Y[l]/abs(Y[l])*E[l]), '%.2f\u00B1%.2f'% (Y[l],E[l]), ha='center', va='center',color='black',fontsize=10)
+    for j in range(N):
+        plt.text(X[j], .5*(Y[j]-Y[j]/abs(Y[j])*E[j]), '%.2f\u00B1%.2f'% (Y[j],E[j]), ha='center', va='center',color='black',fontsize=8)
     
     if save!='':
         print('Saving plot...')
@@ -121,6 +170,7 @@ def plot_test(LLR_dict,N,**kwargs):
         plt.close(fig)
     else:
         plt.show()
+    
     return 1
     
 def analyze(LLR_dict0):
