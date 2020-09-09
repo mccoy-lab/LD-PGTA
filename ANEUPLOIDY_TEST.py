@@ -66,44 +66,47 @@ def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
     return rank_dict
 
 def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
-    """ Draws up to max_reads reads from a given LD block; Only reads with a
-        rank larger than one are sampled. In addition, if the number of reads
-        in a given LD block is less than the minimal requirment then the block
-        would not be considered."""
+    """ Draws up to max_reads reads from a given LD block. In addition, if the
+        number of reads in a given LD block is less than the minimal requirment
+        then the block would not be considered."""
 
-    read_IDs_filtered = tuple(read_ID for read_ID in read_IDs if rank_dict[read_ID]>1)
-    drawn_read_IDs = random.sample(read_IDs_filtered, min(max_reads,len(read_IDs_filtered)))
-    haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
-    result = haplotypes if len(haplotypes) >= max(2,min_reads) else None
-    return result
+    if len(read_IDs)<max(2,min_reads):
+        haplotypes = None
+    else:    
+        drawn_read_IDs = random.sample(read_IDs, min(max_reads,len(read_IDs)))
+        haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
     
-def iter_blocks(obs_tab,leg_tab,block_size,offset):
+    return haplotypes
+    
+def iter_blocks(obs_tab,leg_tab,rank_dict,block_size,offset,max_reads,adaptive):
     """ Returns an iterator over the LD blocks together with read IDs of
-        the reads that overlap with SNPs in the block. """
+        the reads that overlap with SNPs in the block. Only reads with a
+        rank larger than one are considered. """
 
+    block_size = 50000 if adaptive else int(block_size) 
+    offset = int(offset)
+    
     aux_dict = collections.defaultdict(list) ### aux_dict is a dictionary that lists chromosome positions of SNPs and gives a list of read IDs for all the reads that overlap with the SNP.  
-
     for (pos, ind, read_id, base) in obs_tab:
         if base in leg_tab[ind][2:]:
             aux_dict[pos].append(read_id)
             
-    first, *_, last = iter(aux_dict)
-    boundaries = tuple(range(int(first+offset), int(last), int(block_size)))
-    blocks_iterator = ((i,j-1) for i,j in zip(boundaries,boundaries[1:]))
-   
-    readIDs_in_block = set()
-    block = next(blocks_iterator, None)
+    first, last = obs_tab[0][0]+offset, obs_tab[-1][0]+block_size
+    a, b, readIDs_in_block = first, first+block_size, set()
     
     for pos in aux_dict:
-        if pos<boundaries[0]: continue
-        while block:
-            if block[0]<=pos<=block[1]:
-                for read_IDs in aux_dict[pos]: readIDs_in_block.add(read_IDs)
+        if pos<first: continue   
+        while b<last:
+            if a<=pos<b:
+                readIDs_in_block.update(read_ID for read_ID in aux_dict[pos] if 1<rank_dict[read_ID])
                 break
-            yield (block, readIDs_in_block)
-            block, readIDs_in_block = next(blocks_iterator, None), set()
-
-def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples,offset,min_reads,max_reads,output_filename):
+            if adaptive and 0<len(readIDs_in_block)<2*max_reads and b-a<150000:
+                b += 10000
+                continue
+            yield ((a,b-1), readIDs_in_block)
+            a, b, readIDs_in_block = b, b+block_size, set() 
+            
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,subsamples,offset,min_reads,max_reads,output_filename):
     """ Returns a dictionary that lists the boundaries of approximately
     independent blocks of linkage disequilibrium (LD). For each LD block it
     gives the associated log-likelihood BPH/SPH ratio (LLR)."""
@@ -120,7 +123,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
-    blocks_dict = {block: read_IDs for block,read_IDs in iter_blocks(obs_tab,leg_tab,block_size,offset)}        
+    blocks_dict = {block: read_IDs for block,read_IDs in iter_blocks(obs_tab,leg_tab,rank_dict,block_size,offset,max_reads,adaptive)}       
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
     LLR_dict = collections.defaultdict(list)
 
@@ -136,10 +139,10 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
             LLR_dict[block].append(LLR(*haplotypes) if haplotypes!=None else None)
  
     ############################### STATISTICS ################################
-    reads_per_LDblock_dict = {block:sum(1 for read_ID in read_IDs if rank_dict[read_ID]>1) for block,read_IDs in blocks_dict.items()}
-    reads_per_LDblock_filtered = [i for i in reads_per_LDblock_dict.values() if i>1]
+    reads_per_LDblock_dict = {block:len(read_IDs) for block,read_IDs in blocks_dict.items()}
+    reads_per_LDblock_filtered = [l for l in reads_per_LDblock_dict.values() if l>1]
     reads_mean = statistics.mean(reads_per_LDblock_filtered)
-    reads_var = statistics.pstdev(reads_per_LDblock_filtered, mu=reads_mean)
+    reads_std = statistics.pstdev(reads_per_LDblock_filtered, mu=reads_mean)
     
     LLR_stat = {block: mean_and_var(LLRs) for block,LLRs in LLR_dict.items() if None not in LLRs}
     
@@ -150,7 +153,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
     
     print('\nFilename: %s' % obs_filename)
-    print('Depth: %.2f, Mean and standard error of meaningful reads per LD block: %.1f, %.1f.' % (info['depth'], reads_mean, reads_var))
+    print('Depth: %.2f, Mean and standard error of meaningful reads per LD block: %.1f, %.1f.' % (info['depth'], reads_mean, reads_std))
     print('Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (num_of_LD_blocks,fraction_of_negative_LLRs))
     print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( mean, std))
     ###########################################################################
@@ -164,7 +167,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,subsamples
     info['statistics'] = {'mean': mean, 'std': std,
                           'num_of_LD_blocks': num_of_LD_blocks,
                           'fraction_of_negative_LLRs': fraction_of_negative_LLRs,
-                          'reads_mean': reads_mean, 'reads_var': reads_var,
+                          'reads_mean': reads_mean, 'reads_std': reads_std,
                           'reads_per_LDblock_dict': reads_per_LDblock_dict}
 
     if output_filename!=None:
@@ -195,6 +198,8 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--block-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the typical size of the LD block. The default value is 10^5.')
+    parser.add_argument('-a', '--adaptive', action='store_true',
+                        help='Adjusts the size of the LD block according to the local depth coverage.')
     parser.add_argument('-s', '--subsamples', type=int,
                         metavar='INT', default='32',
                         help='Sets the number of subsamples per LD block. The default value is 32.')
@@ -220,16 +225,15 @@ else:
 
 
 """
-#if __name__ == "__main__":
-for i in range(11):
+if __name__ == "__main__":
     print("Executed when invoked directly")
     a = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
-    args = dict(obs_filename = 'results_EUR/mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1),
+    args = dict(obs_filename = 'results_EUR/mixed3haploids.X0.05.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % 0,
                 hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap',
                 leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend',
-                block_size = 1e5,
+                block_size = 5e4,
                 subsamples = 100,
                 offset = 0,
                 min_reads = 2,
@@ -245,14 +249,16 @@ for i in range(11):
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
-    blocks_dict = {block: read_IDs for block,read_IDs in iter_blocks(obs_tab,leg_tab,args['block_size'],args['offset'])}
+    blocks_dict = {block: read_IDs for block,read_IDs in iter_blocks(obs_tab,leg_tab,rank_dict,args['block_size'],args['offset'],args['max_reads'])}
     
-    reads_per_LDblock_dict = {block:sum(1 for read_ID in read_IDs if rank_dict[read_ID]>1) for block,read_IDs in blocks_dict.items()}
-    reads_per_LDblock_filtered = [i for i in reads_per_LDblock_dict.values() if i>1]
+    reads_per_LDblock_dict = {block:len(read_IDs) for block,read_IDs in blocks_dict.items()}
+    reads_per_LDblock_filtered = [l for l in reads_per_LDblock_dict.values() if l>1]
     reads_mean = statistics.mean(reads_per_LDblock_filtered)
-    reads_var = statistics.pstdev(reads_per_LDblock_filtered, mu=reads_mean)
+    reads_std = statistics.pstdev(reads_per_LDblock_filtered, mu=reads_mean)
     
-    
+    sys.exit(0)
+
+
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if args['max_reads']>16 else 'MODELS/MODELS16D.p')
     LLR_dict = collections.defaultdict(list)
 

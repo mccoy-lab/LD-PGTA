@@ -14,6 +14,11 @@ def mean_and_var(sample):
     var = statistics.variance(sample, xbar=mean)
     return mean, var
 
+def std_of_mean(variances):
+    """ Standard error of the mean of uncorrelated variables, based on the
+        Bienaymé formula. """
+    return sum(variances)**.5/len(variances)
+
 def jackknife_std(sample,weights):
     """ Given sample elements and the weight of each element, the jackknife
     standard deviation is calculated. 
@@ -30,11 +35,6 @@ def jackknife_std(sample,weights):
     jackknife_estimator = sum((p/h for p,h in zip(pseudo_values,H)))
     jackknife_variance = sum(((p-jackknife_estimator)**2/(h-1) for p,h in zip(pseudo_values,H)))/N
     return jackknife_variance**.5
-
-def std_of_mean(variances):
-    """ Standard error of the mean of uncorrelated variables, based on the
-        Bienaymé formula. """
-    return sum(variances)**.5/len(variances)
     
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
@@ -53,7 +53,7 @@ def load_llr(filename):
     
     print('\nFilename: %s' % filename)
     print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], info['statistics']['num_of_LD_blocks'],info['statistics']['fraction_of_negative_LLRs']))
-    print('Mean and standard error of meaningful reads per LD block: %.1f, %.1f.' % (info['statistics']['reads_mean'], info['statistics']['reads_var']))
+    print('Mean and standard error of meaningful reads per LD block: %.1f, %.1f.' % (info['statistics']['reads_mean'], info['statistics'].get('reads_std',info['statistics'].get('reads_var'))))
     print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( info['statistics']['mean'], info['statistics']['std']))
     print('Calculation was done in %.3f sec.' % info['runtime'])
 

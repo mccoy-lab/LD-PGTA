@@ -31,21 +31,29 @@ def read_impute2(impute2_filename,**kwargs):
     impute2_in.close()
     return impute2_tab
 
-def plot_dist():
-    leg_tab = read_impute2('../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend', filetype='legend')
-    a,b,c = tuple(zip(*leg_tab))
-    X = [a[i]-a[i-1] for i in range(1,len(a))]
+def chr_length(chr_id):
+    """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
+    #The data of chromosome length was taken from https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh38
+    length_dict = {'chr1': 248956422, 'chr2': 242193529, 'chr3': 198295559, 'chr4': 190214555, 'chr5': 181538259,
+                  'chr6': 170805979, 'chr7': 159345973, 'chr8': 145138636, 'chr9': 138394717, 'chr10': 133797422,
+                  'chr11': 135086622, 'chr12': 133275309, 'chr13': 114364328, 'chr14': 107043718, 'chr15': 101991189,
+                  'chr16': 90338345, 'chr17':  83257441, 'chr18': 80373285, 'chr19': 58617616, 'chr20': 64444167,
+                  'chr21': 46709983, 'chr22': 50818468, 'chrX': 156040895, 'chrY': 57227415}
+    return length_dict[chr_id]
+
+def plot_dens():
+    chr_id = 'chr21'
+    num_of_bins = int(chr_length(chr_id)/3e5)
+    leg_tab = read_impute2('../build_reference_panel/ref_panel.EUR.hg38.BCFtools/%s_EUR_panel.legend' % chr_id, filetype='legend')
+    A,*_= tuple(zip(*leg_tab))
     import matplotlib as mpl
     from matplotlib import pyplot as plt
     font_size=18
+    X = [a/chr_length(chr_id) for a in A]
     fig, ax = plt.subplots(1, 1, figsize=(16, 9))  # setup the plot
     fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.07) 
-    weights = [1/len(a)] * (len(a)-1)
-    plt.hist(X, bins=range(0,380,30), facecolor='darkblue', weights=weights)
-    plt.xlabel('Distance between nearest neighbor SNPs',fontsize=font_size)
+    plt.hist(X, bins=[i/num_of_bins for i in range(num_of_bins)], facecolor='darkblue', weights=[1/len(X)]*len(X))
+    plt.xlabel('Normalized chromosomal position',fontsize=font_size)
     plt.ylabel('Density of SNPs',fontsize=font_size)
-    plt.title(r'Distribution of human SNPs in chromosome 21',fontsize=font_size)
-    ax.set_xticks([i for i in range(0,380,30)])
-    ax.xaxis.grid(True)
-    ax.yaxis.grid(True)
+    plt.title(r'Distribution of human SNPs along chromosome 21',fontsize=font_size)
     plt.show()
