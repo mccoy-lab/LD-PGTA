@@ -97,16 +97,16 @@ if __name__ == "__main__":
         description='Simulates two observation tables of a haploid, using phased genotypes from vcf files.'
                     'Each observation table includes SNP positions, alleles in a genotype of an individual'
                     'and their corresponding line number within the IMPUTE2 legend file.')
-    parser.add_argument('vcf', metavar='vcf_filename', type=str, 
+    parser.add_argument('vcf_filename', metavar='vcf_filename', type=str, 
                         help='VCF file')
-    parser.add_argument('impute_leg', metavar='legend_filename', type=str, 
+    parser.add_argument('leg_filename', metavar='legend_filename', type=str, 
                         help='IMPUTE2 legend file')
     parser.add_argument('chr_id', metavar='chromosomeID', type=str,
                         help='Chromosome ID')
     parser.add_argument('sample_id', metavar='sampleID', type=str,
                         help='Sample ID')
     parser.add_argument('-s', '--bcftools-dir', type=str,
-                        default='', metavar='SAMTOOLS_DIR',
+                        default='', metavar='BCFTOOLS_DIR',
                         help='The directory where bcftools are installed.')
     
     args = parser.parse_args()
