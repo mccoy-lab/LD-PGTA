@@ -11,7 +11,7 @@ Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
 """
 
-import collections, time, pickle, statistics, argparse, re, sys, operator, heapq, itertools, functools, random
+import collections, time, pickle, statistics, argparse, re, sys, operator, itertools, functools, random, inspect, os
 from MAKE_OBS_TAB import read_impute2
 from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
 
@@ -100,7 +100,7 @@ def iter_blocks(obs_tab,leg_tab,rank_dict,block_size,offset,max_reads,adaptive):
             if a<=pos<b:
                 readIDs_in_block.update(read_ID for read_ID in aux_dict[pos] if 1<rank_dict[read_ID])
                 break
-            if adaptive and 0<len(readIDs_in_block)<2*max_reads and b-a<150000:
+            if adaptive and 0<len(readIDs_in_block)<2*max_reads and b-a<300000:
                 b += 10000
                 continue
             yield ((a,b-1), readIDs_in_block)
@@ -124,7 +124,12 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,s
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     rank_dict = build_rank_dict(reads_dict,obs_tab,leg_tab,hap_tab)
     blocks_dict = {block: read_IDs for block,read_IDs in iter_blocks(obs_tab,leg_tab,rank_dict,block_size,offset,max_reads,adaptive)}       
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if max_reads>16 else 'MODELS/MODELS16D.p')
+    
+    
+    filename = inspect.getframeinfo(inspect.currentframe()).filename
+    path = os.path.dirname(os.path.abspath(filename))
+    model = path + '/MODELS/' + ('MODELS18D.p' if max_reads>16 else 'MODELS16D.p')
+    LLR = get_LLR(obs_tab, leg_tab, hap_tab, model)
     LLR_dict = collections.defaultdict(list)
 
     for k in range(subsamples):
