@@ -3,7 +3,7 @@
 """
 
 Simulates observed bases at known SNP positions from an aneuploid cell, based
-one mixture of haploid sequences. 
+on mixtures of haploid sequences. 
 
 The simulation supports three scenarios: (a) trisomy with two matched haplotypes
 (‘single parental homolog’; SPH). (b) three unmatched haplotypes (‘both parental
