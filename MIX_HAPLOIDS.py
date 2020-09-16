@@ -2,11 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 
-Simulates observed bases at known SNP positions from an aneuploid cell
-with two matched haplotypes (‘single parental homolog’; SPH), by mixing
-two haploids. 
+Simulates observed bases at known SNP positions from an aneuploid cell, based
+one mixture of haploid sequences. 
 
-MIX2HAPLOIDS
+The simulation supports three scenarios: (a) trisomy with two matched haplotypes
+(‘single parental homolog’; SPH). (b) three unmatched haplotypes (‘both parental
+homologs’; BPH). (c) trisomy with recombination that is charecterized by a
+transition between SPH to BPH along the chromosome.   
+
+MIX_HAPLOIDS
 
 Daniel Ariad (daniel@ariad.org)
 Aug 14st, 2020
