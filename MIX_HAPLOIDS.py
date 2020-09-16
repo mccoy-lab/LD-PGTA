@@ -127,7 +127,7 @@ def build_obs_dict(cache, chr_id, read_length, depth, recombination_spot):
         elif L==2:
             W = [2,1]
         elif L==3:
-            W = [1,1,1] if p > recombination_spot * chr_length(chr_id) else [2,0,1]
+            W = [1,1,1] if p > recombination_spot * chr_length(chr_id) else [2,1,0]
         else:
             raise Exception('Error: given more than three OBS files.')   
            
@@ -146,7 +146,8 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
     
     handle_multiple_observations = kwargs.get('handle_multiple_observations','all')
-    recombination_spots = kwargs.get('recombination_spots', [0,])
+    rs = kwargs.get('recombination_spots', 0)
+    recombination_spots = [rs] if type(rs) in (float,int) else rs
     work_dir = kwargs.get('work_dir', '')
     given_output_filename = kwargs.get('output_filename','')
     
@@ -203,18 +204,26 @@ if __name__ == "__main__":
                         help='Pickle files created by MAKE_OBS_TAB, containing base observations at known SNP positions.')
     parser.add_argument('-d', '--depth', type=float, 
                         metavar='FLOAT', default=0.1, 
-                        help='The average coverage for a whole genome.  Default value 0.1')
+                        help='The average coverage for the whole chromosome.  Default value 0.1')
     parser.add_argument('-l', '--read-length', type=int, 
                         metavar='INT', default=150,
                         help='The number of base pairs (bp) sequenced from a DNA fragment. Default value 150.')
+    parser.add_argument('-r', '--recombination-spots', type=list,
+                        metavar='FLOAT/LIST', default=0,
+                        help='Introduces a transion between SPH and BPH along the chromosome. '
+                             'The location of the recombination spot is determined by a fraction, ranging between 0 to 1. '
+                             'Giving 0 and 1 as arguemnts means having the SPH and BPH senarios along the entire chromosome, respectively. '
+                             'In addition, giving a list of fractions, e.g. 0.2,0.4,0.6, would create a batch of simulations.')
     parser.add_argument('-u', '--handle-multiple-observations', type=str, 
                         metavar='all/first/random/skip', default='all', 
                         help='We expect to observe at most a single base per SNP. When encountering '
                              'an exception the default behavior is to keep all the alleles. However, a '
-                             'few alternative options to handle multiple observations are avaible: ' 
+                             'few alternative options to handle multiple observations are available: ' 
                              '(a) take the first observed base, (b) pick randomly an observed base'
                              'and (c) skip the SNP.')
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
                         help='Output filename. The default filename is a combination of both obs filenames.')    
-    MixHaploids(**vars(parser.parse_args()))    
+    kwargs = vars(parser.parse_args())
+    kwargs['recombination_spots'] = [float(i.strip()) for i in ''.join(kwargs['recombination_spots']).split(',')]
+    MixHaploids(**kwargs)    
     sys.exit(0)
