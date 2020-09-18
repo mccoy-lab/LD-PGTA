@@ -2,7 +2,8 @@
 [Sequence Alignment](#seq_alignment) \
 [Create a reference panel](#ref_panel) \
 [Build a table of observed bases at SNP positions](#obs_tab) \
-[Build a dictionary that lists LD blocks and gives their BPH/SPH LLR.](#aneuploidy_test)
+[Build a table of LLRs at LD blocks along a chromosome](#aneuploidy_test) \
+[Simulating sequences that manifest BPH and SPH scenarios](#simulate)
 
 # Sequence Alignment #
 <a name="seq_alignment"/>
@@ -151,10 +152,10 @@ where the first argument is the filename of the BAM file, containing reads mappe
 
 * In order to use the script, the Python module Pysam must be present. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
 
-# Builds a dictionary that lists LD blocks and gives their BPH/SPH LLR. # 
+# Build a table of LLRs at LD blocks along a chromosome #
 <a name="aneuploidy_test"/>
 
-The script ANEUPLOIDY_TEST.py builds a dictionary that lists linkage disequilibrium (LD) blocks that contain at least two reads and gives the associated log-likelihood BPH/SPH ratio (LLR); BPH (Both Parental Homologs) correspond to the presence of three unmatched haplotypes, while SPH (Single Parental Homolog). In addition, the dictionary is analyzed and summary statistics are reported. The summary includes the mean LLR, the standard error, number of informative LD blocks and fraction of LD blocks with a negative LLR.
+The script ANEUPLOIDY_TEST.py builds a dictionary that lists linkage disequilibrium (LD) blocks that contain at least two meaningful reads and gives the associated log-likelihood BPH/SPH ratio (LLR); BPH (Both Parental Homologs) correspond to the presence of three unmatched haplotypes, while SPH (Single Parental Homolog). In addition, the dictionary is analyzed and summary statistics are reported. The summary includes the mean LLR, the standard error, number of informative LD blocks and fraction of LD blocks with a negative LLR.
 
 We run the script with the following arguments and flags:
 
@@ -164,6 +165,8 @@ where the first argument is the filename of a pickle file created by MAKE_OBS_TA
 
 `--block-size <INT>` _Specifies the typical size of the LD block. The default value is 10^5._
 
+`--adaptive` _Adjusts the size of the LD block according to the local depth coverage._
+
 `--offset <INT>` _Shifts all the LD blocks by the requested base pairs. The default value is 0._
 
 `--min-reads <INT>` _Takes into account only LD blocks with at least INT reads, admitting non-zero rank. The default value is 2._
@@ -171,3 +174,40 @@ where the first argument is the filename of a pickle file created by MAKE_OBS_TA
 `--max-reads <INT>` _Selects up to INT reads from each LD blocks. The reads in each block are selected in a descending order according to their rank. The default value is 16._
 
 `--output-filename <FILENAME>` _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._
+
+# Simulating sequences that manifest BPH and SPH scenarios #
+<a name="simulate"/>
+
+## Creating mixtures of haploid sequences ##
+
+
+The script MIX_HAPLOIDS.py simulates observed bases at known SNP positions from an aneuploid cell, based on mixtures of haploid sequences. The simulation supports three scenarios: 
+1. Trisomy with two matched haplotypes (‘single parental homolog’; SPH). 
+2. Three unmatched haplotypes (‘both parental homologs’; BPH). 
+3. Trisomy with recombination that is charecterized by a transition between SPH to BPH along the chromosome.   
+
+We run the script with the following arguments and flags:
+
+`python3 MIX_HAPLOIDS.py HAPLOID1.obs.p HAPLOID2.obs.p HAPLOID3.obs.p --depth 0.1 --read-length 150 --recombination-spots 0,0.2,0.4,0.6,0.8,1 --handle-multiple-observations all`,
+
+where the three first arguments are the filenames of observation tables created by MAKE_OBS_TAB for each haploid sequence. In addition, some of the following optional flags were used:
+
+`--depth <FLOAT>` _The average coverage for the whole chromosome.  Default value 0.1_
+
+`--read-length <INT>` _The number of base pairs (bp) sequenced from a DNA fragment. Default value 150._
+
+`--recombination-spots <FLOAT/LIST>` _Introduces a transion between SPH and BPH along the chromosome. The location of the recombination spot is determined by a fraction, ranging between 0 to 1. Giving 0 and 1 as arguemnts means having the SPH and BPH senarios along the entire chromosome, respectively. In addition, giving a list of fractions, e.g. 0.2,0.4,0.6, would create a batch of simulations._
+
+`--handle-multiple-observations <all/first/random/skip>` _We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to keep all the alleles. However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) skip the SNP._
+
+`--output-filename <FILENAME>` _The output filename. The default filename is a combination of three obs filenames._
+
+## Create haploid-like observation table using phased genotypes from VCF files.
+
+The script SIMULATE_OBS_TAB.py simulates two observation tables of a haploid, using phased genotypes from VCF files. Each observation table includes SNP positions, alleles in a genotype of an individual and their corresponding line number within the IMPUTE2 legend file. 
+
+We run the script with the following arguments and flags:
+
+`python SIMULATE_OBS_TAB.py ALL.chr21.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz chr21_EUR_panel.legend chr21 HG00097`
+
+where the first argument is the filename of a VCF file, containning phased genotypes. The second required argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. The thirds and forth arguemnts are the chromosome ID and sample ID, respectively. 
