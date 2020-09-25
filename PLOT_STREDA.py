@@ -198,4 +198,117 @@ def LDblockHIST(LLR_dict0):
     ax.set_title('LLR distribution accross LD blocks' )
     #ax.legend()
     plt.show()
-   
+    
+def PRJNA384616():
+    for filename in ['SRR5486775.NA00682.EUR.chr15.0.05x.LLR.p',
+                     'SRR5486775.NA00682.EUR.chr15.0.1x.LLR.p',
+                     'SRR5486775.NA00682.EUR.chr15.0.5x.LLR.p',
+                     'SRR5486775.NA00682.EUR.chr15.LLR.p',
+                     'SRR5486776.NA00503.EUR.chr13.0.05x.LLR.p',
+                     'SRR5486776.NA00503.EUR.chr13.0.1x.LLR.p',
+                     'SRR5486776.NA00503.EUR.chr13.0.5x.LLR.p',
+                     'SRR5486776.NA00503.EUR.chr13.LLR.p',
+                     'SRR5486779.AG13074.EUR.chr18.0.05x.LLR.p',
+                     'SRR5486779.AG13074.EUR.chr18.0.1x.LLR.p',
+                     'SRR5486779.AG13074.EUR.chr18.0.5x.LLR.p',
+                     'SRR5486779.AG13074.EUR.chr18.LLR.p',
+                     'SRR5486781.NA01454.AS.chr12.0.05x.LLR.p',
+                     'SRR5486781.NA01454.AS.chr12.0.1x.LLR.p',
+                     'SRR5486781.NA01454.AS.chr12.0.5x.LLR.p',
+                     'SRR5486781.NA01454.AS.chr12.LLR.p',
+                     'SRR5486781.NA01454.AS.chr13.0.05x.LLR.p',
+                     'SRR5486781.NA01454.AS.chr13.0.1x.LLR.p',
+                     'SRR5486781.NA01454.AS.chr13.0.5x.LLR.p',
+                     'SRR5486781.NA01454.AS.chr13.LLR.p',
+                     'SRR5486781.NA01454.EAS.chr12.0.05x.LLR.p',
+                     'SRR5486781.NA01454.EAS.chr12.0.1x.LLR.p',
+                     'SRR5486781.NA01454.EAS.chr12.0.5x.LLR.p',
+                     'SRR5486781.NA01454.EAS.chr12.LLR.p',
+                     'SRR5486781.NA01454.EAS.chr13.0.05x.LLR.p',
+                     'SRR5486781.NA01454.EAS.chr13.0.1x.LLR.p',
+                     'SRR5486781.NA01454.EAS.chr13.0.5x.LLR.p',
+                     'SRR5486781.NA01454.EAS.chr13.LLR.p',
+                     'SRR5486781.NA01454.SAS.chr12.0.05x.LLR.p',
+                     'SRR5486781.NA01454.SAS.chr12.0.1x.LLR.p',
+                     'SRR5486781.NA01454.SAS.chr12.0.5x.LLR.p',
+                     'SRR5486781.NA01454.SAS.chr12.LLR.p',
+                     'SRR5486781.NA01454.SAS.chr13.0.05x.LLR.p',
+                     'SRR5486781.NA01454.SAS.chr13.0.1x.LLR.p',
+                     'SRR5486781.NA01454.SAS.chr13.0.5x.LLR.p',
+                     'SRR5486781.NA01454.SAS.chr13.LLR.p',
+                     'SRR5486782.NA00682.EUR.chr15.0.05x.LLR.p',
+                     'SRR5486782.NA00682.EUR.chr15.0.1x.LLR.p',
+                     'SRR5486782.NA00682.EUR.chr15.0.5x.LLR.p',
+                     'SRR5486782.NA00682.EUR.chr15.LLR.p',
+                     'SRR5486783.NA00503.EUR.chr13.0.05x.LLR.p',
+                     'SRR5486783.NA00503.EUR.chr13.0.1x.LLR.p',
+                     'SRR5486783.NA00503.EUR.chr13.0.5x.LLR.p',
+                     'SRR5486783.NA00503.EUR.chr13.LLR.p',
+                     'SRR5486787.GM00496.EUR.chr8.0.05x.LLR.p',
+                     'SRR5486787.GM00496.EUR.chr8.0.1x.LLR.p',
+                     'SRR5486787.GM00496.EUR.chr8.0.5x.LLR.p',
+                     'SRR5486787.GM00496.EUR.chr8.LLR.p',
+                     'SRR5486788.AG13074.EUR.chr18.0.05x.LLR.p',
+                     'SRR5486788.AG13074.EUR.chr18.0.1x.LLR.p',
+                     'SRR5486788.AG13074.EUR.chr18.0.5x.LLR.p',
+                     'SRR5486788.AG13074.EUR.chr18.LLR.p']:
+        
+            with open('results_PRJNA384616/'+filename, 'rb') as f:
+                LLR_dict = pickle.load(f)
+                info = pickle.load(f)
+                if '0.5x' in filename:
+                    N = 15
+                elif '0.1x' in filename or '0.05x' in filename:
+                    N = 10
+                else:
+                    N=20
+                plot_streda(LLR_dict,info,N,save=filename[:-1]+'streda.png')
+                plot_test(LLR_dict,info,N,save=filename+'ng')
+
+def PRJNA384616_B():
+    for filename in ["SRR5486781.NA01454.EAS.chr13.0.05x.LLR.p",
+                     "SRR5486781.NA01454.SAS.chr12.LLR.p",
+                     "SRR5486781.NA01454.EAS.chr12.LLR.p",
+                     "SRR5486781.NA01454.SAS.chr13.LLR.p",
+                     "SRR5486781.NA01454.EAS.chr13.LLR.p",
+                     "SRR5486781.NA01454.EAS.chr12.0.5x.LLR.p",
+                     "SRR5486781.NA01454.SAS.chr12.0.5x.LLR.p",
+                     "SRR5486781.NA01454.SAS.chr12.0.1x.LLR.p",
+                     "SRR5486781.NA01454.EAS.chr12.0.1x.LLR.p",
+                     "SRR5486781.NA01454.SAS.chr13.0.5x.LLR.p",
+                     "SRR5486781.NA01454.EAS.chr13.0.5x.LLR.p",
+                     "SRR5486781.NA01454.SAS.chr13.0.1x.LLR.p",
+                     "SRR5486781.NA01454.EAS.chr13.0.1x.LLR.p",
+                     "SRR5486781.NA01454.SAS.chr12.0.05x.LLR.p",
+                     "SRR5486781.NA01454.EAS.chr12.0.05x.LLR.p",
+                     "SRR5486781.NA01454.SAS.chr13.0.05x.LLR.p"]:
+        
+            with open('results_PRJNA384616/'+filename, 'rb') as f:
+                LLR_dict = pickle.load(f)
+                info = pickle.load(f)
+                if '0.5x' in filename:
+                    N = 15
+                elif '0.1x' in filename or '0.05x' in filename:
+                    N = 10
+                else:
+                    N=20
+                plot_streda(LLR_dict,info,N,save=filename[:-1]+'streda.png')
+                plot_test(LLR_dict,info,N,save=filename+'ng')
+                
+def MANUEL001():
+    for filename in ["11909FA_2_I1.EUR.chr6.LLR.p",
+                     "11909FA_2_I2.EUR.chr6.LLR.p",
+                     "11909FA_2_T1.EUR.chr6.LLR.p",
+                     "11909FA_2_T2.EUR.chr6.LLR.p",
+                     "11694FA_3_I1.EUR.chr13.LLR.p",
+                     "11694FA_3_T1.EUR.chr13.LLR.p",    
+                     "11694FA_3_T2.EUR.chr13.LLR.p"]:
+        
+            with open('results_MANUEL001/'+filename, 'rb') as f:
+                LLR_dict = pickle.load(f)
+                info = pickle.load(f)
+                N=10
+                plot_streda(LLR_dict,info,N,save=filename[:-1]+'streda.png')
+                plot_test(LLR_dict,info,N,save=filename+'ng')
+    
+    

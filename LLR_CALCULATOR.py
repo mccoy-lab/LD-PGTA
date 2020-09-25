@@ -38,7 +38,7 @@ def build_hap_dict(obs_tab,leg_tab,hap_tab):
     hap_dict = dict()
     mismatches = 0
 
-    bools2int = lambda x: int(''.join(chr(48+i) for i in x),2)
+    bools2int = lambda x: int(''.join('%d'%i for i in x),2)
 
     for (pos, ind, read_id, base) in obs_tab:
         chr_id, pos2, ref, alt = leg_tab[ind]

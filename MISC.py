@@ -256,11 +256,10 @@ def check_var(hap_tab):
     c = np.sum(C)/len(C)/len(A)
     return (b0,b,c)
     
-    
 if __name__=='__main__':
     obs_filename = 'results_EUR/mixed2haploids.X0.5.HG00096.HG00096.B.hg38.obs.p'
-    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
+    hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
     leg_tab,hap_tab,obs_tab = load(obs_filename,leg_filename,hap_filename)
     #hap_dict = build_hap_dict(obs_tab,leg_tab,hap_tab)
     #reads = build_reads_dict(obs_tab,leg_tab)

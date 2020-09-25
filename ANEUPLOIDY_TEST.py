@@ -41,7 +41,7 @@ def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
 
     def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
-        return int(''.join(str(int(i)) for i in x),2)
+        return int(''.join('%d'%i for i in x),2)
 
     def rank(X,N):
         """ Returns the rank of a given haplotypes. """
