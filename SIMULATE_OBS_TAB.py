@@ -53,9 +53,12 @@ def parse(x):
     return result
 
 
-def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir):
+def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
     
     a = time.time()
+    
+    output_dir = kwargs.get('output_dir', '')
+    output_dir += '/' if len(output_dir)!=0 and output_dir[-1]!='/' else ''
     
     get_alleles_from_bcftools(vcf_filename,chr_id,sample_id,bcftools_dir)
     
@@ -78,11 +81,11 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir):
 
     info = {'chr_id': chr_id}
     
-    with open(sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
+    with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
         pickle.dump(obs_tab1, binfile, protocol=4)
         pickle.dump(info, binfile, protocol=4)
 
-    with open(sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
+    with open(output_dir+sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
         pickle.dump(obs_tab2, binfile, protocol=4)
         pickle.dump(info, binfile, protocol=4)
 
@@ -119,8 +122,8 @@ def test():
     #leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
     #leg_filename = '../build_reference_panel/ref_panel.Ashkenazi.hg38.BCFtools/chr21_Ashkenazi_panel.legend'
     #leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
-    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/%s_EUR_panel.legend' % chr_id
+    leg_filename = '../build_reference_panel/ref_panel.COMMON.hg38.BCFtools/%s_COMMON_panel.legend' % chr_id
     #leg_filename = '../build_reference_panel/ref_panel.TEST.hg38.BCFtools/chr21_TEST_panel.legend'
-
     vcf_filename = '../vcf_phase3_hg38_v2/ALL.%s.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz' % chr_id
-    return main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir)
+    work_dir='results_COMMON'
+    return main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,output_dir=work_dir)

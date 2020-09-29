@@ -45,7 +45,7 @@ def build_rank_dict(reads_dict,obs_tab,leg_tab, hap_tab):
 
     def rank(X,N):
         """ Returns the rank of a given haplotypes. """
-        threshold = 0.05
+        threshold = 0.01
         joint_freq = bin(functools.reduce(operator.and_,X)).count('1') / N
         result = threshold<=joint_freq<=(1-threshold)
         return result
