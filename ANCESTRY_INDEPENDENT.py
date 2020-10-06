@@ -6,11 +6,12 @@ Created on Thu Sep 24 00:32:35 2020
 @author: ariad
 """
 from math import log
-from operator import countOf
-from itertools import compress, islice
+from operator import countOf, itemgetter
+from itertools import compress, islice, combinations
 from collections import defaultdict
 from time import time
 from sys import stdout
+from heapq import nlargest
 
 def read_impute2(impute2_filename,**kwargs):
     """ Reads an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE) and builds a list
@@ -34,16 +35,6 @@ def read_impute2(impute2_filename,**kwargs):
        
         for line in impute2_in:
             yield parse(line)
-
-def get_common(leg_iter,hap_iter):
-    superpop = {'AFR':(0,659),'AMR':(660,1006),'EAS':(1007,1510),'EUR':(1511,2013),'SAS':(2014,2502)}
-    hap_dict = defaultdict(dict)
-    for leg, hap in zip(leg_iter,hap_iter):
-        if all(5<countOf(hap[a:b+1],True)<(b+1-a-5) for (a,b) in superpop.values()):
-            for sp,(a,b) in superpop.items():
-                hap_dict[sp][leg[1]] = int(''.join('%d'%i for i in hap[a:b+1]),2) 
-    N = len(hap)
-    return hap_dict, N
             
 def transpose(dic):
     result = defaultdict(dict)
@@ -61,11 +52,15 @@ def symmetrize(dic):
     return result
 
 def remove(dic,pos):
-    result = {i:{j: k for j,k in t.items() if j not in pos} for i,t in dic.items() if i not in pos} if len(pos) else dic
+    result = {i:{j: k for j,k in t.items() if j not in pos} for i,t in dic.items() if (i not in pos) and (not pos >= t.keys())} if len(pos) else dic
     return result
 
 def keep(dic,pos):
-    result = {i:{j: k for j,k in t.items() if j in pos} for i,t in dic.items() if i in pos}
+    result = {i:{j: k for j,k in t.items() if j in pos} for i,t in dic.items() if (i in pos) and (not pos.isdisjoint(t.keys()))}
+    return result
+
+def replicate(target,source):
+    result = {i:{j: target[i][j] for j in dic} for i,dic in source.items()}
     return result
 
 def aux(a,b):
@@ -74,14 +69,28 @@ def aux(a,b):
     elif (a<1e-16 and b>1e-16) or (a>1e-16 and b<1e-16):
         result = False
     else:
-        result = -0.7<log(a/b)<0.7
+        result = 0.368<a/b<2.718
     return result
     
 def stability(A,B):
-    result = {Ak: countOf(map(aux,Av.values(),Bv.values()),True)/(len(Av) or 1)
-              for ((Ak, Av), (Bk, Bv)) in zip(A.items(),B.items())}
+    result = {}
+    for ((Ak, Av), (Bk, Bv)) in zip(A.items(),B.items()):
+            if Ak!=Bk: print('fatal error: dictionaries are out of sync.',Ak,Bk)
+            r = countOf(map(aux,Av.values(),Bv.values()),False) / (len(Av) or 1)
+            if r!=0:
+                result[Ak] = r 
     return result
-    
+
+def get_common(leg_iter,hap_iter):
+    superpop = {'AFR':(0,659),'AMR':(660,1006),'EAS':(1007,1510),'EUR':(1511,2013),'SAS':(2014,2502)}
+    hap_dict = defaultdict(dict)
+    for leg, hap in zip(leg_iter,hap_iter):
+        if all(countOf(hap[a:b+1],True)%(b+1-a) for (a,b) in superpop.values()):
+            for sp,(a,b) in superpop.items():
+                hap_dict[sp][leg[1]] = int(''.join('%d'%i for i in hap[a:b+1]),2) 
+    N = len(hap)
+    return hap_dict, N
+
 def build_LLR2_dict(hap_dict,N,max_dist):
     """ Builds a dictionary that contains the LLR of all SNP pairs (pos1,pos2)
     with pos1<pos2 and min_dist<pos2-pos1<mix_dist. The LLRs are stored in the
@@ -94,30 +103,30 @@ def build_LLR2_dict(hap_dict,N,max_dist):
     freq = {pos:  bin(hap).count('1')/N for pos,hap in hap_dict.items()}
 
     for i,(pos1,hap1) in enumerate(hap_dict.items()):
-        for (pos2,hap2) in islice(hap_dict.items(),i,None):
+        for (pos2,hap2) in islice(hap_dict.items(),i+1,None):
             if pos2-pos1 >= max_dist: break
             joint_freq = bin(hap1&hap2).count('1')/N
             result[pos1][pos2] = joint_freq/(freq[pos1]*freq[pos2])
             
-        if (i+1)%1000==0:
+        if (i+1)%1000==0 or i+1==M:
             stdout.write('\r')
             stdout.write(f"Proceeded {(i+1)} / {M} rows. Average time per 1000 rows: {'%.2f' % (1000*(time() - time0)/(i+1))} sec")
             stdout.flush()
     stdout.write('\n')
     return result
 
-def filtering(A,B):
-    A, B = symmetrize(A), symmetrize(B) 
-    threshold = step = 1e-4
-    while(threshold<1):
+def filtering(X,Y,step):
+    A, B = symmetrize(X), symmetrize(Y) 
+    q = stability(A, B)
+    while(len(q)):
         t0 = time()
+        pos, values = zip(*nlargest(min(step,len(q)), q.items(), key=itemgetter(1)))
+        POSITIONS = {*pos}
+        A = remove(A,POSITIONS) 
+        B = remove(B,POSITIONS)
         q = stability(A, B)
-        pos = {*compress(q, (x<threshold for x in q.values()))}
-        step *= 2 if len(pos)<(len(A)//2000) else 0.5    
-        threshold += step
-        A, B = remove(A,pos), remove(B,pos)
         t1 = time()
-        print(threshold, step, len(pos), t1-t0)
+        print(len(A),values[0],values[-1],t1-t0)
     return A, B
 
 def filter_impute2(read_filename, write_filename, lines):
@@ -130,22 +139,22 @@ def filter_impute2(read_filename, write_filename, lines):
 
 if __name__=='__main__':
     time0 = time()
-
-    hap_filename = '../ref_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.hap'
-    leg_filename = '../ref_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.legend'
+    hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
     #leg_tab,hap_tab,obs_tab = load(obs_filename,leg_filename,hap_filename)
-    leg_tab = read_impute2(leg_filename, filetype='leg')
-    hap_tab = read_impute2(hap_filename, filetype='hap')      
-    hap_dict, N = get_common(leg_tab,hap_tab)
-    EUR = build_LLR2_dict(hap_dict['EUR'],N,50000)
-    POSITIONS = {*EUR}
+    leg_iter = read_impute2(leg_filename, filetype='leg')
+    hap_iter = read_impute2(hap_filename, filetype='hap')     
+    hap_dict, N = get_common(leg_iter,hap_iter)
+    EUR = symmetrize(build_LLR2_dict(hap_dict['EUR'],N,50000))
     for sp in ('AFR','AMR','EAS','SAS'):
         print('SUPERPOPULATION: %s' % sp)
-        EUR, SP = filtering(EUR, keep(build_LLR2_dict(hap_dict[sp], N, 50000), POSITIONS))
-        POSITIONS = {*EUR}
-        print('Done.',len(POSITIONS))
-    lines = [i for i,j in enumerate(leg_tab) if j[1] in POSITIONS]
-    filter_impute2('../ref_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.hap', 'chr21_COMMON_panel.hap', lines)
-    filter_impute2('../ref_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.legend', 'chr21_COMMON_panel.legend', lines)
+        SP = replicate(symmetrize(build_LLR2_dict(hap_dict[sp], N, 50000)), EUR)
+        EUR, SP = filtering(EUR, SP, step=50)
+        print('Done.',len(EUR))
+    POSITIONS = {*EUR}
+    leg_iter = read_impute2(leg_filename, filetype='leg')
+    lines = [i for i,j in enumerate(leg_iter) if j[1] in POSITIONS]
+    filter_impute2(hap_filename, 'chr21_COMMON_panel.hap', lines)
+    filter_impute2(leg_filename, 'chr21_COMMON_panel.legend', lines)
     time1 = time()
     print(f'Done in {(time1-time0):.2f} sec.')
