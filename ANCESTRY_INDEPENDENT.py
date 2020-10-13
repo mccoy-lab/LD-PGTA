@@ -108,9 +108,7 @@ def replicate(matrix, example_matrix):
 def define_aux(lower_limit,upper_limit):
     """ Given lower and upper limits, creates a function that determines 
     whether two numbers are close to each other """
-    
-    global aux
-    
+        
     def aux(a,b):
         """ Checks whether floats a and b have the same order of magnitude. """
         if a<=1e-16 and b<=1e-16:
@@ -121,7 +119,7 @@ def define_aux(lower_limit,upper_limit):
             result = lower_limit<a/b<upper_limit
         return result
     
-    return 0
+    return aux
     
 def stability(A,B):
     """ Compares each element in matrix A with the corresponding element in
@@ -152,9 +150,10 @@ def get_common(leg_iter,hap_iter):
     N = len(hap)
     return hap_ref, hap_alt, N
 
-def filtering(A,B,step):
+def filtering_multisteps(A,B,step):
     """ Removes SNPs from LD matrices A and B that do not share the same order
-    of LD magnitude with all their neigbour SNPs. """
+    of LD magnitude with all their neigbour SNPs. In each iteration removes 
+    multiple SNPs."""
     
     q = stability(A, B)
     while(len(q)):
@@ -167,6 +166,24 @@ def filtering(A,B,step):
         t1 = time()
         print(len(A),values[0],values[-1],t1-t0)
     return A, B
+
+def filtering_singlestep(A,B,step):
+    """ Removes SNPs from LD matrices A and B that do not share the same order
+    of LD magnitude with all their neigbour SNPs. In each iteration removes 
+    a single SNP. """
+    
+    q = stability(A, B)
+    while(len(q)):
+        t0 = time()
+        pos, fraction = max(q.items(), key=itemgetter(1))
+        POSITIONS = {pos}
+        A = remove(A,POSITIONS) 
+        B = remove(B,POSITIONS)
+        q = stability(A, B)
+        t1 = time()
+        print(len(A),fraction,t1-t0)
+    return A, B
+
 
 def write_impute2(read_filename, write_filename, lines, filetype):
     """ Return a partial copy of the IMPUTE2 hap/legend file where only the
@@ -184,9 +201,10 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     """ Mainly compares the LD matrices of all the superpopulation to LD matrix
     of the european LD matrix to create a list of SNPs that their LD with their
     neighbor SNPs is stable across superpopulations. """
-    
+    global aux
+    filtering = filtering_singlestep if step==1 else filtering_multisteps
     time0 = time()
-    define_aux(lower_limit,upper_limit)
+    aux = define_aux(lower_limit,upper_limit)
     leg_iter = read_impute2(leg_filename, filetype='leg')
     hap_iter = read_impute2(hap_filename, filetype='hap')     
     hap_ref, hap_alt, N = get_common(leg_iter,hap_iter)
@@ -207,7 +225,7 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     time1 = time()
     print(f'Done in {(time1-time0):.2f} sec.')
     return 0
-  
+"""  
 if __name__=='__main__':
     parser = ArgumentParser(
         description='Creates a multi-ethnic reference panel.')
@@ -236,11 +254,10 @@ if __name__=='__main__':
 if __name__=='__main__':
     hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
-    output_impute2_filename = 'chr21_COMMON_panel'
+    output_impute2_filename = 'chr21_COMMON_panel_3'
     max_dist = 50000
-    step = 5
+    step = 1
     lower_limit = 0.1
     upper_limit = 10.00
     x = main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
     sys_exit(x)
-"""
