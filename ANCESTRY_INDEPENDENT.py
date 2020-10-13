@@ -12,7 +12,7 @@ Daniel Ariad (daniel@ariad.org)
 Sep 31, 2020
 """
 from operator import countOf, itemgetter
-from itertools import islice, combinations
+from itertools import islice, combinations, combinations_with_replacement
 from collections import defaultdict
 from time import time
 from sys import stdout
@@ -141,13 +141,16 @@ def get_common(leg_iter,hap_iter):
     contains only SNPs that are common to all the five superpopulations. """
     
     superpop = {'AFR':(0,659),'AMR':(660,1006),'EAS':(1007,1510),'EUR':(1511,2013),'SAS':(2014,2502)}
-    hap_dict = defaultdict(dict)
+    hap_ref = defaultdict(dict)
+    hap_alt = defaultdict(dict)
+
     for leg, hap in zip(leg_iter,hap_iter):
         if all(countOf(hap[a:b+1],True)%(b+1-a) for (a,b) in superpop.values()):
             for sp,(a,b) in superpop.items():
-                hap_dict[sp][leg[1]] = int(''.join('%d'%i for i in hap[a:b+1]),2) 
+                hap_ref[sp][leg[1]] = int(''.join(f'{not i:d}' for i in hap[a:b+1]),2)
+                hap_alt[sp][leg[1]] = int(''.join(f'{i:d}' for i in hap[a:b+1]),2) 
     N = len(hap)
-    return hap_dict, N
+    return hap_ref, hap_alt, N
 
 def filtering(A,B,step):
     """ Removes SNPs from LD matrices A and B that do not share the same order
@@ -186,13 +189,15 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     define_aux(lower_limit,upper_limit)
     leg_iter = read_impute2(leg_filename, filetype='leg')
     hap_iter = read_impute2(hap_filename, filetype='hap')     
-    hap_dict, N = get_common(leg_iter,hap_iter)
+    hap_ref, hap_alt, N = get_common(leg_iter,hap_iter)
+    hap_dict = {False: hap_ref, True: hap_alt}
     SP0 = False
     for sp0,sp1 in combinations(('EUR','AFR','AMR','EAS','SAS'),2):
         print('Comparing the LD between two superpopulations, %s and %s.' % (sp0,sp1))
-        SP1 = replicate(symmetrize(build_LD_matrix(hap_dict[sp1], N, max_dist=max_dist)), SP0)
-        SP0 = replicate(symmetrize(build_LD_matrix(hap_dict[sp0], N, max_dist=max_dist)), SP0)
-        SP0, SP1 = filtering(SP0, SP1, step=step)
+        for inv0, inv1 in combinations_with_replacement((True,False),2):
+            SP1 = replicate(symmetrize(build_LD_matrix(hap_dict[inv1][sp1], N, max_dist=max_dist)), SP0)
+            SP0 = replicate(symmetrize(build_LD_matrix(hap_dict[inv0][sp0], N, max_dist=max_dist)), SP0)
+            SP0, SP1 = filtering(SP0, SP1, step=step)
         print('Done.',len(SP0))
     POSITIONS = {*SP0}
     leg_iter = read_impute2(leg_filename, filetype='leg')
@@ -202,7 +207,7 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     time1 = time()
     print(f'Done in {(time1-time0):.2f} sec.')
     return 0
-    
+  
 if __name__=='__main__':
     parser = ArgumentParser(
         description='Creates a multi-ethnic reference panel.')
@@ -227,14 +232,15 @@ if __name__=='__main__':
 
     x = main(**vars(parser.parse_args()))
     sys_exit(x)
-    
-"""if __name__=='__main__':
+"""    
+if __name__=='__main__':
     hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
     output_impute2_filename = 'chr21_COMMON_panel'
     max_dist = 50000
-    step = 10
-    lower_limit = 0.25
-    upper_limit = 4.00
-    main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
-    exit(0)"""
+    step = 5
+    lower_limit = 0.1
+    upper_limit = 10.00
+    x = main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
+    sys_exit(x)
+"""
