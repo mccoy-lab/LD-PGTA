@@ -225,7 +225,7 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     time1 = time()
     print(f'Done in {(time1-time0):.2f} sec.')
     return 0
-  
+"""  
 if __name__=='__main__':
     parser = ArgumentParser(
         description='Creates a multi-ethnic reference panel.')
@@ -261,4 +261,3 @@ if __name__=='__main__':
     upper_limit = 10.00
     x = main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
     sys_exit(x)
-"""

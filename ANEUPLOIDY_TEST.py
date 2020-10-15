@@ -70,10 +70,10 @@ def pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads):
         number of reads in a given LD block is less than the minimal requirment
         then the block would not be considered."""
 
-    if len(read_IDs)<max(2,min_reads):
+    if len(read_IDs)<max(3,min_reads):
         haplotypes = None
-    else:    
-        drawn_read_IDs = random.sample(read_IDs, min(max_reads,len(read_IDs)))
+    else:
+        drawn_read_IDs = random.sample(read_IDs, min(len(read_IDs)-1,max_reads))
         haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
     
     return haplotypes
@@ -100,7 +100,7 @@ def iter_blocks(obs_tab,leg_tab,rank_dict,block_size,offset,max_reads,adaptive):
             if a<=pos<b:
                 readIDs_in_block.update(read_ID for read_ID in aux_dict[pos] if 1<rank_dict[read_ID])
                 break
-            if adaptive and 0<len(readIDs_in_block)<2*max_reads and b-a<300000:
+            if adaptive and 0<len(readIDs_in_block)<1.5*max_reads and b-a<300000:
                 b += 10000
                 continue
             yield ((a,b-1), readIDs_in_block)
@@ -211,8 +211,8 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--offset', type=int,
                         metavar='INT', default=0,
                         help='Shifts all the LD blocks by the requested base pairs. The default value is 0.')
-    parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=2,
-                        help='Takes into account only LD blocks with at least INT reads, admitting non-zero rank. The default value is 2.')
+    parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=3,
+                        help='Takes into account only LD blocks with at least INT reads, admitting non-zero rank. The default value is 3.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=16,
                         help='Selects up to INT reads from each LD blocks. The default value is 16.')
     parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
