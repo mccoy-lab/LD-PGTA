@@ -11,44 +11,50 @@ involving identical homologs.
 Daniel Ariad (daniel@ariad.org)
 AUG 31, 2020
 """
-import itertools, collections, math, pickle, time, bz2
 
-def ENGINE(N,degeneracies):
-    model = collections.defaultdict(int)
-    for C in itertools.product(''.join(i for i in degeneracies.keys()),repeat=N):
-        groups = collections.defaultdict(list)
+from itertools import product
+from collections import defaultdict
+from math import gcd as greatest_common_divisor
+from pickle import dump
+from time import time
+from bz2 import BZ2File
+
+def ENGINE(number_of_reads,degeneracies):
+    degeneracies_dict = {i:w for i,w in enumerate(degeneracies) if w>0}
+    model = defaultdict(int)
+    for sequence in product(degeneracies_dict, repeat=number_of_reads):
+        haplotypes = defaultdict(list)
         weight = 1
-        for ind,letter in enumerate(C):
-            groups[letter].append(ind)
-            weight *= degeneracies[letter]
-        haplotypes = tuple(tuple(i) for i in groups.values())
-        key = sorted(haplotypes,key=lambda x: (len(x), x[0] if len(x)>0 else 0))
-        model[tuple(key)]+=weight
+        for read_ind,hap in enumerate(sequence): 
+            haplotypes[hap].append(read_ind)
+            weight *=  degeneracies_dict[hap]
+        key = tuple(tuple(indices) for indices in haplotypes.values())
+        model[key] += weight
     return model
-    
-def COMPACT(model,N,degeneracies):
-    compact = {i+1: collections.defaultdict(list) for i in range(len(degeneracies))}
-    T = sum(degeneracies.values())**N
+
+def COMPACT(model,number_of_reads,degeneracies):
+    compact = {i+1: defaultdict(list) for i in range(len(degeneracies))}
+    T = sum(degeneracies)**number_of_reads
     while(len(model)!=0):
         haplotypes, weight = model.popitem()
-        HAPLOTYPES = tuple(sum(1 << x for x in h) for h in haplotypes)
-        gcd = math.gcd(weight,T)
+        HAPLOTYPES = tuple(sum(1 << x for x in h) for h in sorted(haplotypes, key=len))
+        gcd = greatest_common_divisor(weight,T)
         compact[len(HAPLOTYPES)][weight//gcd,T//gcd].append(HAPLOTYPES)
     for k1 in compact:
         compact[k1] = {k2:tuple(v) for k2,v in compact[k1].items()}
     return compact
 
-def SPH(N):
-    degeneracies = {'a': 1, 'b': 2}
-    model = ENGINE(N,degeneracies)
-    return COMPACT(model,N,degeneracies)
+def SPH(number_of_reads):
+    degeneracies = (2, 1)
+    model = ENGINE(number_of_reads,degeneracies)
+    return COMPACT(model,number_of_reads,degeneracies)
 
-def BPH(N):
-    degeneracies = {'a': 1, 'b': 1, 'c': 1}
-    model = ENGINE(N,degeneracies)
-    compact = COMPACT(model,N,degeneracies)
-    nested = lambda: collections.defaultdict(list)
-    compact3 = collections.defaultdict(nested)
+def BPH(number_of_reads):
+    degeneracies = (1, 1, 1)
+    model = ENGINE(number_of_reads,degeneracies)
+    compact = COMPACT(model,number_of_reads,degeneracies)
+    nested = lambda: defaultdict(list)
+    compact3 = defaultdict(nested)
     for normalized_weight, triplets in compact[3].items():
         for haplotypes in triplets:
             compact3[normalized_weight][haplotypes[0]].append((haplotypes[1],haplotypes[2]))
@@ -65,15 +71,13 @@ def BUILD(x):
         b = time.time()
         print('Done building in %.3f sec.' % ((b-a)))
     with open( 'MODELS.p', 'wb') as f:
-        pickle.dump(models, f, protocol=4)
-    with bz2.BZ2File( 'MODELS.pbz2', 'wb') as f:
-        pickle.dump(models, f, protocol=4)
+        dump(models, f, protocol=4)
+    with BZ2File( 'MODELS.pbz2', 'wb') as f:
+        dump(models, f, protocol=4)
     return models
 
 if __name__ == "__main__":
     print('The module MAKE_STATISTICAL_MODEL was invoked directly.')
-    models = BUILD(18)
+    #models = BUILD(18)
 else:
     print('The module MAKE_STATISTICAL_MODEL was imported.')
-   
-    
