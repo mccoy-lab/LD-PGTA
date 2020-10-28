@@ -100,13 +100,13 @@ def iter_blocks(obs_tab,leg_tab,rank_dict,block_size,offset,max_reads,adaptive):
             if a<=pos<b:
                 readIDs_in_block.update(read_ID for read_ID in aux_dict[pos] if 1<rank_dict[read_ID])
                 break
-            if adaptive and 0<len(readIDs_in_block)<1.5*max_reads and b-a<300000:
+            if adaptive and 0<len(readIDs_in_block)<max_reads+1 and b-a<350000:
                 b += 10000
                 continue
             yield ((a,b-1), readIDs_in_block)
             a, b, readIDs_in_block = b, b+block_size, set() 
             
-def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,subsamples,offset,min_reads,max_reads,output_filename):
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,subsamples,offset,min_reads,max_reads,output_filename,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
     independent blocks of linkage disequilibrium (LD). For each LD block it
     gives the associated log-likelihood BPH/SPH ratio (LLR)."""
@@ -128,13 +128,13 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,s
     
     filename = inspect.getframeinfo(inspect.currentframe()).filename
     path = os.path.dirname(os.path.abspath(filename))
-    model = path + '/MODELS/' + ('MODELS18D.p' if max_reads>16 else 'MODELS16D.p')
+    model = kwargs.get('model', path + '/MODELS/' + ('MODELS18D.p' if max_reads>16 else 'MODELS16D.p'))
     LLR = get_LLR(obs_tab, leg_tab, hap_tab, model)
     LLR_dict = collections.defaultdict(list)
 
     for k in range(subsamples):
         sys.stdout.write('\r')
-        sys.stdout.write(f"[{'=' * int(k+1):{subsamples}s}] {int(100*(k+1)/subsamples)}% ")
+        sys.stdout.write(f"[{'=' * (33*(k+1)//subsamples):{33}s}] {int(100*(k+1)/subsamples)}% ")
         sys.stdout.flush()
         
         blocks_dict_picked = {block: pick_reads(reads_dict,rank_dict,read_IDs,min_reads,max_reads)

@@ -131,7 +131,7 @@ def create_LLR(models_dict,joint_frequencies_combo,D):
         """ Calculates the log-likelihood BPH/SPH ratio for a given tuple of
         alleles and haplotypes. """
         
-        F = joint_frequencies_combo(*alleles)
+        F = joint_frequencies_combo(*alleles) #Divide values by D to normalize the joint frequencies.
         N = len(alleles)
 
         ### BPH ###
@@ -153,6 +153,7 @@ def create_LLR(models_dict,joint_frequencies_combo,D):
                    for (A0, A1), C in models_dict[N]['SPH'][2].items()) / D**2
 
         result = 1.23456789 if SPH<1e-18 else log(BPH/SPH)
+        
         return result
 
     return LLR
