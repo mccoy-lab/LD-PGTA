@@ -8,7 +8,7 @@ BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
 Daniel Ariad (daniel@ariad.org)
-Aug 31, 2020
+Nov 2, 2020
 """
 
 import collections, time, pickle, argparse, re, sys, random, inspect, os
