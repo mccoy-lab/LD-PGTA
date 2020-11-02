@@ -14,12 +14,14 @@ Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
 """
 
-import pickle, os, sys, bz2
+import pickle, os, sys, bz2, warnings
 
 from functools import reduce
 from operator import not_, and_, itemgetter
 from itertools import combinations
 from math import log
+
+#warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
 try:
     from gmpy2 import popcount
@@ -154,6 +156,14 @@ def create_LLR(models_dict,joint_frequencies_combo,D):
 
         result = 1.23456789 if SPH<1e-18 else log(BPH/SPH)
         
+        #if BPH < 0.1 * F[int('1'*len(alleles),2)]/D > SPH:
+        #    warnings.warn('It is more likely that all the sampled reads originated from the sample Haploid. This might indicate that the threshold of the MAF is too low. Showing only first of repeated warnings.')
+        #    result = None
+        #elif SPH<1e-18:
+        #    result = 1.23456789
+        #else:
+        #    result = log(BPH/SPH)
+            
         return result
 
     return LLR

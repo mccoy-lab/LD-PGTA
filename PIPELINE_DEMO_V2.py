@@ -28,37 +28,25 @@ def runInParallel(*fns):
         except:
             None
 
-def make_obs_tab_demo2(bam_filename,legend_filename,handle):
-    from MAKE_OBS_TAB import retrive_bases
-    args = {'bam_filename': '../For_Rajiv/'+bam_filename,
-            'legend_filename': '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/'+legend_filename,
-            'max_depth': 0,
-            'min_bq': 30,
-            'min_mq': 30,
-            'handle_multiple_observations': handle,
-            'fasta_filename': '',#'../genome_ref_hg38/hg38.fa', 
-            'output_filename': ''}
-    
-    args['output_filename'] = 'results_EUR/'+re.sub('.bam$','',args['bam_filename'].strip().split('/')[-1])+'.obs.p'
-
-    result = retrive_bases(**args)
-    
-    return result
- 
-def aneuploidy_test_demo(obs_filename,chr_id):
+def aneuploidy_test_demo(obs_filename,chr_id,sp,model):
     from ANEUPLOIDY_TEST import aneuploidy_test
-    args = dict(obs_filename = 'results_COMMON/ABC.obs.p',
-                hap_filename = '../build_reference_panel/ref_panel.COMMON.hg38.BCFtools/%s_COMMON_panel.hap' % chr_id,
-                leg_filename = '../build_reference_panel/ref_panel.COMMON.hg38.BCFtools/%s_COMMON_panel.legend' % chr_id,
-                block_size = 15e4,
-                adaptive = True,
-                subsamples = 300,
+    args = dict(obs_filename = f'results_{sp:s}/ABC.obs.p',
+                hap_filename = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap',
+                leg_filename = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend', 
+                block_size = 35e4,
+                adaptive = False,
+                subsamples = 100,
                 offset = 0,
                 min_reads = 2,
-                max_reads = 16,
-                output_filename = None)
-    args['obs_filename'] = 'results_COMMON/' + obs_filename
-    args['output_filename'] = 'results_COMMON/'+re.sub('(.*)obs','\\1LLR_x300_adaptive_LDblocks', obs_filename.split('/')[-1],1)    
+                max_reads = 18,
+                min_MAF = 0.25,
+                minimal_score = 2,
+                output_filename = None,
+                model = model)
+    print(model)
+    #M = model.replace('.', '/').split('/')[-2]
+    args['obs_filename'] = f'results_{sp:s}/' + obs_filename
+    args['output_filename'] = f'results_{sp:s}/'+re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)    
     LLR_dict, info = aneuploidy_test(**args)
     return LLR_dict, info
    
@@ -79,35 +67,70 @@ def make_obs_tab_demo(bam_filename,legend_filename,handle):
     
     return result
 
-def make_simulated_obs_tab():
+def make_simulated_obs_tab(sample_id,sp):
     bcftools_dir = ''
-    sample_id = 'HG00097'
+    #sample_id = 'HG00096'
     chr_id = 'chr21'
     #leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
     #leg_filename = '../build_reference_panel/ref_panel.Ashkenazi.hg38.BCFtools/chr21_Ashkenazi_panel.legend'
     #leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
-    leg_filename = '../build_reference_panel/ref_panel.COMMON.hg38.BCFtools/%s_COMMON_panel.legend' % chr_id
+    leg_filename = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend'
     #leg_filename = '../build_reference_panel/ref_panel.TEST.hg38.BCFtools/chr21_TEST_panel.legend'
-    vcf_filename = '../vcf_phase3_hg38_v2/ALL.%s.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz' % chr_id
-    work_dir='results_COMMON'
+    vcf_filename = f'../vcf_phase3_hg38_v2/ALL.{chr_id:s}.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz'
+    work_dir = f'results_{sp:s}'
     return simulate(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,output_dir=work_dir)
         
 if __name__ == "__main__":
+    #make_simulated_obs_tab('HG00096','COMMON')
+    #make_simulated_obs_tab('HG00097','COMMON')
+    #make_simulated_obs_tab('HG00357','COMMON')
+    #make_simulated_obs_tab('NA20524','COMMON')
+    
     #A = MixHaploids2('HG00096A.chr13.hg38.obs.p', 'HG00096B.chr13.hg38.obs.p', 'HG00097A.chr13.hg38.obs.p', read_length=150, depth=0.20, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
     #A = MixHaploids2('HG00096A.chr6.hg38.obs.p', 'HG00096B.chr6.hg38.obs.p', 'HG00097A.chr6.hg38.obs.p', read_length=36, depth=0.01, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
     #A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00096B.chr21.hg38.obs.p', 'HG00097A.chr21.hg38.obs.p', read_length=150, depth=0.05, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
     
-    #A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00096B.chr21.hg38.obs.p', 'HG00097A.chr21.hg38.obs.p', read_length=150, depth=0.50, work_dir='results_COMMON', recombination_spots=[i/10 for i in range(11)])
+    #A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00357B.chr21.hg38.obs.p', 'NA20524A.chr21.hg38.obs.p', read_length=150, depth=0.01, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
+    #A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00357B.chr21.hg38.obs.p', 'NA20524A.chr21.hg38.obs.p', read_length=150, depth=0.05, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
+
+    #A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00357B.chr21.hg38.obs.p', 'NA20524A.chr21.hg38.obs.p', read_length=35, depth=0.10, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
+    #A = MixHaploids2('HG00096A.chr21.hg38.obs.p', 'HG00357B.chr21.hg38.obs.p', 'NA20524A.chr21.hg38.obs.p', read_length=35, depth=0.50, work_dir='results_EUR', recombination_spots=[i/10 for i in range(11)])
     
     
+
+    A = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','EUR','MODELS/MODELS18D.p') 
+    B = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21','EUR','MODELS/MODELS18D.p')             
+    runInParallel(A,B)
+    
+    #A = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00357B.NA20524A.chr21.recomb.0.00.obs.p','chr21','MODELS_CLASSIC.p') 
+    #B = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00357B.NA20524A.chr21.recomb.1.00.obs.p','chr21','MODELS_CLASSIC.p')      
+    #A = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','MODELS_6.p') 
+    #B = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21','MODELS_6.p')     
+    #A = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','MODELS_5.p') 
+    #B = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21','MODELS_5.p') 
+    #aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','MODELS_4.p') 
+    #aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21','MODELS_4.p') 
+    #aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','MODELS_3.p') 
+    #aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21','MODELS_3.p') 
+    #aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','MODELS_2.p') 
+    #aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21','MODELS_2.p') 
+    #aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','MODELS_1.p') 
+    #aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21','MODELS_1.p') 
+    #C = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','MODELS_CLASSIC.p')
+    #D = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.1.00.obs.p','chr21','MODELS_CLASSIC.p')
+    #runInParallel(A,B)
+    
+    #aneuploidy_test_demo('HG00097A.chr21.hg38.obs.p','chr21','MODELS_CLASSIC.p')
+    
+
     #for i in range(0,11):
     #   print('Recombination spot: %.2f' % (i * 0.1))
     #    LLR_dict, info = aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.recomb.%.2f.obs.p' % (i * 0.1))       
 
     
-    filenames = ('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
-    functions = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\')' % (f,'chr21')) for f in filenames)
-    runInParallel(*functions)
+    #filenames = ('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
+    #functions = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\')' % (f,'chr21')) for f in filenames)
+    #runInParallel(*functions)
     
     #filenames = ('mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % (i * 0.1) for i in range(11))
     #functions = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\')' % (f,'chr21')) for f in filenames)
