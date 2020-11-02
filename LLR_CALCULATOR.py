@@ -21,7 +21,7 @@ from operator import not_, and_, itemgetter
 from itertools import combinations
 from math import log
 
-#warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
+warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
 try:
     from gmpy2 import popcount
@@ -156,14 +156,9 @@ def create_LLR(models_dict,joint_frequencies_combo,D):
 
         result = 1.23456789 if SPH<1e-18 else log(BPH/SPH)
         
-        #if BPH < 0.1 * F[int('1'*len(alleles),2)]/D > SPH:
-        #    warnings.warn('It is more likely that all the sampled reads originated from the sample Haploid. This might indicate that the threshold of the MAF is too low. Showing only first of repeated warnings.')
-        #    result = None
-        #elif SPH<1e-18:
-        #    result = 1.23456789
-        #else:
-        #    result = log(BPH/SPH)
-            
+        if BPH < 0.1 * F[int('1'*len(alleles),2)] / D > SPH:  ### F[int('1'*len(alleles),2)] / D is the probability that all the reads originated from the same haploid.
+            warnings.warn('At least one of the subsamples is more likely to originate from a single haploid. This might indicate that (a) the threshold of the MAF is too low. (b) the minimal number of reads per subsample is too small.')
+        
         return result
 
     return LLR
