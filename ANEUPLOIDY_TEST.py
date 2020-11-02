@@ -54,13 +54,13 @@ def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_MAF):
 
     hap_dict = dict()
     for (pos, ind, read_id, base) in obs_tab:
-        if pos not in hap_dict and (min_MAF < hap_tab[ind].count(1)/N < (1-min_MAF)): #Include only biallelic SNPs with MAF above the threshold. 
+        if pos not in hap_dict and (min_MAF <= hap_tab[ind].count(1)/N <= (1-min_MAF)): #Include only biallelic SNPs with MAF above the threshold. 
             hap_dict[pos] = (bools2int(hap_tab[ind]), bools2int(map(not_,hap_tab[ind])))
  
     score_dict = dict()
     for read_id in reads_dict:
         haplotypes = (hap_dict[pos] for pos,base in reads_dict[read_id] if pos in hap_dict)
-        score_dict[read_id] = sum(min_MAF < bin(reduce(and_,hap)).count('1')/N < (1-min_MAF)
+        score_dict[read_id] = sum(min_MAF <= bin(reduce(and_,hap)).count('1')/N <= (1-min_MAF)
                                   for hap in product(*haplotypes) if len(hap)!=0)
 
     return score_dict
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=16,
                         help='Selects up to INT reads from each LD blocks. The default value is 16.')
     parser.add_argument('-l', '--min-MAF', type=int, metavar='FLOAT', default=0.15,
-                        help='Consider only SNPs with a minor allele frequnecy above FLOAT. The default value is 0.15.')
+                        help='Consider only SNPs with a minor allele frequnecy equal or above FLOAT. The default value is 0.15.')
     parser.add_argument('-c', '--min-score', type=int, metavar='INT', default=16,
                         help='Consider only reads that reach the minimal score. The default value is 2.')
     parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
