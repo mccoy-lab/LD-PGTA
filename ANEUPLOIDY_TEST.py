@@ -100,12 +100,12 @@ def iter_blocks(obs_tab,leg_tab,score_dict,block_size,offset,max_reads,adaptive,
             if a<=pos<b:
                 readIDs_in_block.update(read_ID for read_ID in aux_dict[pos] if minimal_score<=score_dict[read_ID])
                 break
-            if adaptive and 0<len(readIDs_in_block)<2*max_reads and b-a<350000:
+            elif adaptive and 0<len(readIDs_in_block)<2*max_reads and b-a<350000:
                 b += 10000
-                continue
-            yield ((a,b-1), readIDs_in_block)
-            a, b, readIDs_in_block = b, b+block_size, set() 
-            
+            else:
+                yield ((a,b-1), readIDs_in_block)
+                a, b, readIDs_in_block = b, b+block_size, set() 
+                
 def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,subsamples,offset,min_reads,max_reads,minimal_score,min_MAF,output_filename,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
     independent blocks of linkage disequilibrium (LD). For each LD block it
