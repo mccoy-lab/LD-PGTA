@@ -136,20 +136,20 @@ def create_LLR(models_dict,joint_frequencies_combo,D):
 
         ### BPH ###
         (((A0, A1),((B0,),)),) = models_dict[N]['BPH'][1].items()
-        BPH = A0 * F[B0] / ( D * A1 )
+        BPH = F[B0] * A0 / ( A1 * D )
 
-        BPH += sum(A0 * sum(F[B0] * F[B1] for (B0, B1) in C) / A1
+        BPH += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
                    for (A0, A1), C in models_dict[N]['BPH'][2].items()) / D**2
 
         if N>2:
-            BPH += sum(A0 * sum(F[B0] * sum(F[B1] * F[B2] for (B1, B2) in C[B0]) for B0 in C) / A1
+            BPH += sum( sum(F[B0] * sum(F[B1] * F[B2] for (B1, B2) in C[B0]) for B0 in C) * A0 / A1
                        for (A0, A1), C in models_dict[N]['BPH'][3].items()) / D**3
 
         ### SPH ###
         (((A0, A1),((B0,),)),) = models_dict[N]['SPH'][1].items()
-        SPH = A0 * F[B0] / ( D * A1 ) 
+        SPH = F[B0] * A0 / ( A1 * D ) 
 
-        SPH += sum(A0 * sum(F[B0] * F[B1] for (B0, B1) in C) / A1
+        SPH += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
                    for (A0, A1), C in models_dict[N]['SPH'][2].items()) / D**2
 
         result = 1.23456789 if SPH<1e-18 else log(BPH/SPH)
