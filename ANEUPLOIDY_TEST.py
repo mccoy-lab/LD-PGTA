@@ -54,7 +54,7 @@ def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_MAF):
 
     hap_dict = dict()
     for (pos, ind, read_id, base) in obs_tab:
-        if pos not in hap_dict and (min_MAF <= hap_tab[ind].count(1)/N <= (1-min_MAF)): #Include only biallelic SNPs with MAF above the threshold. 
+        if pos not in hap_dict and (0.01 <= hap_tab[ind].count(1)/N <= 0.99): #Include only biallelic SNPs with MAF of at least 0.01. 
             hap_dict[pos] = (bools2int(hap_tab[ind]), bools2int(map(not_,hap_tab[ind])))
  
     score_dict = dict()
