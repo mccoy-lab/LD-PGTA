@@ -170,7 +170,7 @@ def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab,models_filename):
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)),len(hap_tab[0]))
+    LLR = create_LLR(models_dict, create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)), len(hap_tab[0]))
     return LLR
 
 def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
@@ -199,12 +199,10 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
 
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
     joint_frequencies_combo = create_frequencies(hap_dict)
-    LLR = create_LLR(models_dict,joint_frequencies_combo,len(hap_tab[0]))
+    LLR = create_LLR(models_dict, joint_frequencies_combo, len(hap_tab[0]))
 
     ###LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return LLR
-
-
 
 if __name__ != "__main__":
     print('The module LLR_CALCULATOR was imported.')
@@ -224,9 +222,9 @@ else:
     import time
     from MAKE_OBS_TAB import read_impute2
     a = time.time()
-    obs_filename = 'results_HapMix_EXT/mixed2haploids.X0.01.SRR10393062.SRR151495.0-2.hg38.obs.p'
-    hap_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.HapMix_EXT.hg38.BCFtools/chr21_HapMix_EXT_panel.legend'
+    obs_filename = 'results_EUR/mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.obs.p'
+    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
 
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')
@@ -247,11 +245,11 @@ else:
 
     #frequencies, frequency = create_frequencies(hap_dict)
     N = len(hap_tab[0])
-    frequencies = create_frequencies(hap_dict,N)
+    frequencies = create_frequencies(hap_dict)
     def frequencies2(*x):
         return {bin(a)[2:]:b for a,b in frequencies(*x).items()}
 
-    LLR = create_LLR(models_dict,frequencies)
+    LLR = create_LLR(models_dict,frequencies,N)
 
     pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
 
