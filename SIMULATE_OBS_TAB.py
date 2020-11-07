@@ -8,18 +8,24 @@ Simulates an observation table, obs_tab of a haploid, using phased genotypes fro
 Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
 """
-import pickle, sys, os, time, argparse
+import pickle, sys, os, time, argparse, random, string
+
+def get_random_string(length):
+    letters = string.ascii_lowercase
+    result = ''.join(random.choice(letters) for i in range(length))
+    return result
 
 def get_alleles_from_bcftools(vcf_file,chr_id,sample_id,bcftools_dir):
     """ Runs bcftools as a subprocess and returns the output """
     
+    tmp_filename = get_random_string(8)+'.tmp'
     ins_dir = bcftools_dir if bcftools_dir=='' or bcftools_dir[-1]=='/' else bcftools_dir+'/'
     cmd1 = '%sbcftools view %s --samples %s --targets %s --phased --exclude-types indels,mnps,ref,bnd,other --output-type v' % (ins_dir,vcf_file,sample_id,chr_id[3:])
-    cmd2 = '%sbcftools query -f \'%%CHROM\\t%%POS\\t[%%TGT]\\n\' - > AgT4Fa1z.tmp' % ins_dir
+    cmd2 = '%sbcftools query -f \'%%CHROM\\t%%POS\\t[%%TGT]\\n\' - > %s' % (ins_dir,tmp_filename)
     run = cmd1 + ' | ' + cmd2
     print('Calling bcftools:\n%s' % run)
     os.system(run)
-    return 0 
+    return tmp_filename 
 
 
 def read_impute2(impute2_filename,**kwargs):
@@ -56,15 +62,17 @@ def parse(x):
 def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
     
     a = time.time()
-    
+    random.seed(None,version=2)
     output_dir = kwargs.get('output_dir', '')
     output_dir += '/' if len(output_dir)!=0 and output_dir[-1]!='/' else ''
     
-    get_alleles_from_bcftools(vcf_filename,chr_id,sample_id,bcftools_dir)
     
-    with open('AgT4Fa1z.tmp', 'r') as txtfile:
+    
+    tmp_filename = get_alleles_from_bcftools(vcf_filename,chr_id,sample_id,bcftools_dir)
+
+    with open(tmp_filename, 'r') as txtfile:
         tab = [parse(line) for line in txtfile]
-    os.remove('AgT4Fa1z.tmp')
+    os.remove(tmp_filename)
 
     REF = {pos:ref for chr_id,pos,ref,alt in tab}
     ALT = {pos:alt for chr_id,pos,ref,alt in tab}
