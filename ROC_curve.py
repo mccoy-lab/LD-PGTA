@@ -45,7 +45,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model):
                 offset = 0,
                 min_reads = 6,
                 max_reads = 14,
-                min_MAF = 0.15,
+                min_HF = 0.15,
                 minimal_score = 2,
                 output_filename = None,
                 model = model)

@@ -42,13 +42,13 @@ def build_reads_dict(obs_tab,leg_tab):
 
     return reads
 
-def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_MHF):
+def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF):
     """ Returns a dicitonary lists read_IDs and gives their score. The scoring
     algorithm scores each read according to the number of differet haplotypes
     that the reference panel supports at the chromosomal region that overlaps
     with the read. Only bialleic SNP with a minor allele frequeancy above 
-    min_MHF are considered for the calculation. In addition, only haplotypes
-    with a frequnecy between min_MHF and 1-min_MHF add to the score of a
+    min_HF are considered for the calculation. In addition, only haplotypes
+    with a frequnecy between min_HF and 1-min_HF add to the score of a
     read. """
 
     N = len(hap_tab[0])
@@ -61,7 +61,7 @@ def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_MHF):
     score_dict = dict()
     for read_id in reads_dict:
         haplotypes = (hap_dict[pos] for pos,base in reads_dict[read_id] if pos in hap_dict)
-        score_dict[read_id] = sum(min_MHF <= bin(reduce(and_,hap)).count('1')/N <= (1-min_MHF)
+        score_dict[read_id] = sum(min_HF <= bin(reduce(and_,hap)).count('1')/N <= (1-min_HF)
                                   for hap in product(*haplotypes) if len(hap)!=0)
 
     return score_dict
@@ -107,7 +107,7 @@ def iter_blocks(obs_tab,leg_tab,score_dict,block_size,offset,max_reads,adaptive,
                 yield ((a,b-1), readIDs_in_block)
                 a, b, readIDs_in_block = b, b+block_size, set() 
                 
-def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,subsamples,offset,min_reads,max_reads,minimal_score,min_MHF,output_filename,**kwargs):
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,subsamples,offset,min_reads,max_reads,minimal_score,min_HF,output_filename,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
     independent blocks of linkage disequilibrium (LD). For each LD block it
     gives the associated log-likelihood BPH/SPH ratio (LLR)."""
@@ -123,7 +123,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,s
     leg_tab = read_impute2(leg_filename, filetype='leg')
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-    score_dict = build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_MHF)
+    score_dict = build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF)
     blocks_dict = {block: read_IDs for block,read_IDs in iter_blocks(obs_tab,leg_tab,score_dict,block_size,offset,max_reads,adaptive,minimal_score)}       
     
     
@@ -169,7 +169,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,block_size,adaptive,s
                  'min_reads': min_reads,
                  'max_reads': max_reads,
                  'minimal_score': minimal_score,
-                 'min_MHF': min_MHF,
+                 'min_HF': min_HF,
                  'runtime': time.time()-a})
 
     info['statistics'] = {'mean': mean_LLR, 'std': std_of_mean_LLR,
@@ -218,7 +218,7 @@ if __name__ == "__main__":
                         help='Takes into account only LD blocks with at least INT reads, admitting non-zero score. The default value is 3.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=16,
                         help='Selects up to INT reads from each LD blocks. The default value is 16.')
-    parser.add_argument('-l', '--min-MHF', type=int, metavar='FLOAT', default=0.15,
+    parser.add_argument('-l', '--min-HF', type=int, metavar='FLOAT', default=0.15,
                         help='Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.15.')
     parser.add_argument('-c', '--min-score', type=int, metavar='INT', default=16,
                         help='Consider only reads that reach the minimal score. The default value is 2.')
