@@ -179,12 +179,12 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
         
         if given_output_filename!=None:
             MIX = '.'.join(filename.strip().split('/')[-1].strip().split('.')[0] for filename in obs_filenames)
-            RECOMB = ('.recomb.%.2f' % recombination_spot) if len(obs_filenames)==3 else ''
-            default_output_filename = ('mixed%dhaploids.X%.2f.' % (len(obs_filenames),depth)) + MIX + RECOMB + '.obs.p'    
-            output_filename = default_output_filename if given_output_filename=='' else ('%d.' % u)+given_output_filename 
-            with open(  work_dir + output_filename , "wb" ) as f:
+            RECOMB = f'.recomb.{recombination_spot:.2f}' if len(obs_filenames)==3 else ''
+            default_output_filename = f'mixed{len(obs_filenames):d}haploids.X{depth:.2f}.' + MIX + '.' + chr_id + RECOMB + '.obs.p'    
+            output_filename = default_output_filename if given_output_filename=='' else f'{u:d}.' + given_output_filename 
+            with open(  work_dir + output_filename , 'wb' ) as f:
                     pickle.dump( obs_tab_sorted, f, protocol=4)
-                    pickle.dump( info, f, protocol=4)    
+                    pickle.dump( info, f, protocol=4)
         
         sys.stdout.write('\r')
         sys.stdout.write(f"[{'=' * int(u):{len(recombination_spots)}s}] {int(100*u/len(recombination_spots))}% ")
