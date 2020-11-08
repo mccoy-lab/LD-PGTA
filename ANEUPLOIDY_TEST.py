@@ -47,9 +47,9 @@ def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF):
     algorithm scores each read according to the number of differet haplotypes
     that the reference panel supports at the chromosomal region that overlaps
     with the read. Only bialleic SNP with a minor allele frequeancy above 
-    min_HF are considered for the calculation. In addition, only haplotypes
-    with a frequnecy between min_HF and 1-min_HF add to the score of a
-    read. """
+    0.01 are considered for the calculation, since they are unlikely to affect
+    the score. In addition, only haplotypes with a frequnecy between min_HF
+    and 1-min_HF add to the score of a read. """
 
     N = len(hap_tab[0])
 
