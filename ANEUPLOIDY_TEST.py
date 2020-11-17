@@ -79,7 +79,7 @@ def pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads):
     
     return haplotypes
     
-def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,max_reads,adaptive,minimal_score):
+def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,max_reads,minimal_score):
     """ Returns an iterator over the genomic windows together with read IDs of
         the reads that overlap with SNPs in the genomic window. Only reads with
         a score larger than one are considered. """
