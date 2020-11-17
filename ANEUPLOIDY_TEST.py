@@ -179,7 +179,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
                  'runtime': time.time()-a})
 
     info['statistics'] = {'mean': mean_LLR, 'std': std_of_mean_LLR,
-                          'num_of_windows': num_of_genomic_windows,
+                          'num_of_windows': num_of_windows,
                           'fraction_of_negative_LLRs': fraction_of_negative_LLRs,
                           'reads_mean': reads_mean, 'reads_std': reads_std,
                           'reads_per_window_dict': reads_per_window_dict}
