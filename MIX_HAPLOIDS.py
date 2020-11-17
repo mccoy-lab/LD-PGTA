@@ -171,7 +171,13 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
         obs_dict = build_obs_dict(cache, chr_id, read_length, depth, recombination_spot)
         
         info = info_dicts[0]
-        info.update({'depth': depth, 'read_length': read_length})
+        
+        scenario = 'HAPLOID' if len(cache)==1 else ('SPH' if len(cache)==2 else 'BPH')
+        info.update({'depth': depth,
+                     'read_length': read_length,
+                     'scenario': scenario,
+                     'recombination_spot': recombination_spot
+                     })
         
         obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
         
@@ -184,7 +190,7 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
             output_filename = default_output_filename if given_output_filename=='' else f'{u:d}.' + given_output_filename 
             with open(  work_dir + output_filename , 'wb' ) as f:
                     pickle.dump( obs_tab_sorted, f, protocol=4)
-                    pickle.dump( info, f, protocol=4)
+                    pickle.dump( info, f, protocol=4)    
         
         sys.stdout.write('\r')
         sys.stdout.write(f"[{'=' * int(u):{len(recombination_spots)}s}] {int(100*u/len(recombination_spots))}% ")

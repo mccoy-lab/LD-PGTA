@@ -5,7 +5,7 @@
 LLR_CALCULATOR
 
 This script creates a function that calculates log-likelihood BPH/SPH ratio
-(LLR) for a given tuple of reads that originated form the same LD block.
+(LLR) for a given tuple of reads that originated form the same genomic window.
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.

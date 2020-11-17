@@ -99,7 +99,7 @@ if __name__ != "__main__":
 else:
     print("Executed when invoked directly")
     a = time()
-    obs_filename = 'results_EUR/mixed2haploids.X0.5.HG00096.HG00096.B.hg38.obs.p'
+    obs_filename = 'results_EUR/mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.obs.p'
     hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
 

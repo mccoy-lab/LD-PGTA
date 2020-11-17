@@ -20,6 +20,37 @@ from heapq import nlargest
 from argparse import ArgumentParser
 from sys import exit as sys_exit
 
+#def transpose(matrix):
+#    """ Transposes the LD matrix. """
+#    result = defaultdict(dict)
+#    for i,t in matrix.items():
+#        for j,k in t.items():
+#            result[j][i] = k
+#    return result
+
+#def remove(matrix,omit):
+#    """ Return a copy of the LD matrix with specific rows and columns omitted.
+#        The set, omit contains the numbers of the rows and columns to be
+#        included. """ 
+#    result = {i:{j: k for j,k in t.items() if j not in omit} for i,t in matrix.items() if (i not in omit) and (not omit >= t.keys())} if len(omit) else matrix
+#    return result
+
+#def keep(matrix,include):
+#    """ Return a copy of the LD matrix where only specific rows and columns
+#        are included. The set, include contains the numbers of the rows and
+#        columns to be included. """   
+#    result = {i:{j: k for j,k in t.items() if j in include} for i,t in matrix.items() if (i in include) and (not include.isdisjoint(t.keys()))}
+#    return result
+
+#def symmetrize(matrix):
+#    """ Returns a symmetric matrix, given a triangular matrix. """
+#    result = defaultdict(dict)
+#    for i,t in matrix.items():
+#        for j,k in t.items():
+#            result[j][i] = k
+#            result[i][j] = k
+#    return result
+
 def read_impute2(impute2_filename,**kwargs):
     """ Iterates over the rows of an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE),
         parsers each row and yields a tuple with the parsed data. """
@@ -54,7 +85,7 @@ def build_LD_matrix(hap_dict,N,max_dist):
     freq = {pos:  bin(hap).count('1')/N for pos,hap in hap_dict.items()}
 
     for i,(pos1,hap1) in enumerate(hap_dict.items()):
-        for (pos2,hap2) in islice(hap_dict.items(),i+1,None):
+        for (pos2,hap2) in islice(hap_dict.items(),i,None):
             if pos2-pos1 >= max_dist: break
             joint_freq = bin(hap1&hap2).count('1')/N
             result[pos1][pos2] = joint_freq/(freq[pos1]*freq[pos2])
@@ -65,44 +96,21 @@ def build_LD_matrix(hap_dict,N,max_dist):
             stdout.flush()
     stdout.write('\n')
     return result
-            
-def transpose(matrix):
-    """ Transposes the LD matrix. """
-    result = defaultdict(dict)
-    for i,t in matrix.items():
-        for j,k in t.items():
-            result[j][i] = k
-    return result
 
 def symmetrize(matrix):
     """ Returns a symmetric matrix, given a triangular matrix. """
-    result = defaultdict(dict)
+    
     for i,t in matrix.items():
         for j,k in t.items():
-            result[j][i] = k
-            result[i][j] = k
-    return result
-
-def remove(matrix,omit):
-    """ Return a copy of the LD matrix with specific rows and columns omitted.
-        The set, omit contains the numbers of the rows and columns to be
-        included. """ 
-    result = {i:{j: k for j,k in t.items() if j not in omit} for i,t in matrix.items() if (i not in omit) and (not omit >= t.keys())} if len(omit) else matrix
-    return result
-
-def keep(matrix,include):
-    """ Return a copy of the LD matrix where only specific rows and columns
-        are included. The set, include contains the numbers of the rows and
-        columns to be included. """   
-    result = {i:{j: k for j,k in t.items() if j in include} for i,t in matrix.items() if (i in include) and (not include.isdisjoint(t.keys()))}
-    return result
+            matrix[j][i] = k
+    return matrix
 
 def replicate(matrix, example_matrix):
-    """ Return a copy of the LD matrix where only specific elements are included. 
+    """ Return a copy of the matrix where only specific elements are included. 
     The non-zero elements of the example matrix determine which elements of the
-    LD matrix would be copied. """
+    matrix would be copied. """
     
-    result = {i:{j: matrix[i][j] for j in row} for i,row in example_matrix.items()} if example_matrix else matrix 
+    result = {i:{j: matrix[i][j] for j in row} for i,row in example_matrix.items() if len(row)} if example_matrix else matrix 
     return result
 
 def define_aux(lower_limit,upper_limit):
@@ -150,35 +158,55 @@ def get_common(leg_iter,hap_iter):
     N = len(hap)
     return hap_ref, hap_alt, N
 
-def filtering_multisteps(A,B,step):
+def filtering_multisteps(A,B,step,aim):
     """ Removes SNPs from LD matrices A and B that do not share the same order
     of LD magnitude with all their neigbour SNPs. In each iteration removes 
     multiple SNPs."""
     
     q = stability(A, B)
-    while(len(q)):
+    #l = nlargest(min(step,len(q)), q.items(), key=itemgetter(1))
+    #if len(l)==0:
+    #    print(l,len(q),q)
+    #pos, fractions = zip(*l) 
+    
+    l = nlargest(min(step,len(q)), q.items(), key=itemgetter(1))
+    pos, fractions = zip(*l) if len(l) else ([-1],[-1])
+    
+    while(len(q) and fractions[0]>=aim ):
         t0 = time()
-        pos, values = zip(*nlargest(min(step,len(q)), q.items(), key=itemgetter(1)))
-        POSITIONS = {*pos}
-        A = remove(A,POSITIONS) 
-        B = remove(B,POSITIONS)
+        pos, fractions = zip(*nlargest(min(step,len(q)), q.items(), key=itemgetter(1)))
+        
+        
+        for X in (A,B):
+            for p in pos: 
+                if X.pop(p,False):
+                    for k in X: X[k].pop(p,False)
+        
+        #POSITIONS = {*pos}; A = remove(A,POSITIONS); B = remove(B,POSITIONS)
+        
         q = stability(A, B)
         t1 = time()
-        print(len(A),values[0],values[-1],t1-t0)
+        print(len(A),fractions[0],fractions[-1],t1-t0)
     return A, B
 
-def filtering_singlestep(A,B,step):
+def filtering_singlestep(A,B,step,aim):
     """ Removes SNPs from LD matrices A and B that do not share the same order
     of LD magnitude with all their neigbour SNPs. In each iteration removes 
     a single SNP. """
     
     q = stability(A, B)
-    while(len(q)):
+    pos, fraction = max(q.items(), key=itemgetter(1), default=(-1, -1))
+    
+    while(len(q) and fraction>=aim):
         t0 = time()
         pos, fraction = max(q.items(), key=itemgetter(1))
-        POSITIONS = {pos}
-        A = remove(A,POSITIONS) 
-        B = remove(B,POSITIONS)
+        
+        for X in (A,B):
+            if X.pop(pos,False):
+                for k in X: X[k].pop(pos,False)
+                   
+        #POSITIONS = {pos}; A = remove(A,POSITIONS);B = remove(B,POSITIONS)
+        
         q = stability(A, B)
         t1 = time()
         print(len(A),fraction,t1-t0)
@@ -210,13 +238,14 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     hap_ref, hap_alt, N = get_common(leg_iter,hap_iter)
     hap_dict = {False: hap_ref, True: hap_alt}
     SP0 = False
-    for sp0,sp1 in combinations(('EUR','AFR','AMR','EAS','SAS'),2):
-        print('Comparing the LD between two superpopulations, %s and %s.' % (sp0,sp1))
-        for inv0, inv1 in combinations_with_replacement((True,False),2):
-            SP1 = replicate(symmetrize(build_LD_matrix(hap_dict[inv1][sp1], N, max_dist=max_dist)), SP0)
-            SP0 = replicate(symmetrize(build_LD_matrix(hap_dict[inv0][sp0], N, max_dist=max_dist)), SP0)
-            SP0, SP1 = filtering(SP0, SP1, step=step)
-        print('Done.',len(SP0))
+    for aim in (0.75,0.50,0.25,0.10,0.05,0.01,0.005,0.001,0):
+        for sp0,sp1 in combinations(('EUR','AFR','AMR','EAS','SAS'),2):
+            print('Comparing the LD between two superpopulations, %s and %s.' % (sp0,sp1))
+            for inv0, inv1 in combinations_with_replacement((True,False),2):
+                SP1 = replicate(symmetrize(build_LD_matrix(hap_dict[inv1][sp1], N, max_dist=max_dist)), SP0)
+                SP0 = replicate(symmetrize(build_LD_matrix(hap_dict[inv0][sp0], N, max_dist=max_dist)), SP0)
+                SP0, SP1 = filtering(SP0, SP1, step=step, aim=aim)
+            print('Done.',len(SP0))
     POSITIONS = {*SP0}
     leg_iter = read_impute2(leg_filename, filetype='leg')
     lines = [i for i,j in enumerate(leg_iter) if j[1] in POSITIONS]
@@ -254,8 +283,8 @@ if __name__=='__main__':
 if __name__=='__main__':
     hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
-    output_impute2_filename = 'chr21_COMMON_panel_3'
-    max_dist = 50000
+    output_impute2_filename = 'chr21_COMMON_panel'
+    max_dist = 100000
     step = 1
     lower_limit = 0.1
     upper_limit = 10.00

@@ -234,7 +234,7 @@ def HIST(x):
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     #ax.hist(x,bins=int(len(x)**.5),histtype='step', linewidth=2.2, label='TBA')
-    ax.hist(x,bins=100000, linewidth=0.2, label='TBA', histtype='stepfilled')
+    result = ax.hist(x,bins=600, linewidth=0.2, label='TBA', histtype='stepfilled')
     ax.set_xlabel('Positions')
     ax.set_ylabel('Counts')
     ax.set_title('distribution of SNPs along chromosome 21' )
@@ -242,7 +242,7 @@ def HIST(x):
     #ax.set_xticks(range(min(x), max(x),100000)) #(max(x)-min(x))//20))
     #ax.legend()
     plt.show()
-
+    return result
 
 def check_var(hap_tab):
     import numpy as np
@@ -257,9 +257,9 @@ def check_var(hap_tab):
     return (b0,b,c)
     
 if __name__=='__main__':
-    obs_filename = 'results_EUR/mixed2haploids.X0.5.HG00096.HG00096.B.hg38.obs.p'
-    hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
+    obs_filename = 'results_EUR/HG00097A.chr21.hg38.obs.p'
+    hap_filename = '../build_reference_panel/ref_panel.COMMON.hg38.BCFtools/chr21_COMMON_panel.hap'
+    leg_filename = '../build_reference_panel/ref_panel.COMMON.hg38.BCFtools/chr21_COMMON_panel.legend'
     leg_tab,hap_tab,obs_tab = load(obs_filename,leg_filename,hap_filename)
     #hap_dict = build_hap_dict(obs_tab,leg_tab,hap_tab)
     #reads = build_reads_dict(obs_tab,leg_tab)

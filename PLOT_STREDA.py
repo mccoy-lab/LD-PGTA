@@ -47,7 +47,7 @@ def chr_length(chr_id):
     return length_dict[chr_id]
 
 def load_llr(filename):
-    with open('results_PRJNA384616/'+filename, 'rb') as f:
+    with open(filename, 'rb') as f:
         LLR_dict = pickle.load(f)
         info = pickle.load(f)
     
