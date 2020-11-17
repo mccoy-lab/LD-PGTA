@@ -47,8 +47,8 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model):
                 min_HF = 0.15,
                 minimal_score = 2,
                 output_dir = f'results_{sp:s}/',
-                output_filename = '',
-                model = model)
+                output_filename = '')
+                #model = model)
     args['obs_filename'] = f'results_{sp:s}/' + obs_filename
     LLR_dict, info = aneuploidy_test(**args)
     return LLR_dict, info

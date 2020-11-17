@@ -68,7 +68,7 @@ def confidence(LLR_dict,info,N,z):
     i = lambda j: j*(len(V)//N)
     f = lambda j: (j+1)*(len(V)//N) if j!=N-1 else len(K)-1
     
-    x = lambda p,q: .5*(K[p][0] + K[q][-1])
+    x = lambda p,q: (K[p][0],K[q][-1])
     y = lambda p,q: statistics.mean(M[p:q])
     e = lambda p,q: z * (std_of_mean(V[p:q]) if rate(TEST[p:q])>0.85 else jackknife_std(M[p:q],WEIGHTS[p:q]))
     
