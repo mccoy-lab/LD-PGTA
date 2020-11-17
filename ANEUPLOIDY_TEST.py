@@ -160,12 +160,12 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     M, V = zip(*LLR_stat.values())
     mean_LLR, std_of_mean_LLR = sum(M)/len(M), sum(V)**.5/len(V) #The standard deviation is calculated according to the Bienaymé formula.
 
-    num_of_genomic_windows = len(M)
+    num_of_windows = len(M)
     fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
     
     print('\nFilename: %s' % obs_filename)
     print('Depth: %.2f, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], reads_mean, reads_std))
-    print('Number of genomic windows: %d, Fraction of genomic windows with a negative LLR: %.3f' % (num_of_genomic_windows,fraction_of_negative_LLRs))
+    print('Number of genomic windows: %d, Fraction of genomic windows with a negative LLR: %.3f' % (num_of_windows,fraction_of_negative_LLRs))
     print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( mean_LLR,  std_of_mean_LLR))
     ###########################################################################
     
