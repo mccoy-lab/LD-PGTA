@@ -83,7 +83,7 @@ def plot_streda(LLR_dict,info,N,**kwargs):
     F = lambda j,N: (j+1)*(len(V)//N) if j!=N-1 else len(K)-1
     for i in range(1,N+1):
         B[i] = tuple(((i,K[I(j,i)][0]/l),(i,K[F(j,i)][0]/l)) for j in range(i))
-        C[i] = tuple(sum(v<0 for v in V[I(j,i):F(j,i)+1])/len(V[I(j,i):F(j,i)]) for j in range(i))
+        C[i] = tuple(sum(v<0 for v in V[I(j,i):F(j,i)+1])/len(V[I(j,i):F(j,i)+1]) for j in range(i))
 
     segs = np.array([j for i in B.values() for j in i ])
     colors = np.array([j for i in C.values() for j in i ])
