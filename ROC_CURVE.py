@@ -5,7 +5,17 @@ Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
 """
 
-import pickle, statistics, collections
+import pickle, statistics
+
+def chr_length(chr_id):
+    """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
+    #The data of chromosome length was taken from https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh38
+    length_dict = {'chr1': 248956422, 'chr2': 242193529, 'chr3': 198295559, 'chr4': 190214555, 'chr5': 181538259,
+                  'chr6': 170805979, 'chr7': 159345973, 'chr8': 145138636, 'chr9': 138394717, 'chr10': 133797422,
+                  'chr11': 135086622, 'chr12': 133275309, 'chr13': 114364328, 'chr14': 107043718, 'chr15': 101991189,
+                  'chr16': 90338345, 'chr17':  83257441, 'chr18': 80373285, 'chr19': 58617616, 'chr20': 64444167,
+                  'chr21': 46709983, 'chr22': 50818468, 'chrX': 156040895, 'chrY': 57227415}
+    return length_dict[chr_id]
 
 def jackknife_std(sample,weights):
     """ Given sample elements and the weight of each element, the jackknife
@@ -37,6 +47,10 @@ def std_of_mean(variances):
 
 
 def load_llr(filename):
+    """ Loads from a file a dictionary that lists genomic windows that contain
+    at least two reads and gives the bootstrap distribution of the 
+    log-likelihood BPH/SPH ratios (LLRs). """
+    
     with open(filename, 'rb') as f:
         LLR_dict = pickle.load(f)
         info = pickle.load(f)
@@ -54,6 +68,10 @@ def rate(x):
     return x.count(True)/len(x)
 
 def confidence(LLR_dict,info,N,z):
+    """ Binning is applied by aggregating the mean LLR of a window across N
+        consecutive windows. The boundaries of the bins as well as the mean LLR
+        and the standard-error per bin are returned. """
+        
     TEST = [num_of_reads>info['max_reads']  
             for num_of_reads in info['statistics']['reads_per_LDblock_dict'].values() if num_of_reads>=info['min_reads'] ]    
     
@@ -77,6 +95,10 @@ def confidence(LLR_dict,info,N,z):
     return X,Y,E
 
 def build_confidence_dict(criterias, num_of_buckets):
+    """ Iterates over all the data files in the folder and creates a dictionary
+    the list all the files that fit the criterias and gives their analysis 
+    (via the confidence function). """
+    
     import glob
     filenames = glob.glob("ROC/*.LLR.p")
     result = {'SPH': {}, 'BPH': {}}
@@ -96,6 +118,9 @@ def build_confidence_dict(criterias, num_of_buckets):
     return result
 
 def build_ROC_curve(criterias, positive, thresholds, num_of_buckets):
+    """ Creates a nested dictionary that lists bins and thresholds and gives 
+        the false and true positive rates. """ 
+    
     SPH, BPH = build_confidence_dict(criterias, num_of_buckets).values()
     result = {}
     for bucket in range(num_of_buckets):
@@ -122,8 +147,50 @@ def build_ROC_curve(criterias, positive, thresholds, num_of_buckets):
             result[bucket][z] = (FPR,TPR)
             
     return result
+
+def plot_single_case(LLR_dict,info,N,**kwargs):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    save = kwargs.get('save', '')
+    
+    # Create lists for the plot    
+    X,Y,E = confidence(LLR_dict,info,N,z=1)
+
+    widths = [X[1]-X[0] for j in X]
+    #X_boundaries = tuple(k for j in range(N+1) for k in (K[j*a][0], K[min((j+1)*a,len(K)-1)][-1]))
+    X_ticks = [X[0] for j in X] + [X[-1][1]]
+    X_labels = [('%.2f' % (j/chr_length(info['chr_id']))) for j in X_ticks] 
+ 
+    # Build the plot
+    fig, ax = plt.subplots(1, 1, figsize=(16, 9))  # setup the plot
+    fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.07) 
+    ax.bar(X, Y, yerr=E, align='center', alpha=0.5, ecolor='black', capsize=10, width=widths, color=[np.random.rand(3,) for _ in range(N+1)])
+    ax.set_ylabel('log-likelihood BPH/SPH ratio')
+    ax.set_xlabel('Normalized chromosome position')
+    ax.set_xticks(X_ticks)
+    ax.set_xticklabels(X_labels)
+    ax.set_title('.'.join(save.split('.')[:-2]))
+    #ax.xaxis.grid(True)
+    #ax.yaxis.grid(True)
+
+    
+    for j in range(N):
+        plt.text(X[j], .5*(Y[j]-Y[j]/abs(Y[j])*E[j]), '%.2f\u00B1%.2f'% (Y[j],E[j]), ha='center', va='center',color='black',fontsize=8)
+    
+    if save!='':
+        print('Saving plot...')
+        plt.savefig(save, dpi=150, facecolor='w',
+                    edgecolor='w', orientation='landscape',
+                    format='png', transparent=False, bbox_inches=None,
+                    pad_inches=0.3, metadata=None)
+        plt.close(fig)
+    else:
+        plt.show()
+    
+    return 1
     
 def plot(x,num_of_buckets):
+    """ Plots the ROC curve. """
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     for i in range(num_of_buckets):
@@ -160,11 +227,10 @@ if __name__ == "__main__":
           'minimal_score': 2,
           'min_HF': 0.15}
 
-    Z = [i/300 for i in range(1200)]
-    R = build_ROC_curve(criterias = C0, positive = 'both', thresholds = Z, num_of_buckets = 10)
-    plot(R, num_of_buckets = 10)
+    #Z = [i/300 for i in range(1200)]
+    #R = build_ROC_curve(criterias = C2, positive = 'both', thresholds = Z, num_of_buckets = 15)
+    #plot(R, num_of_buckets = 15)
 else:
     print("The module ROC_curve was imported.")
 
 ### END OF FILE ###
-        
