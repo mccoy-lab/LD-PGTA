@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Daniel Ariad (daniel@ariad.org)
-Aug 31, 2020
+Nov 18, 2020
 """
 
 import pickle, statistics
