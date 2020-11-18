@@ -18,7 +18,8 @@ def get_random_string(length):
 def get_alleles_from_bcftools(vcf_file,chr_id,sample_id,bcftools_dir):
     """ Runs bcftools as a subprocess and returns the output """
     
-    tmp_filename = get_random_string(8)+'.tmp'
+    if not os.path.exists('tmp'): os.makedirs('tmp')
+    tmp_filename = 'tmp/'+get_random_string(8)+'.tmp'
     ins_dir = bcftools_dir if bcftools_dir=='' or bcftools_dir[-1]=='/' else bcftools_dir+'/'
     cmd1 = '%sbcftools view %s --samples %s --targets %s --phased --exclude-types indels,mnps,ref,bnd,other --output-type v' % (ins_dir,vcf_file,sample_id,chr_id[3:])
     cmd2 = '%sbcftools query -f \'%%CHROM\\t%%POS\\t[%%TGT]\\n\' - > %s' % (ins_dir,tmp_filename)
