@@ -3,7 +3,7 @@
 """
 PLOT_STREDA
 Daniel Ariad (daniel@ariad.org)
-Aug 31, 2020
+Nov 18, 2020
 """
 
 import pickle, statistics
@@ -81,9 +81,9 @@ def plot_streda(LLR_dict,info,N,**kwargs):
     
     I = lambda j,N: j*(len(V)//N)
     F = lambda j,N: (j+1)*(len(V)//N) if j!=N-1 else len(K)-1
-    for i in range(1,N+1):
-        B[i] = tuple(((i,K[I(j,i)][0]/l),(i,K[F(j,i)][0]/l)) for j in range(i))
-        C[i] = tuple(sum(v<0 for v in V[I(j,i):F(j,i)+1])/len(V[I(j,i):F(j,i)+1]) for j in range(i))
+    for n in range(1,N+1):
+        B[n] = tuple(((n,K[I(j,n)][0]/l),(n,K[F(j,n)][0]/l)) for j in range(n))
+        C[n] = tuple(sum(v<0 for v in V[I(j,n):F(j,n)+1])/len(V[I(j,n):F(j,n)+1]) for j in range(n))
 
     segs = np.array([j for i in B.values() for j in i ])
     colors = np.array([j for i in C.values() for j in i ])
