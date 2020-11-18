@@ -84,11 +84,7 @@ def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,max_reads,minimal
         the reads that overlap with SNPs in the genomic window. Only reads with
         a score larger than one are considered. """
 
-    if window_size == 0:
-        adaptive = True
-        window_size = 50000
-    else:
-        window_size = int(window_size) 
+    adaptive, window_size = (False, int(window_size)) if window_size else (True, 50000)
     
     offset = int(offset)
     
