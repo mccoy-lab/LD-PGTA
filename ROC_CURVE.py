@@ -56,8 +56,8 @@ def load_llr(filename):
         info = pickle.load(f)
     
     print('\nFilename: %s' % filename)
-    print('Depth: %.2f, Number of LD blocks: %d, Fraction of LD blocks with a negative LLR: %.3f' % (info['depth'], info['statistics']['num_of_LD_blocks'],info['statistics']['fraction_of_negative_LLRs']))
-    print('Mean and standard error of meaningful reads per LD block: %.1f, %.1f.' % (info['statistics']['reads_mean'], info['statistics'].get('reads_std',info['statistics'].get('reads_var'))))
+    print('Depth: %.2f, Number of genomic windows: %d, Fraction of genomic windows with a negative LLR: %.3f' % (info['depth'], info['statistics']['num_of_windows'],info['statistics']['fraction_of_negative_LLRs']))
+    print('Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['statistics']['reads_mean'], info['statistics'].get('reads_std',info['statistics'].get('reads_var'))))
     print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( info['statistics']['mean'], info['statistics']['std']))
     print('Calculation was done in %.3f sec.' % info['runtime'])
 
@@ -73,10 +73,10 @@ def confidence(LLR_dict,info,N,z):
         and the standard-error per bin are returned. """
         
     TEST = [num_of_reads>info['max_reads']  
-            for num_of_reads in info['statistics']['reads_per_LDblock_dict'].values() if num_of_reads>=info['min_reads'] ]    
+            for num_of_reads in info['statistics']['reads_per_window_dict'].values() if num_of_reads>=info['min_reads'] ]    
     
     WEIGHTS = [min(num_of_reads-1,info['max_reads'])   
-               for num_of_reads in info['statistics']['reads_per_LDblock_dict'].values() if num_of_reads>=info['min_reads']]    
+               for num_of_reads in info['statistics']['reads_per_window_dict'].values() if num_of_reads>=info['min_reads']]    
     
     LLR_stat = {block: mean_and_var(LLRs)  
                 for block,LLRs in LLR_dict.items() if None not in LLRs}
@@ -84,9 +84,9 @@ def confidence(LLR_dict,info,N,z):
     K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
             
     i = lambda j: j*(len(V)//N)
-    f = lambda j: (j+1)*(len(V)//N) if j!=N-1 else len(K)-1
+    f = lambda j: (j+1)*(len(V)//N) if j!=N-1 else len(K)
     
-    x = lambda p,q: (K[p][0],K[q][-1])
+    x = lambda p,q: (K[p][0],K[q-1][-1])
     y = lambda p,q: statistics.mean(M[p:q])
     e = lambda p,q: z * (std_of_mean(V[p:q]) if rate(TEST[p:q])>0.85 else jackknife_std(M[p:q],WEIGHTS[p:q]))
     
@@ -100,11 +100,12 @@ def build_confidence_dict(criterias, num_of_buckets):
     (via the confidence function). """
     
     import glob
-    filenames = glob.glob("ROC/*.LLR.p")
+    filenames = glob.glob("results_EUR/*.LLR.p")
     result = {'SPH': {}, 'BPH': {}}
     for filename in filenames:
         LLR_dict, info = load_llr(filename)
-        subinfo = {x: info.get(x,None) for x in ('chr_id','depth','read_length','block_size','min_reads','minimal_score','max_reads','min_HF')}
+        subinfo = {x: info.get(x,None) for x in ('chr_id','depth','read_length','window_size','min_reads','max_reads','minimal_score','min_HF')}
+        ###print(subinfo)
         if criterias==subinfo:
             if (info.get('scenario',None)=='BPH' and info.get('recombination_spot',None)==1.00) or info.get('scenario',None)=='SPH':
                 scenario = 'SPH'
@@ -149,22 +150,22 @@ def build_ROC_curve(criterias, positive, thresholds, num_of_buckets):
     return result
 
 def plot_single_case(LLR_dict,info,N,**kwargs):
-    import numpy as np
+    """ Plots the mean LLR vs. chromosomal position """
     import matplotlib.pyplot as plt
     save = kwargs.get('save', '')
     
     # Create lists for the plot    
     X,Y,E = confidence(LLR_dict,info,N,z=1)
-
-    widths = [X[1]-X[0] for j in X]
+    C = [(x[1]+x[0])/2 for x in X]
+    widths = [x[1]-x[0] for x in X]
     #X_boundaries = tuple(k for j in range(N+1) for k in (K[j*a][0], K[min((j+1)*a,len(K)-1)][-1]))
-    X_ticks = [X[0] for j in X] + [X[-1][1]]
+    X_ticks = [x[0] for x in X] + [X[-1][1]]
     X_labels = [('%.2f' % (j/chr_length(info['chr_id']))) for j in X_ticks] 
  
     # Build the plot
     fig, ax = plt.subplots(1, 1, figsize=(16, 9))  # setup the plot
     fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.07) 
-    ax.bar(X, Y, yerr=E, align='center', alpha=0.5, ecolor='black', capsize=10, width=widths, color=[np.random.rand(3,) for _ in range(N+1)])
+    ax.bar(C, Y, yerr=E, align='center', alpha=0.5, ecolor='black', capsize=10, width=widths, color=[plt.cm.tab20(i) for i in range(N)])
     ax.set_ylabel('log-likelihood BPH/SPH ratio')
     ax.set_xlabel('Normalized chromosome position')
     ax.set_xticks(X_ticks)
@@ -173,9 +174,8 @@ def plot_single_case(LLR_dict,info,N,**kwargs):
     #ax.xaxis.grid(True)
     #ax.yaxis.grid(True)
 
-    
     for j in range(N):
-        plt.text(X[j], .5*(Y[j]-Y[j]/abs(Y[j])*E[j]), '%.2f\u00B1%.2f'% (Y[j],E[j]), ha='center', va='center',color='black',fontsize=8)
+        plt.text(C[j], .5*(Y[j]-Y[j]/abs(Y[j])*E[j]), '%.2f\u00B1%.2f'% (Y[j],E[j]), ha='center', va='center',color='black',fontsize=8)
     
     if save!='':
         print('Saving plot...')
@@ -189,7 +189,7 @@ def plot_single_case(LLR_dict,info,N,**kwargs):
     
     return 1
     
-def plot(x,num_of_buckets):
+def plot_ROC_curve(x,num_of_buckets):
     """ Plots the ROC curve. """
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
@@ -201,35 +201,45 @@ def plot(x,num_of_buckets):
 
 if __name__ == "__main__":
     C0 = {'chr_id': 'chr21',
-         'depth': 0.05,
+         'depth': 0.01,
          'read_length': 35,
-         'block_size': 0,
+         'window_size': 0,
          'min_reads': 4,
-         'max_reads': 16,
+         'max_reads': 14,
          'minimal_score': 2,
          'min_HF': 0.15}
 
+
     C1 = {'chr_id': 'chr21',
-          'depth': 0.1,
-          'read_length': 35,
-          'block_size': 100000.0,
-          'min_reads': 6,
-          'max_reads': 14,
-          'minimal_score': 2,
-          'min_HF': 0.15}
+         'depth': 0.05,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 4,
+         'max_reads': 14,
+         'minimal_score': 2,
+         'min_HF': 0.15}
 
     C2 = {'chr_id': 'chr21',
-          'depth': 0.5,
+          'depth': 0.1,
           'read_length': 35,
-          'block_size': 100000.0,
-          'min_reads': 6,
+          'window_size': 0,
+          'min_reads': 4,
           'max_reads': 14,
           'minimal_score': 2,
           'min_HF': 0.15}
 
-    #Z = [i/300 for i in range(1200)]
-    #R = build_ROC_curve(criterias = C2, positive = 'both', thresholds = Z, num_of_buckets = 15)
-    #plot(R, num_of_buckets = 15)
+    C3 = {'chr_id': 'chr21',
+          'depth': 0.5,
+          'read_length': 35,
+          'window_size': 0,
+          'min_reads': 4,
+          'max_reads': 14,
+          'minimal_score': 2,
+          'min_HF': 0.15}
+
+    Z = [i/300 for i in range(-1200,1200)]
+    R = build_ROC_curve(criterias = C0, positive = 'both', thresholds = Z, num_of_buckets = 5)
+    plot_ROC_curve(R, num_of_buckets = 5)
 else:
     print("The module ROC_curve was imported.")
 
