@@ -5,7 +5,7 @@
 BUILD_SIMULATED_SEQUENCES
 
 Daniel Ariad (daniel@ariad.org)
-Feb 27, 2020
+Nov 18, 2020
 
 """
 import time, pickle, re, sys
@@ -43,7 +43,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model):
                 subsamples = 100,
                 offset = 0,
                 min_reads = 4,
-                max_reads = 18,
+                max_reads = 14,
                 min_HF = 0.15,
                 minimal_score = 2,
                 output_dir = f'results_{sp:s}/',
@@ -67,7 +67,7 @@ def make_simulated_obs_tab(sample_id,sp):
     return simulate(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,output_dir=work_dir)
 
 def main():
-    depth = 0.01
+    depth = 0.50
     seed(None, version=2)
     INDIVIDUALS = read_ref('/home/ariad/Dropbox/postdoc_JHU/Tools/build_reference_panel/EUR_panel.txt')
     for r in range(10):
@@ -84,4 +84,6 @@ def main():
 
 
 if __name__ == "__main__":
-    runInParallel(*[main for _ in range(4)])
+    #main()
+    for i in range(10):
+        runInParallel(*[main for _ in range(8)])
