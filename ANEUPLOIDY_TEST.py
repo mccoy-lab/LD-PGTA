@@ -219,8 +219,8 @@ if __name__ == "__main__":
                         help='Takes into account only genomic windows with at least INT reads, admitting non-zero score. The default value is 3.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=16,
                         help='Selects up to INT reads from each genomic windows. The default value is 16.')
-    parser.add_argument('-l', '--min-HF', type=int, metavar='FLOAT', default=0.15,
-                        help='Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.15.')
+    parser.add_argument('-l', '--min-HF', type=int, metavar='FLOAT', default=0.05,
+                        help='Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05.')
     parser.add_argument('-c', '--min-score', type=int, metavar='INT', default=16,
                         help='Consider only reads that reach the minimal score. The default value is 2.')
     parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
