@@ -54,14 +54,14 @@ def load_llr(filename):
     with open(filename, 'rb') as f:
         LLR_dict = pickle.load(f)
         info = pickle.load(f)
-    
+    return LLR_dict, info
+
+def show_info(filename,info):
     print('\nFilename: %s' % filename)
     print('Depth: %.2f, Number of genomic windows: %d, Fraction of genomic windows with a negative LLR: %.3f' % (info['depth'], info['statistics']['num_of_windows'],info['statistics']['fraction_of_negative_LLRs']))
     print('Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['statistics']['reads_mean'], info['statistics'].get('reads_std',info['statistics'].get('reads_var'))))
     print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( info['statistics']['mean'], info['statistics']['std']))
     print('Calculation was done in %.3f sec.' % info['runtime'])
-
-    return LLR_dict, info
 
 def rate(x):
     """ Return the fraction of True elements. """
@@ -114,6 +114,7 @@ def build_confidence_dict(criterias, num_of_buckets):
             else:
                 continue
             #print(scenario)
+            show_info(filename,info)
             result[scenario][filename] = tuple({'mean': mean, 'std': std} 
                                                for (pos,mean,std) in zip(*confidence(LLR_dict,info,N=num_of_buckets,z=1)))
     return result
@@ -123,6 +124,7 @@ def build_ROC_curve(criterias, positive, thresholds, num_of_buckets):
         the false and true positive rates. """ 
     
     SPH, BPH = build_confidence_dict(criterias, num_of_buckets).values()
+    print(len(SPH),len(BPH))
     result = {}
     for bucket in range(num_of_buckets):
         result[bucket] = {}

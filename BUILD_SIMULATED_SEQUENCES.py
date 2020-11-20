@@ -44,7 +44,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,output_dir):
                 offset = 0,
                 min_reads = 8,
                 max_reads = 16,
-                min_HF = 0.01,
+                min_HF = 0.05,
                 minimal_score = 2,
                 output_dir = output_dir, #f'results_{sp:s}/',
                 output_filename = '')
@@ -54,7 +54,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,output_dir):
     return LLR_dict, info
 
 def make_simulated_obs_tab(sample_id,sp,chr_id,output_dir):
-    bcftools_dir = '../bcftools-1.10.2/bin'
+    bcftools_dir = '' #'../bcftools-1.10.2/bin'
     #sample_id = 'HG00096'
     #chr_id = 'chr21'
     #leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
@@ -67,32 +67,31 @@ def make_simulated_obs_tab(sample_id,sp,chr_id,output_dir):
     return simulate(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,output_dir=output_dir)
 
 def main():
-    depth = 0.01
+    depth = 0.05
     sp = 'EUR'
     chr_id = 'chr21'
-    work_dir = 'test/' #f'results_{sp:s}/'
+    work_dir = f'results_{sp:s}/'
     #####################
     seed(None, version=2)
     work_dir = work_dir.rstrip('/') + '/' if len(work_dir)!=0 else ''
     INDIVIDUALS = read_ref(f'../build_reference_panel/{sp:s}_panel.txt')
-    for r in range(10):
-        A = sample(INDIVIDUALS,k=3)
-        B = choices(['A','B'],k=3)
-        C = [i+j for i,j in zip(A,B)]
-        #for a in A: make_simulated_obs_tab(a,sp,chr_id,work_dir)
-        func = (eval(f'lambda: make_simulated_obs_tab(\'{a:s}\', \'{sp:s}\', \'{chr_id:s}\', \'{work_dir:s}\')') for a in A)
-        runInParallel(*func)
-        D = MixHaploids2(f'{work_dir:s}{C[0]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[1]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[2]:s}.chr21.hg38.obs.p', read_length=35, depth=depth, output_dir=work_dir, recombination_spots=[0.00,1.00])
-        filenames = (f'mixed3haploids.X{depth:.2f}.{C[0]:s}.{C[1]:s}.{C[2]:s}.chr21.recomb.{i:.2f}.obs.p' for i in (0,1))
-        func2 = (eval(f'lambda: aneuploidy_test_demo(\'{work_dir:s}{f:s}\',\'{chr_id:s}\',\'{sp:s}\',\'MODELS/MODELS16D.p\',\'{work_dir:s}\')') for f in filenames)
-        runInParallel(*func2)
+    A = sample(INDIVIDUALS,k=3)
+    B = choices(['A','B'],k=3)
+    C = [i+j for i,j in zip(A,B)]
+    #for a in A: make_simulated_obs_tab(a,sp,chr_id,work_dir)
+    func = (eval(f'lambda: make_simulated_obs_tab(\'{a:s}\', \'{sp:s}\', \'{chr_id:s}\', \'{work_dir:s}\')') for a in A)
+    runInParallel(*func)
+    MixHaploids2(f'{work_dir:s}{C[0]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[1]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[2]:s}.chr21.hg38.obs.p', read_length=35, depth=depth, output_dir=work_dir, recombination_spots=[0.00,1.00])
+    filenames = (f'mixed3haploids.X{depth:.2f}.{C[0]:s}.{C[1]:s}.{C[2]:s}.chr21.recomb.{i:.2f}.obs.p' for i in (0,1))
+    func2 = (eval(f'lambda: aneuploidy_test_demo(\'{work_dir:s}{f:s}\',\'{chr_id:s}\',\'{sp:s}\',\'MODELS/MODELS16D.p\',\'{work_dir:s}\')') for f in filenames)
+    runInParallel(*func2)
     return 0
 
 
 if __name__ == "__main__":
-    main()
-    #for i in range(20):
-    #    runInParallel(*[main for _ in range(12)])
+    #main()
+    for i in range(20):
+        runInParallel(*[main for _ in range(12)])
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")
