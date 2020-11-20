@@ -87,7 +87,9 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
                      for impute2_index,(chr_id,pos,ref,alt) in enumerate(impute2_tab)
                      if pos in ALT)
 
-    info = {'chr_id': chr_id}
+    info = {'chr_id': chr_id,
+            'depth': 1,
+            'read_length': 1}
     
     with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
         pickle.dump(obs_tab1, binfile, protocol=4)
