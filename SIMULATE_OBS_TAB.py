@@ -65,9 +65,8 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
     a = time.time()
     random.seed(None,version=2)
     output_dir = kwargs.get('output_dir', '')
+    if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     output_dir += '/' if len(output_dir)!=0 and output_dir[-1]!='/' else ''
-    
-    
     
     tmp_filename = get_alleles_from_bcftools(vcf_filename,chr_id,sample_id,bcftools_dir)
 

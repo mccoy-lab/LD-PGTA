@@ -181,7 +181,9 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
                           'reads_per_window_dict': reads_per_window_dict}
 
     if output_filename!=None:
-        output_dir = kwargs.get('output_dir', '')
+        output_dir = kwargs.get('output_dir', 'results')
+        if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
+        output_dir = output_dir.rstrip('/') + '/' if len(output_dir)!=0 else ''
         default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)
         output_filename = default_filename if output_filename=='' else output_filename
         with open( output_dir + output_filename, "wb") as f:

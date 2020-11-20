@@ -237,9 +237,36 @@ if __name__ == "__main__":
           'minimal_score': 2,
           'min_HF': 0.15}
 
+    C4 = {'chr_id': 'chr21',
+         'depth': 0.01,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 4,
+         'max_reads': 14,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+
+    C5 = {'chr_id': 'chr21',
+         'depth': 0.01,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 4,
+         'max_reads': 16,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C6 = {'chr_id': 'chr21',
+         'depth': 0.05,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 8,
+         'max_reads': 16,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
     Z = [i/300 for i in range(-1200,1200)]
-    R = build_ROC_curve(criterias = C0, positive = 'both', thresholds = Z, num_of_buckets = 5)
-    plot_ROC_curve(R, num_of_buckets = 5)
+    R = build_ROC_curve(criterias = C6, positive = 'both', thresholds = Z, num_of_buckets = 10)
+    plot_ROC_curve(R, num_of_buckets = 10)
 else:
     print("The module ROC_curve was imported.")
 

@@ -16,7 +16,7 @@ Daniel Ariad (daniel@ariad.org)
 Aug 14st, 2020
 
 """
-import pickle, time, random, operator, collections, warnings, argparse, sys
+import pickle, time, random, operator, collections, warnings, argparse, sys, os
 from random import choices, randrange
 
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
@@ -148,14 +148,12 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
     handle_multiple_observations = kwargs.get('handle_multiple_observations','all')
     rs = kwargs.get('recombination_spots', 0)
     recombination_spots = [rs] if type(rs) in (float,int) else rs
-    work_dir = kwargs.get('work_dir', '')
+    #work_dir = kwargs.get('work_dir', '')
     given_output_filename = kwargs.get('output_filename','')
-    
-    work_dir += '/' if len(work_dir)!=0 and work_dir[-1]!='/' else ''
     
     obs_tabs, info_dicts = [], []
     for filename in obs_filenames:
-        with open(work_dir + filename, 'rb') as f:
+        with open(filename, 'rb') as f:
             obs_tabs.append(pickle.load(f))
             info_dicts.append(pickle.load(f))
         
@@ -188,7 +186,11 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
             RECOMB = f'.recomb.{recombination_spot:.2f}' if len(obs_filenames)==3 else ''
             default_output_filename = f'mixed{len(obs_filenames):d}haploids.X{depth:.2f}.' + MIX + '.' + chr_id + RECOMB + '.obs.p'    
             output_filename = default_output_filename if given_output_filename=='' else f'{u:d}.' + given_output_filename 
-            with open(  work_dir + output_filename , 'wb' ) as f:
+            
+            output_dir = kwargs.get('output_dir', 'results')
+            if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
+            output_dir += '/' if len(output_dir)!=0 and output_dir[-1]!='/' else ''
+            with open(  output_dir + output_filename , 'wb' ) as f:
                     pickle.dump( obs_tab_sorted, f, protocol=4)
                     pickle.dump( info, f, protocol=4)    
         
