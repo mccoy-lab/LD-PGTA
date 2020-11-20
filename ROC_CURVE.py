@@ -267,7 +267,7 @@ if __name__ == "__main__":
          'min_HF': 0.05}
     
     Z = [i/300 for i in range(-1200,1200)]
-    R = build_ROC_curve(criterias = C6, positive = 'both', thresholds = Z, num_of_buckets = 10)
+    R = build_ROC_curve(criterias = C3, positive = 'both', thresholds = Z, num_of_buckets = 10)
     plot_ROC_curve(R, num_of_buckets = 10)
 else:
     print("The module ROC_curve was imported.")
