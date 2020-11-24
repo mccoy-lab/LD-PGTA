@@ -18,6 +18,7 @@ Aug 14st, 2020
 """
 import pickle, time, random, operator, collections, warnings, argparse, sys, os
 from random import choices, randrange
+from itertools import islice
 
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
@@ -56,25 +57,23 @@ def number_of_reads(chr_id,reads_length,depth):
     number_of_fragments = depth * chr_length(chr_id) // reads_length
     return int(number_of_fragments)
     
-def build_dictionary_of_reads(obs_tab,chr_id,read_length,offset):
-    """ Cuts the sequence of chromosome chr_id into simulated reads of length
-        read_length. Then, creates a dictionary that matches a simulated read 
-        with the observed alleles at SNPs that overlap with the read."""
+def build_dictionary_of_reads(obs_tab,chr_id,read_length): 
+    """ Returns a dictionary that lists all the possible intervals of length
+        read_length in the chromosome chr_id. For each iterval it gives   
+        a range indices of obs_tab, which correspond to alleles that overlap
+        with the interval. """
     
-    positions = next(zip(*obs_tab))    
-    a = positions[0]-(read_length-1)+offset
-    b = positions[-1]+(read_length-1)
-    boundaries = tuple(range(a, b, read_length))
-    reads = [(i,j-1) for i,j in zip(boundaries,boundaries[1:])]
-    obs_dict = collections.defaultdict(list)
-    reads_iterator = iter(reads)
-    read = next(reads_iterator, None)
-    for i, pos in enumerate(positions):
-        while read:
-            if read[0]<=pos<=read[1]:
-                obs_dict[read].append(obs_tab[i])
-                break
-            read = next(reads_iterator, None)
+    positions = next(zip(*obs_tab))        
+    obs_dict = {}
+    for offset in range(read_length):
+        reads_iterator = ((i,i+read_length) for i in range(positions[0]-offset,positions[-1]+read_length,read_length))
+        read = next(reads_iterator, None)
+        for i, pos in enumerate(positions):
+            while read:
+                if read[0]<=pos<read[1]:
+                    obs_dict.setdefault(read,[i,0])[1] = i+1
+                    break 
+                read = next(reads_iterator, None)
     return obs_dict
 
 def sort_obs_tab(obs_dict, handle_multiple_observations):
@@ -100,17 +99,7 @@ def sort_obs_tab(obs_dict, handle_multiple_observations):
     
     return obs_tab_sorted
 
-def build_cache(obs_tabs,chr_id, read_length):
-    """ Caches the dictionary of reads. """
-    
-    cache = [{} for _ in range(len(obs_tabs))]
-    for i,obs_tab in enumerate(obs_tabs):
-        for offset in range(read_length):
-            cache[i].update(build_dictionary_of_reads(obs_tab,chr_id,read_length,offset)) 
-
-    return cache
-
-def build_obs_dict(cache, chr_id, read_length, depth, recombination_spot):
+def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, recombination_spot):
     """ Mixes simulated reads to mimic Illumina dye sequencing of a trisomic cell. """ 
     
     num_of_reads = number_of_reads(chr_id,read_length,depth)
@@ -121,7 +110,7 @@ def build_obs_dict(cache, chr_id, read_length, depth, recombination_spot):
     
     for i in range(num_of_reads):
         p = randrange(chr_length(chr_id))+1
-        read_boundaries = (p,p+read_length-1)
+        read_boundaries = (p,p+read_length)
         if L==1:
             W = [1,]
         elif L==2:
@@ -132,9 +121,11 @@ def build_obs_dict(cache, chr_id, read_length, depth, recombination_spot):
             raise Exception('Error: given more than three OBS files.')   
            
         rnd = choices(range(len(W)), weights=W, k=1)[0]
-        reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1],chr(65+rnd),i) 
-        for pos, impute2_ind, _, obs_base in cache[rnd].get(read_boundaries,[]):
-            obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
+        reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1]-1,chr(65+rnd),i) 
+        A,B = cache[rnd].get(read_boundaries, (None,None))
+        if A!=None:
+            for pos, impute2_ind, _, obs_base in islice(obs_tabs[rnd],A,B):
+                obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
 
     return obs_dict
 
@@ -143,7 +134,7 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
         table that depicts a trisomic cell is created. """    
         
     time0 = time.time()
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
+    random.seed(a=0, version=2) #I should set a=None after finishing to debug the code.        
     
     handle_multiple_observations = kwargs.get('handle_multiple_observations','all')
     rs = kwargs.get('recombination_spots', 0)
@@ -162,11 +153,11 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
     if not all(info['chr_id']==chr_id for info in info_dicts):
         raise Exception('Error: the chr_id differs from one OBS file to another.')   
     
-    cache = build_cache(obs_tabs,chr_id, read_length)
+    cache = [build_dictionary_of_reads(obs_tab,chr_id,read_length) for i, obs_tab in enumerate(obs_tabs)]
     
     for u, recombination_spot in enumerate(recombination_spots,start=1):
         
-        obs_dict = build_obs_dict(cache, chr_id, read_length, depth, recombination_spot)
+        obs_dict = build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, recombination_spot)
         
         info = info_dicts[0]
         
