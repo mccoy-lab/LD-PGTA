@@ -18,11 +18,11 @@ def read_ref(filename):
         tab = tuple(str(line.replace('\n','')) for line in data_in)
     return tab
 
-def runInParallel(*fns):
+def runInParallel(*fns,**kwargs):
     proc = []
     for fn in fns:
-        try:  
-            p = Process(target=fn)
+        try:
+            p = Process(target=fn,args=kwargs.get('args',tuple()))
             p.start()
             proc.append(p)
         except:

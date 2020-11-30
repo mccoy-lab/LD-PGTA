@@ -134,7 +134,7 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
         table that depicts a trisomic cell is created. """    
         
     time0 = time.time()
-    random.seed(a=0, version=2) #I should set a=None after finishing to debug the code.        
+    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
     
     handle_multiple_observations = kwargs.get('handle_multiple_observations','all')
     rs = kwargs.get('recombination_spots', 0)

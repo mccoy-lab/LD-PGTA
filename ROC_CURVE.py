@@ -104,7 +104,7 @@ def build_confidence_dict(criterias, num_of_buckets):
     result = {'SPH': {}, 'BPH': {}}
     for filename in filenames:
         LLR_dict, info = load_llr(filename)
-        subinfo = {x: info.get(x,None) for x in ('chr_id','depth','read_length','window_size','min_reads','max_reads','minimal_score','min_HF')}
+        subinfo = {x: info.get(x,None) for x in criterias.keys()}
         ###print(subinfo)
         if criterias==subinfo:
             if (info.get('scenario',None)=='BPH' and info.get('recombination_spot',None)==1.00) or info.get('scenario',None)=='SPH':
@@ -201,6 +201,38 @@ def plot_ROC_curve(x,num_of_buckets):
     ax.grid(True)
     plt.show()
 
+def plot_ROC_curve_band(R,num_of_buckets):
+    """ Plots the ROC curve of all the bins as band. """
+    from operator import itemgetter
+    from collections import defaultdict
+    from statistics import median, mean, pstdev
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    W = {i:{} for i in R}
+    
+    for i in R:
+        for x,y in R[i].values():
+            x_rounded = round(x,ndigits=2)
+            y_max = W[i].get(x_rounded,0.0)
+            if y>=y_max: W[i][x_rounded] = y
+    
+    Q = defaultdict(list)
+    for bucket in W.values():
+        for x,y in bucket.items():
+            Q[x].append(y)
+    
+    X,Y,Ymin,Ymax = zip(*((x,median(y),min(y),max(y)) for x,y in sorted(Q.items(),key=itemgetter(0))))
+    #X,Y,Ymin,Ymax = zip(*((x,mean(y),mean(y)-pstdev(y),mean(y)+pstdev(y)) for x,y in sorted(Q.items(),key=itemgetter(0))))
+    
+    
+    for i in range(num_of_buckets):
+        ax.scatter(*zip(*R[i].values()), label=f'bin {i:d}', s=num_of_buckets-i)        
+    ax.plot([0]+[*X]+[1],[0]+[*Y]+[1],c='black')
+    ax.fill_between(X, Ymin, Ymax, alpha=0.2)
+    ax.legend()
+    ax.grid(True)
+    plt.show()
+
 if __name__ == "__main__":
     C0 = {'chr_id': 'chr21',
          'depth': 0.01,
@@ -265,9 +297,63 @@ if __name__ == "__main__":
          'max_reads': 16,
          'minimal_score': 2,
          'min_HF': 0.05}
+
+    C7 = {'chr_id': 'chr21',
+         'depth': 0.05,
+         'read_length': 75,
+         'window_size': 0,
+         'min_reads': 4,
+         'max_reads': 16,
+         'minimal_score': 2,
+         'min_HF': 0.05}
     
+    C8 = {'chr_id': 'chr21',
+         'depth': 0.1,
+         'read_length': 75,
+         'window_size': 0,
+         'min_reads': 4,
+         'max_reads': 16,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C9 = {'chr_id': 'chr21',
+         'depth': 0.1,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 4,
+         'max_reads': 16,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C10 = {'chr_id': 'chr21',
+         'depth': 0.02,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 8,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C11 = {'chr_id': 'chr21',
+         'depth': 0.02,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 4,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C12 = {'chr_id': 'chr21',
+          'depth': 0.5,
+          'read_length': 250,
+          'window_size': 0,
+          'min_reads': 4,
+          'max_reads': 16,
+          'minimal_score': 2,
+          'min_HF': 0.05}
+        
     Z = [i/300 for i in range(-1200,1200)]
-    R = build_ROC_curve(criterias = C3, positive = 'both', thresholds = Z, num_of_buckets = 10)
+    R = build_ROC_curve(criterias = C12, positive = 'both', thresholds = Z, num_of_buckets = 10)
     plot_ROC_curve(R, num_of_buckets = 10)
 else:
     print("The module ROC_curve was imported.")

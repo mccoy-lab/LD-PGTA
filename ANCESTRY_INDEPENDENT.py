@@ -105,7 +105,7 @@ def symmetrize(matrix):
             matrix[j][i] = k
     return matrix
 
-def replicate(matrix, example_matrix):
+def replicate_structure(matrix, example_matrix):
     """ Return a copy of the matrix where only specific elements are included. 
     The non-zero elements of the example matrix determine which elements of the
     matrix would be copied. """
@@ -242,8 +242,8 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
         for sp0,sp1 in combinations(('EUR','AFR','AMR','EAS','SAS'),2):
             print('Comparing the LD between two superpopulations, %s and %s.' % (sp0,sp1))
             for inv0, inv1 in combinations_with_replacement((True,False),2):
-                SP1 = replicate(symmetrize(build_LD_matrix(hap_dict[inv1][sp1], N, max_dist=max_dist)), SP0)
-                SP0 = replicate(symmetrize(build_LD_matrix(hap_dict[inv0][sp0], N, max_dist=max_dist)), SP0)
+                SP1 = replicate_structure(symmetrize(build_LD_matrix(hap_dict[inv1][sp1], N, max_dist=max_dist)), SP0)
+                SP0 = replicate_structure(symmetrize(build_LD_matrix(hap_dict[inv0][sp0], N, max_dist=max_dist)), SP0)
                 SP0, SP1 = filtering(SP0, SP1, step=step, aim=aim)
             print('Done.',len(SP0))
     POSITIONS = {*SP0}
@@ -254,7 +254,7 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     time1 = time()
     print(f'Done in {(time1-time0):.2f} sec.')
     return 0
-"""  
+  
 if __name__=='__main__':
     parser = ArgumentParser(
         description='Creates a multi-ethnic reference panel.')
@@ -284,9 +284,10 @@ if __name__=='__main__':
     hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
     output_impute2_filename = 'chr21_COMMON_panel'
-    max_dist = 100000
+    max_dist = 10000
     step = 1
     lower_limit = 0.1
     upper_limit = 10.00
     x = main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
     sys_exit(x)
+"""

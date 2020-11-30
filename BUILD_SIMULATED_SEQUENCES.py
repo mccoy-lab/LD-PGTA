@@ -19,13 +19,14 @@ def read_ref(filename):
         tab = tuple(str(line.replace('\n','')) for line in data_in)
     return tab
 
-def runInParallel(*fns):
+def runInParallel(*fns,**kwargs):
     proc = []
     for fn in fns:
         try:
-            p = Process(target=fn)
+            p = Process(target=fn,args=kwargs.get('args',tuple()))
             p.start()
             proc.append(p)
+            time.sleep(60)
         except:
             print('caution: a process failed!')
     for p in proc:
@@ -33,7 +34,7 @@ def runInParallel(*fns):
           p.join()
         except:
             None
-
+   
 def aneuploidy_test_demo(obs_filename,chr_id,sp,model,output_dir):
     from ANEUPLOIDY_TEST import aneuploidy_test
     args = dict(obs_filename = f'results_{sp:s}/ABC.obs.p',
@@ -42,7 +43,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,output_dir):
                 window_size = 0,
                 subsamples = 100,
                 offset = 0,
-                min_reads = 8,
+                min_reads = 4,
                 max_reads = 16,
                 min_HF = 0.05,
                 minimal_score = 2,
@@ -66,10 +67,10 @@ def make_simulated_obs_tab(sample_id,sp,chr_id,output_dir):
     #output_dir  = f'results_{sp:s}/'
     return simulate(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,output_dir=output_dir)
 
-def main():
-    depth = 0.05
-    sp = 'EUR'
-    chr_id = 'chr21'
+def main(depth,sp,chr_id):
+    ###depth = 0.5
+    ###sp = 'EUR'
+    ###chr_id = 'chr21'
     work_dir = f'results_{sp:s}/'
     #####################
     seed(None, version=2)
@@ -81,7 +82,7 @@ def main():
     #for a in A: make_simulated_obs_tab(a,sp,chr_id,work_dir)
     func = (eval(f'lambda: make_simulated_obs_tab(\'{a:s}\', \'{sp:s}\', \'{chr_id:s}\', \'{work_dir:s}\')') for a in A)
     runInParallel(*func)
-    MixHaploids2(f'{work_dir:s}{C[0]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[1]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[2]:s}.chr21.hg38.obs.p', read_length=35, depth=depth, output_dir=work_dir, recombination_spots=[0.00,1.00])
+    MixHaploids2(f'{work_dir:s}{C[0]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[1]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[2]:s}.chr21.hg38.obs.p', read_length=250, depth=depth, output_dir=work_dir, recombination_spots=[0.00,1.00])
     filenames = (f'mixed3haploids.X{depth:.2f}.{C[0]:s}.{C[1]:s}.{C[2]:s}.chr21.recomb.{i:.2f}.obs.p' for i in (0,1))
     func2 = (eval(f'lambda: aneuploidy_test_demo(\'{work_dir:s}{f:s}\',\'{chr_id:s}\',\'{sp:s}\',\'MODELS/MODELS16D.p\',\'{work_dir:s}\')') for f in filenames)
     runInParallel(*func2)
@@ -89,9 +90,12 @@ def main():
 
 
 if __name__ == "__main__":
+    depth=0.5
+    sp='EUR'
+    chr_id='chr21'
     #main()
     for i in range(20):
-        runInParallel(*[main for _ in range(12)])
+        runInParallel(*(main for _ in range(6)),args=(depth,sp,chr_id))
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")

@@ -3,7 +3,7 @@
 """
 PLOT_STREDA
 Daniel Ariad (daniel@ariad.org)
-Nov 18, 2020
+Aug 31, 2020
 """
 
 import pickle, statistics
