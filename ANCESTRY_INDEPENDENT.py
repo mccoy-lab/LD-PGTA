@@ -11,6 +11,7 @@ the five superpopulation to track those with a ancestry-independent LD.
 Daniel Ariad (daniel@ariad.org)
 Sep 31, 2020
 """
+
 from operator import countOf, itemgetter
 from itertools import islice, combinations, combinations_with_replacement
 from collections import defaultdict
@@ -19,37 +20,6 @@ from sys import stdout
 from heapq import nlargest
 from argparse import ArgumentParser
 from sys import exit as sys_exit
-
-#def transpose(matrix):
-#    """ Transposes the LD matrix. """
-#    result = defaultdict(dict)
-#    for i,t in matrix.items():
-#        for j,k in t.items():
-#            result[j][i] = k
-#    return result
-
-#def remove(matrix,omit):
-#    """ Return a copy of the LD matrix with specific rows and columns omitted.
-#        The set, omit contains the numbers of the rows and columns to be
-#        included. """ 
-#    result = {i:{j: k for j,k in t.items() if j not in omit} for i,t in matrix.items() if (i not in omit) and (not omit >= t.keys())} if len(omit) else matrix
-#    return result
-
-#def keep(matrix,include):
-#    """ Return a copy of the LD matrix where only specific rows and columns
-#        are included. The set, include contains the numbers of the rows and
-#        columns to be included. """   
-#    result = {i:{j: k for j,k in t.items() if j in include} for i,t in matrix.items() if (i in include) and (not include.isdisjoint(t.keys()))}
-#    return result
-
-#def symmetrize(matrix):
-#    """ Returns a symmetric matrix, given a triangular matrix. """
-#    result = defaultdict(dict)
-#    for i,t in matrix.items():
-#        for j,k in t.items():
-#            result[j][i] = k
-#            result[i][j] = k
-#    return result
 
 def read_impute2(impute2_filename,**kwargs):
     """ Iterates over the rows of an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE),
@@ -74,7 +44,7 @@ def read_impute2(impute2_filename,**kwargs):
         for line in impute2_in:
             yield parse(line)
 
-def build_LD_matrix(hap_dict,N,max_dist):
+def build_LD_matrix(hap_dict,max_dist):
     """ Builds a sparse triangular matrix that contains the LD between each
     SNP pairs (pos1,pos2) with pos1<pos2 and pos2-pos1<mix_dist. The matrix is
     stored in the nested dictionary, result[pos1][pos2]. """
@@ -82,6 +52,7 @@ def build_LD_matrix(hap_dict,N,max_dist):
     time0 = time()
     result = defaultdict(dict)
     M = len(hap_dict)
+    N = len(bin(max(hap_dict.values())))-2
     freq = {pos:  bin(hap).count('1')/N for pos,hap in hap_dict.items()}
 
     for i,(pos1,hap1) in enumerate(hap_dict.items()):
@@ -155,41 +126,10 @@ def get_common(leg_iter,hap_iter):
             for sp,(a,b) in superpop.items():
                 hap_ref[sp][leg[1]] = int(''.join(f'{not i:d}' for i in hap[a:b+1]),2)
                 hap_alt[sp][leg[1]] = int(''.join(f'{i:d}' for i in hap[a:b+1]),2) 
-    N = len(hap)
-    return hap_ref, hap_alt, N
+    
+    return hap_ref, hap_alt
 
-def filtering_multisteps(A,B,step,aim):
-    """ Removes SNPs from LD matrices A and B that do not share the same order
-    of LD magnitude with all their neigbour SNPs. In each iteration removes 
-    multiple SNPs."""
-    
-    q = stability(A, B)
-    #l = nlargest(min(step,len(q)), q.items(), key=itemgetter(1))
-    #if len(l)==0:
-    #    print(l,len(q),q)
-    #pos, fractions = zip(*l) 
-    
-    l = nlargest(min(step,len(q)), q.items(), key=itemgetter(1))
-    pos, fractions = zip(*l) if len(l) else ([-1],[-1])
-    
-    while(len(q) and fractions[0]>=aim ):
-        t0 = time()
-        pos, fractions = zip(*nlargest(min(step,len(q)), q.items(), key=itemgetter(1)))
-        
-        
-        for X in (A,B):
-            for p in pos: 
-                if X.pop(p,False):
-                    for k in X: X[k].pop(p,False)
-        
-        #POSITIONS = {*pos}; A = remove(A,POSITIONS); B = remove(B,POSITIONS)
-        
-        q = stability(A, B)
-        t1 = time()
-        print(len(A),fractions[0],fractions[-1],t1-t0)
-    return A, B
-
-def filtering_singlestep(A,B,step,aim):
+def filtering(A,B,step,aim):
     """ Removes SNPs from LD matrices A and B that do not share the same order
     of LD magnitude with all their neigbour SNPs. In each iteration removes 
     a single SNP. """
@@ -204,9 +144,7 @@ def filtering_singlestep(A,B,step,aim):
         for X in (A,B):
             if X.pop(pos,False):
                 for k in X: X[k].pop(pos,False)
-                   
-        #POSITIONS = {pos}; A = remove(A,POSITIONS);B = remove(B,POSITIONS)
-        
+
         q = stability(A, B)
         t1 = time()
         print(len(A),fraction,t1-t0)
@@ -230,20 +168,19 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     of the european LD matrix to create a list of SNPs that their LD with their
     neighbor SNPs is stable across superpopulations. """
     global aux
-    filtering = filtering_singlestep if step==1 else filtering_multisteps
     time0 = time()
     aux = define_aux(lower_limit,upper_limit)
     leg_iter = read_impute2(leg_filename, filetype='leg')
     hap_iter = read_impute2(hap_filename, filetype='hap')     
-    hap_ref, hap_alt, N = get_common(leg_iter,hap_iter)
+    hap_ref, hap_alt = get_common(leg_iter,hap_iter)
     hap_dict = {False: hap_ref, True: hap_alt}
     SP0 = False
     for aim in (0.75,0.50,0.25,0.10,0.05,0.01,0.005,0.001,0):
         for sp0,sp1 in combinations(('EUR','AFR','AMR','EAS','SAS'),2):
             print('Comparing the LD between two superpopulations, %s and %s.' % (sp0,sp1))
             for inv0, inv1 in combinations_with_replacement((True,False),2):
-                SP1 = replicate_structure(symmetrize(build_LD_matrix(hap_dict[inv1][sp1], N, max_dist=max_dist)), SP0)
-                SP0 = replicate_structure(symmetrize(build_LD_matrix(hap_dict[inv0][sp0], N, max_dist=max_dist)), SP0)
+                SP1 = replicate_structure(symmetrize(build_LD_matrix(hap_dict[inv1][sp1], max_dist=max_dist)), SP0)
+                SP0 = replicate_structure(symmetrize(build_LD_matrix(hap_dict[inv0][sp0], max_dist=max_dist)), SP0)
                 SP0, SP1 = filtering(SP0, SP1, step=step, aim=aim)
             print('Done.',len(SP0))
     POSITIONS = {*SP0}
@@ -254,7 +191,8 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     time1 = time()
     print(f'Done in {(time1-time0):.2f} sec.')
     return 0
-  
+
+"""
 if __name__=='__main__':
     parser = ArgumentParser(
         description='Creates a multi-ethnic reference panel.')
@@ -290,4 +228,3 @@ if __name__=='__main__':
     upper_limit = 10.00
     x = main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
     sys_exit(x)
-"""

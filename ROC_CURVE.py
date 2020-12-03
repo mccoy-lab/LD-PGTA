@@ -94,13 +94,13 @@ def confidence(LLR_dict,info,N,z):
 
     return X,Y,E
 
-def build_confidence_dict(criterias, num_of_buckets):
+def build_confidence_dict(criterias, num_of_buckets, work_dir):
     """ Iterates over all the data files in the folder and creates a dictionary
     the list all the files that fit the criterias and gives their analysis 
     (via the confidence function). """
     
     import glob
-    filenames = glob.glob("results_EUR/*.LLR.p")
+    filenames = glob.glob(work_dir + '*.LLR.p')
     result = {'SPH': {}, 'BPH': {}}
     for filename in filenames:
         LLR_dict, info = load_llr(filename)
@@ -119,11 +119,11 @@ def build_confidence_dict(criterias, num_of_buckets):
                                                for (pos,mean,std) in zip(*confidence(LLR_dict,info,N=num_of_buckets,z=1)))
     return result
 
-def build_ROC_curve(criterias, positive, thresholds, num_of_buckets):
+def build_ROC_curve(criterias, positive, thresholds, num_of_buckets, work_dir):
     """ Creates a nested dictionary that lists bins and thresholds and gives 
         the false and true positive rates. """ 
     
-    SPH, BPH = build_confidence_dict(criterias, num_of_buckets).values()
+    SPH, BPH = build_confidence_dict(criterias, num_of_buckets, work_dir).values()
     print(len(SPH),len(BPH))
     result = {}
     for bucket in range(num_of_buckets):
@@ -351,9 +351,18 @@ if __name__ == "__main__":
           'max_reads': 16,
           'minimal_score': 2,
           'min_HF': 0.05}
+    
+    C13 = {'chr_id': 'chr21',
+          'depth': 0.1,
+          'read_length': 35,
+          'window_size': 0,
+          'min_reads': 3,
+          'max_reads': 8,
+          'minimal_score': 2,
+          'min_HF': 0.05}
         
     Z = [i/300 for i in range(-1200,1200)]
-    R = build_ROC_curve(criterias = C12, positive = 'both', thresholds = Z, num_of_buckets = 10)
+    R = build_ROC_curve(criterias = C13, positive = 'both', thresholds = Z, num_of_buckets = 10, work_dir = 'results_EAS/')
     plot_ROC_curve(R, num_of_buckets = 10)
 else:
     print("The module ROC_curve was imported.")
