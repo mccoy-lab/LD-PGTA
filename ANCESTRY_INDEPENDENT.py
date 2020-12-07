@@ -192,7 +192,7 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     print(f'Done in {(time1-time0):.2f} sec.')
     return 0
 
-"""
+
 if __name__=='__main__':
     parser = ArgumentParser(
         description='Creates a multi-ethnic reference panel.')
@@ -222,9 +222,10 @@ if __name__=='__main__':
     hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
     output_impute2_filename = 'chr21_COMMON_panel'
-    max_dist = 10000
+    max_dist = 100000
     step = 1
     lower_limit = 0.1
     upper_limit = 10.00
     x = main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
     sys_exit(x)
+"""

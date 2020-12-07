@@ -94,26 +94,26 @@ if __name__ == "__main__":
     sp='EUR'
     chr_id='chr21'
     read_length = 35
-    min_reads,max_reads = 4,16
+    #min_reads,max_reads = 4,16
     #main()
-    for i in range(20):
-        runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
-    depth=0.02
-    min_reads,max_reads = 3,8
-    for i in range(20):
-        runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
-    depth=0.05
-    min_reads,max_reads = 8,16
-    for i in range(20):
-        runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
-    min_reads,max_reads = 4,16
-    depth=0.1
-    for i in range(20):
-        runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
+    #for i in range(20):
+    #    runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
+    #depth=0.02
+    #min_reads,max_reads = 3,8
+    #for i in range(20):
+    #    runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
+    #depth=0.05
+    #min_reads,max_reads = 8,16
+    #for i in range(20):
+    #    runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
+    #min_reads,max_reads = 4,16
+    #depth=0.1
+    #for i in range(20):
+    #    runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
     min_reads,max_reads = 4,14
     depth=0.5
     for i in range(20):
-        runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
+        runInParallel(*(main for _ in range(4)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")

@@ -57,7 +57,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model):
 def make_obs_tab_demo(bam_filename,legend_filename,handle):
     from MAKE_OBS_TAB import retrive_bases
     args = {'bam_filename': '../BAMs_hg38/'+bam_filename,
-            'legend_filename': '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/'+legend_filename,
+            'legend_filename': '../build_reference_panel/EUR_panel.hg38.BCFtools/'+legend_filename,
             'max_depth': 0,
             'min_bq': 30,
             'min_mq': 30,
@@ -71,14 +71,14 @@ def make_obs_tab_demo(bam_filename,legend_filename,handle):
     
     return result
 
-def make_simulated_obs_tab(sample_id,sp):
+def make_simulated_obs_tab(sample_id,chr_id,sp):
     bcftools_dir = ''
     #sample_id = 'HG00096'
     chr_id = 'chr21'
     #leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
     #leg_filename = '../build_reference_panel/ref_panel.Ashkenazi.hg38.BCFtools/chr21_Ashkenazi_panel.legend'
     #leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
-    leg_filename = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend'
+    leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend'
     #leg_filename = '../build_reference_panel/ref_panel.TEST.hg38.BCFtools/chr21_TEST_panel.legend'
     vcf_filename = f'../vcf_phase3_hg38_v2/ALL.{chr_id:s}.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz'
     work_dir = f'results_{sp:s}'

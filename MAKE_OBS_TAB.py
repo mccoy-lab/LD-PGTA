@@ -44,7 +44,7 @@ def read_impute2(impute2_filename,**kwargs):
         impute2_tab = tuple(parse(line) for line in impute2_in)
     return impute2_tab
 
-def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename):
+def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,**kwargs):
     """ Retrives observed bases from known SNPs position. """
     time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
@@ -114,9 +114,11 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                 'depth': len(obs_tab)/len(leg_tab)} 
 
         if output_filename!=None:
-            default_output_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1])+'.obs.p'
+            default_output_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1]) + f'.{chr_id:s}.obs.p'
             output_filename = default_output_filename if output_filename=='' else output_filename 
-            with open( output_filename, "wb") as f:
+            output_dir = kwargs.get('output_dir','./').rstrip('/')+'/'
+            if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
+            with open(output_dir + output_filename, "wb") as f:
                 pickle.dump(obs_tab, f, protocol=4)
                 pickle.dump(info, f, protocol=4)    
     
@@ -153,7 +155,7 @@ if __name__ == "__main__":
                         metavar='INT', default=0,
                         help='Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit.')
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
-                        help='Output filename. The default filename is the same as the BAM filename, but with an extension of .obs.p')
+                        help='Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p')
     
     retrive_bases(**vars(parser.parse_args()))
     sys.exit(0)
