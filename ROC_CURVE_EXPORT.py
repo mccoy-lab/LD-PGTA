@@ -3,9 +3,14 @@
 """
 Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
+
+Rajiv McCoy
+Dec. 8, 2020
 """
 
+import glob
 import pickle, statistics
+import pandas as pd
 
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
@@ -99,7 +104,6 @@ def build_confidence_dict(criterias, num_of_buckets, work_dir):
     the list all the files that fit the criterias and gives their analysis 
     (via the confidence function). """
     
-    import glob
     filenames = glob.glob(work_dir + '*.LLR.p')
     result = {'SPH': {}, 'BPH': {}}
     for filename in filenames:
@@ -253,8 +257,7 @@ if __name__ == "__main__":
          'max_reads': 14,
          'minimal_score': 2,
          'min_HF': 0.15}
-
-
+    
     C1 = {'chr_id': 'chr21',
          'depth': 0.05,
          'read_length': 35,
@@ -263,7 +266,7 @@ if __name__ == "__main__":
          'max_reads': 14,
          'minimal_score': 2,
          'min_HF': 0.15}
-
+    
     C2 = {'chr_id': 'chr21',
           'depth': 0.1,
           'read_length': 35,
@@ -272,7 +275,7 @@ if __name__ == "__main__":
           'max_reads': 14,
           'minimal_score': 2,
           'min_HF': 0.15}
-
+    
     C3 = {'chr_id': 'chr21',
           'depth': 0.5,
           'read_length': 35,
@@ -281,7 +284,7 @@ if __name__ == "__main__":
           'max_reads': 14,
           'minimal_score': 2,
           'min_HF': 0.15}
-
+    
     C4 = {'chr_id': 'chr21',
          'depth': 0.01,
          'read_length': 35,
@@ -290,7 +293,7 @@ if __name__ == "__main__":
          'max_reads': 14,
          'minimal_score': 2,
          'min_HF': 0.05}
-
+    
     C5 = {'chr_id': 'chr21',
          'depth': 0.01,
          'read_length': 35,
@@ -308,7 +311,7 @@ if __name__ == "__main__":
          'max_reads': 16,
          'minimal_score': 2,
          'min_HF': 0.05}
-
+    
     C7 = {'chr_id': 'chr21',
          'depth': 0.05,
          'read_length': 75,
@@ -371,17 +374,137 @@ if __name__ == "__main__":
           'max_reads': 8,
           'minimal_score': 2,
           'min_HF': 0.05}
-        
+    
+    C14 = {'chr_id': 'chr21',
+         'depth': 0.01,
+         'read_length': 75,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 8,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C15 = {'chr_id': 'chr21',
+         'depth': 0.02,
+         'read_length': 75,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 8,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C16 = {'chr_id': 'chr21',
+         'depth': 0.05,
+         'read_length': 75,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 8,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C17 = {'chr_id': 'chr21',
+         'depth': 0.01,
+         'read_length': 250,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 4,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C18 = {'chr_id': 'chr21',
+         'depth': 0.02,
+         'read_length': 250,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 6,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C19 = {'chr_id': 'chr21',
+         'depth': 0.05,
+         'read_length': 250,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 8,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C20 = {'chr_id': 'chr21',
+         'depth': 0.1,
+         'read_length': 250,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 12,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C21 = {'chr_id': 'chr21',
+         'depth': 0.01,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 4,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C22 = {'chr_id': 'chr21',
+         'depth': 0.02,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 6,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C23 = {'chr_id': 'chr21',
+         'depth': 0.05,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 8,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C24 = {'chr_id': 'chr21',
+         'depth': 0.1,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 12,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
+    C25 = {'chr_id': 'chr21',
+         'depth': 0.5,
+         'read_length': 35,
+         'window_size': 0,
+         'min_reads': 3,
+         'max_reads': 14,
+         'minimal_score': 2,
+         'min_HF': 0.05}
+    
     Z = [i/300 for i in range(-1200,1200)]
-    for criteria in [C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13]:
-        for pop in ['EUR', 'EAS']:
-            try:
-                R = build_ROC_curve(criterias = criteria, positive = 'both', thresholds = Z, num_of_buckets = 10, work_dir = '/Users/rajivmccoy/Downloads/distinguishing_meiotic_and_mitotic_origins_of_trisomies_v2/results_' + pop + '/')
-                df = get_ROC_data(R, criteria, num_of_buckets = 10)
-                df['ref_panel'] = pop
-                df.to_csv("~/Downloads/roc.csv", mode = 'a', header = False)
-            except:
-                print("Simulations were missing.")
+    ancestry = pd.read_csv("~/Downloads/population.csv", sep = "\t")
+    for criteria in [C21, C22, C23, C24, C25, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C17, C18, C19, C20]:
+        for pop in ['COMMON','EUR', 'EAS', ]:
+            if pop == 'COMMON':
+                for component_pop in ['AFR', 'AMR', 'EAS', 'EUR', 'SAS', 'ADMIXED']:
+                    try:
+                        R = build_ROC_curve(criterias = criteria, positive = 'both', thresholds = Z, num_of_buckets = 10, work_dir = '/Users/rajivmccoy/Downloads/distinguishing_meiotic_and_mitotic_origins_of_trisomies_v2/results_' + pop + '/' + component_pop + '/')
+                        df = get_ROC_data(R, criteria, num_of_buckets = 10)
+                        df['ref_panel'] = pop
+                        df['target_ancestry'] = component_pop
+                        df.to_csv("~/Downloads/roc_common.csv", mode = 'a', header = False)
+                    except:
+                        print("Simulations were missing.")
+            else:    
+                try:
+                    R = build_ROC_curve(criterias = criteria, positive = 'both', thresholds = Z, num_of_buckets = 10, work_dir = '/Users/rajivmccoy/Downloads/distinguishing_meiotic_and_mitotic_origins_of_trisomies_v2/results_' + pop + '/')
+                    df = get_ROC_data(R, criteria, num_of_buckets = 10)
+                    df['ref_panel'] = pop
+                    df.to_csv("~/Downloads/roc.csv", mode = 'a', header = False)
+                except:
+                    print("Simulations were missing.")
 else:
     print("The module ROC_curve was imported.")
 
