@@ -3,7 +3,9 @@
 """
 MAKE_STATISTICAL_MODEL
 
-Builds statistical models for aneuploidy cells with BPH and SPH.
+Builds statistical models for diploid cells as well as aneuploidy cells 
+with BPH, SPH and monosomy.
+ 
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
@@ -68,13 +70,6 @@ def COMMON(model):
         model[3][k1] = {k2:tuple(v) for k2,v in temp[k1].items()} 
     return model
 
-def SPH(number_of_reads):
-    """ Builds a statistical model for n-reads under the SPH scenario. """
-
-    degeneracies = (2, 1)
-    model = ENGINE(number_of_reads,degeneracies)
-    return COMPACT(model,number_of_reads,degeneracies)
-
 def BPH(number_of_reads):
     """ Builds a statistical model for n-reads under the BPH scenario. """
     
@@ -83,7 +78,29 @@ def BPH(number_of_reads):
     compact = COMPACT(model,number_of_reads,degeneracies)
     common = COMMON(compact)
     return(common)    
+
+def SPH(number_of_reads):
+    """ Builds a statistical model for n-reads under the SPH scenario. """
+
+    degeneracies = (2, 1)
+    model = ENGINE(number_of_reads,degeneracies)
+    return COMPACT(model,number_of_reads,degeneracies)
+
+def DIPLOIDY(number_of_reads):
+    """ Builds a statistical model for n-reads under the diploidy scenario. """
     
+    degeneracies = (1, 1)
+    model = ENGINE(number_of_reads,degeneracies)
+    return COMPACT(model,number_of_reads,degeneracies)
+
+def MONOSOMY(number_of_reads):
+    """ Builds a statistical model for n-reads under the monosomy scenario. """
+    
+    ### return {1: {(1,1), int(number_of_reads*'1',2)}}
+    degeneracies = (1,)
+    model = ENGINE(number_of_reads,degeneracies)
+    return COMPACT(model,number_of_reads,degeneracies)
+
 def BUILD(x):
     """ Build and store a dictionary with BPH and SPH statistical models for
     2-16 reads. """
@@ -92,12 +109,12 @@ def BUILD(x):
     for i in range(2,x+1):
         print('Building the statistical model for %d reads.' % i)
         a = time()
-        models[i]= {'BPH': BPH(i), 'SPH': SPH(i)}
+        models[i]= {'MONOSOMY': MONOSOMY(i), 'DIPLOIDY': DIPLOIDY(i), 'SPH': SPH(i), 'BPH': BPH(i)}
         b = time()
         print('Done building in %.3f sec.' % ((b-a)))
-    with open( 'MODELS.p', 'wb') as f:
+    with open( f'MODELS{x:d}.p', 'wb') as f:
         dump(models, f, protocol=4)
-    with BZ2File( 'MODELS.pbz2', 'wb') as f:
+    with BZ2File( f'MODELS{x:d}.pbz2', 'wb') as f:
         dump(models, f, protocol=4)
     return models
 
