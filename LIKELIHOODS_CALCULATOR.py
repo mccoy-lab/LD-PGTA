@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-LLR_CALCULATOR
+LIKELIHOODS_CALCULATOR
 
-This script creates a function that calculates log-likelihood BPH/SPH ratio
-(LLR) for a given tuple of reads that originated form the same genomic window.
+Given a reads that originated form the same genomic window, the likelihood of 
+a four scenarios, namely, monosomy, diploidy, SPH and BPH is calculated.
+
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
@@ -19,7 +20,6 @@ import pickle, os, sys, bz2
 from functools import reduce
 from operator import not_, and_, itemgetter
 from itertools import combinations
-from math import log
 
 try:
     from gmpy2 import popcount
@@ -63,7 +63,7 @@ def create_frequencies(hap_dict):
         """ This function allows treatment of alleles and haplotypes on an
         equal footing. This is done in three steps: (1) All the alleles and
         haplotypes are enumerated. (2) For each given haplotype, tuples in the
-        reference panels, corresponding to the haplotype's alleles, are
+        reference panel, associated with the haplotype's alleles, are
         intersected. (3) A dictionary that lists all the alleles and haplotypes
         by their index is returned. The dictionary gives for each allele and
         haplotype their associated tuple and intersected tuple, respectively. """
@@ -121,18 +121,19 @@ def create_frequencies(hap_dict):
 
     return joint_frequencies_combo
 
-def create_LLR(models_dict,joint_frequencies_combo,D):
+def create_likelihoods(models_dict,joint_frequencies_combo,number_of_reference_haplotypes):
     """ This function receives the dictionary models_dict with the
     statisitcal models and the function frequncies, which calculates
     joint frequncies. Based on these arguments it creates the function
-    LLR, which calculates the log-likelihood BPH/SPH ratio."""
+    likelihoods, which calculates the log-likelihood BPH/SPH ratio."""
 
-    def LLR(*alleles):
+    def likelihoods(*alleles):
         """ Calculates the log-likelihood BPH/SPH ratio for a given tuple of
         alleles and haplotypes. """
         
         F = joint_frequencies_combo(*alleles) #Divide values by D to normalize the joint frequencies.
         N = len(alleles)
+        D = number_of_reference_haplotypes
 
         ### BPH ###
         (((A0, A1),((B0,),)),) = models_dict[N]['BPH'][1].items()
@@ -152,16 +153,29 @@ def create_LLR(models_dict,joint_frequencies_combo,D):
         SPH += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
                    for (A0, A1), C in models_dict[N]['SPH'][2].items()) / D**2
 
-        result = 1.23456789 if SPH<1e-18 else log(BPH/SPH)
-                
+        
+        ### DIPLOIDY ###
+        (((A0, A1),((B0,),)),) = models_dict[N]['DIPLOIDY'][1].items()
+        DIPLOIDY = F[B0] * A0 / ( A1 * D ) 
+
+        DIPLOIDY += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
+                   for (A0, A1), C in models_dict[N]['DIPLOIDY'][2].items()) / D**2
+
+        ### MONOSOMY ###
+        ((B0,),) = models_dict[N]['MONOSOMY'][1][(1,1)]
+        MONOSOMY = F[B0] / D 
+        ###MONOSOMY = F[int(N*'1',2)] / D 
+
+        ####result = 1.23456789 if SPH<1e-18 else log(BPH/SPH)
+        result = (MONOSOMY, DIPLOIDY, SPH, BPH)
         return result
+        
+    return likelihoods
 
-    return LLR
-
-def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab,models_filename):
-    """ Wraps the fuction create_LLR. It receives an observations array, legend
-        array and haplotypes array. Based on the given data it creates and
-        returns the function LLR."""
+def wrapper_func_of_create_likelihoods(obs_tab,leg_tab,hap_tab,models_filename):
+    """ Wraps the fuction create_likelihoods. It receives an observations array,
+        legend array and haplotypes array. Based on the given data it creates 
+        and returns the function likelihoods."""
 
     if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
     ###with open(models_filename, 'rb') as f:
@@ -170,13 +184,13 @@ def wrapper_func_of_create_LLR(obs_tab,leg_tab,hap_tab,models_filename):
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    LLR = create_LLR(models_dict, create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)), len(hap_tab[0]))
-    return LLR
+    likelihoods = create_likelihoods(models_dict, create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)), len(hap_tab[0]))
+    return likelihoods
 
-def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
-    """ Wraps the function create_LLR. It receives an observations file, IMPUTE2
+def wrapper_func_of_create_likelihoods_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
+    """ Wraps the function create_likelihoods. It receives an observations file, IMPUTE2
         legend file, IMPUTE2 haplotypes file, and the statistical model. Based
-        on the given data it creates and returns the LLR function."""
+        on the given data it creates and returns the likelihoods function."""
 
     from MAKE_OBS_TAB import read_impute2
 
@@ -199,15 +213,15 @@ def wrapper_func_of_create_LLR_for_debugging(obs_filename,leg_filename,hap_filen
 
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
     joint_frequencies_combo = create_frequencies(hap_dict)
-    LLR = create_LLR(models_dict, joint_frequencies_combo, len(hap_tab[0]))
+    likelihoods = create_likelihoods(models_dict, joint_frequencies_combo, len(hap_tab[0]))
 
-    ###LLR = create_LLR(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
-    return LLR
+    ###likelihoods = create_likelihoods(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
+    return likelihoods
 
 if __name__ != "__main__":
-    print('The module LLR_CALCULATOR was imported.')
+    print('The module LIKELIHOODS_CALCULATOR was imported.')
 else:
-    print('The module LLR_CALCULATOR was invoked directly')
+    print('The module LIKELIHOODS_CALCULATOR was invoked directly')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################
@@ -215,7 +229,7 @@ else:
 """
 
 if __name__ != "__main__":
-    print("The module LLR_CALCULATOR was imported.")
+    print("The module LIKELIHOODS_CALCULATOR was imported.")
 else:
     print("Executed when invoked directly")
     #sys.exit(0)
@@ -249,7 +263,7 @@ else:
     def frequencies2(*x):
         return {bin(a)[2:]:b for a,b in frequencies(*x).items()}
 
-    LLR = create_LLR(models_dict,frequencies,N)
+    likelihoods = create_likelihoods(models_dict,frequencies,N)
 
     pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
 
@@ -258,19 +272,19 @@ else:
     print('-----')
     print(pos)
     print(frequencies2(*pos))
-    print(LLR(*pos))
+    print(likelihoods(*pos))
     print('-----')
     print(positions[:2])
     print(frequencies2(*positions[:2]))
-    print(LLR(*positions[:2]))
+    print(likelihoods(*positions[:2]))
     print('-----')
     print(positions[:3])
     print(frequencies2(*positions[:3]))
-    print(LLR(*positions[:3]))
+    print(likelihoods(*positions[:3]))
     print('-----')
     print(positions[:4])
     print(frequencies2(*positions[:4]))
-    print(LLR(*positions[:4]))
+    print(likelihoods(*positions[:4]))
 
     b = time.time()
 

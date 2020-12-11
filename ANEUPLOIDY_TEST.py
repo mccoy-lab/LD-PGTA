@@ -13,12 +13,13 @@ Nov 2, 2020
 
 import collections, time, pickle, argparse, re, sys, random, inspect, os
 from MAKE_OBS_TAB import read_impute2
-from LLR_CALCULATOR import wrapper_func_of_create_LLR as get_LLR
+from LIKELIHOODS_CALCULATOR import wrapper_func_of_create_likelihoods as get_likelihoods
 
 from itertools import product
 from functools import reduce
 from operator import not_, and_
 from statistics import mean, variance, pstdev
+from math import log
 
 def mean_and_var(sample):
     """ Calculates the mean and the sample standard deviation. """
@@ -130,8 +131,9 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     
     filename = inspect.getframeinfo(inspect.currentframe()).filename
     path = os.path.dirname(os.path.abspath(filename))
-    model = kwargs.get('model', path + '/MODELS/' + ('MODELS18D.p' if max_reads>16 else 'MODELS16D.p'))
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, model)
+    model = kwargs.get('model', path + '/MODELS/' + ('MODELS18.p' if max_reads>16 else 'MODELS16.p'))
+    likelihoods = get_likelihoods(obs_tab, leg_tab, hap_tab, model)
+    LLR = lambda SPH,BPH: 1.23456789 if SPH<1e-18 else log(BPH/SPH) 
     LLR_dict = collections.defaultdict(list)
 
     for k in range(subsamples):
@@ -143,7 +145,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
                            for window,read_IDs in windows_dict.items()}
 
         for window,haplotypes in windows_dict_picked.items():
-            LLR_dict[window].append(LLR(*haplotypes) if haplotypes!=None else None)
+            LLR_dict[window].append(LLR(*likelihoods(*haplotypes)[-2:]) if haplotypes!=None else None)
  
     ############################### STATISTICS ################################
     reads_per_window_dict = {window:len(read_IDs) for window,read_IDs in windows_dict.items()}

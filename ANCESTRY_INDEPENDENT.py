@@ -4,9 +4,9 @@
 ANCESTRY_INDEPENDENT
 
 This script finds which SNPs exist across the five superpopulaions. Then, the
-linkage disequilibrium (LD) between these common SNPs is calculated for each 
+linkage disequilibrium (LD) between these common SNPs is calculated for each
 superpopulation. The LD between neighbor SNPs is compared across
-the five superpopulation to track those with a ancestry-independent LD.  
+the five superpopulation to track those with a ancestry-independent LD.
 
 Daniel Ariad (daniel@ariad.org)
 Sep 31, 2020
@@ -24,12 +24,12 @@ from sys import exit as sys_exit
 def read_impute2(impute2_filename,**kwargs):
     """ Iterates over the rows of an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE),
         parsers each row and yields a tuple with the parsed data. """
-    
+
     filetype = kwargs.get('filetype', None)
     with open(impute2_filename, 'r') as impute2_in:
         if filetype == 'leg':
             impute2_in.readline()   # Bite off the header
-            def parse(x): 
+            def parse(x):
                 y=x.strip().split()
                 y[0] = 'chr'+y[0].split(':')[0]
                 y[1]=int(y[1])
@@ -40,7 +40,7 @@ def read_impute2(impute2_filename,**kwargs):
         else:
             def parse(x):
                 return tuple(x.strip().split()) # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
-       
+
         for line in impute2_in:
             yield parse(line)
 
@@ -60,7 +60,7 @@ def build_LD_matrix(hap_dict,max_dist):
             if pos2-pos1 >= max_dist: break
             joint_freq = bin(hap1&hap2).count('1')/N
             result[pos1][pos2] = joint_freq/(freq[pos1]*freq[pos2])
-            
+
         if (i+1)%1000==0 or i+1==M:
             stdout.write('\r')
             stdout.write(f"Proceeded {(i+1)} / {M} rows. Average time per 1000 rows: {'%.2f' % (1000*(time() - time0)/(i+1))} sec")
@@ -70,24 +70,24 @@ def build_LD_matrix(hap_dict,max_dist):
 
 def symmetrize(matrix):
     """ Returns a symmetric matrix, given a triangular matrix. """
-    
+
     for i,t in matrix.items():
         for j,k in t.items():
             matrix[j][i] = k
     return matrix
 
 def replicate_structure(matrix, example_matrix):
-    """ Return a copy of the matrix where only specific elements are included. 
+    """ Return a copy of the matrix where only specific elements are included.
     The non-zero elements of the example matrix determine which elements of the
     matrix would be copied. """
-    
-    result = {i:{j: matrix[i][j] for j in row} for i,row in example_matrix.items() if len(row)} if example_matrix else matrix 
+
+    result = {i:{j: matrix[i][j] for j in row} for i,row in example_matrix.items() if len(row)} if example_matrix else matrix
     return result
 
 def define_aux(lower_limit,upper_limit):
-    """ Given lower and upper limits, creates a function that determines 
+    """ Given lower and upper limits, creates a function that determines
     whether two numbers are close to each other """
-        
+
     def aux(a,b):
         """ Checks whether floats a and b have the same order of magnitude. """
         if a<=1e-16 and b<=1e-16:
@@ -97,26 +97,26 @@ def define_aux(lower_limit,upper_limit):
         else:
             result = lower_limit<a/b<upper_limit
         return result
-    
+
     return aux
-    
+
 def stability(A,B):
     """ Compares each element in matrix A with the corresponding element in
     matrix B. And returns a dictionary that and gives the number of mismatched
     elements for each matrix row. """
-    
+
     result = {}
     for ((Ak, Av), (Bk, Bv)) in zip(A.items(),B.items()):
             if Ak!=Bk: print('fatal error: dictionaries are out of sync.',Ak,Bk)
             r = countOf(map(aux,Av.values(),Bv.values()),False) / (len(Av) or 1)
             if r!=0:
-                result[Ak] = r 
+                result[Ak] = r
     return result
 
 def get_common(leg_iter,hap_iter):
     """ Creates a reference panel for each superpopulation. The reference panel
     contains only SNPs that are common to all the five superpopulations. """
-    
+
     superpop = {'AFR':(0,659),'AMR':(660,1006),'EAS':(1007,1510),'EUR':(1511,2013),'SAS':(2014,2502)}
     hap_ref = defaultdict(dict)
     hap_alt = defaultdict(dict)
@@ -125,22 +125,22 @@ def get_common(leg_iter,hap_iter):
         if all(countOf(hap[a:b+1],True)%(b+1-a) for (a,b) in superpop.values()):
             for sp,(a,b) in superpop.items():
                 hap_ref[sp][leg[1]] = int(''.join(f'{not i:d}' for i in hap[a:b+1]),2)
-                hap_alt[sp][leg[1]] = int(''.join(f'{i:d}' for i in hap[a:b+1]),2) 
-    
+                hap_alt[sp][leg[1]] = int(''.join(f'{i:d}' for i in hap[a:b+1]),2)
+
     return hap_ref, hap_alt
 
 def filtering(A,B,step,aim):
     """ Removes SNPs from LD matrices A and B that do not share the same order
-    of LD magnitude with all their neigbour SNPs. In each iteration removes 
+    of LD magnitude with all their neigbour SNPs. In each iteration removes
     a single SNP. """
-    
+
     q = stability(A, B)
     pos, fraction = max(q.items(), key=itemgetter(1), default=(-1, -1))
-    
+
     while(len(q) and fraction>=aim):
         t0 = time()
         pos, fraction = max(q.items(), key=itemgetter(1))
-        
+
         for X in (A,B):
             if X.pop(pos,False):
                 for k in X: X[k].pop(pos,False)
@@ -153,8 +153,8 @@ def filtering(A,B,step,aim):
 
 def write_impute2(read_filename, write_filename, lines, filetype):
     """ Return a partial copy of the IMPUTE2 hap/legend file where only the
-    line numbers within the set, lines are copied. """   
-    
+    line numbers within the set, lines are copied. """
+
     with open(read_filename, 'r') as impute2_in:
         with open(write_filename, 'w') as impute2_out:
             if filetype=='legend': impute2_out.write(impute2_in.readline())
@@ -171,7 +171,7 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     time0 = time()
     aux = define_aux(lower_limit,upper_limit)
     leg_iter = read_impute2(leg_filename, filetype='leg')
-    hap_iter = read_impute2(hap_filename, filetype='hap')     
+    hap_iter = read_impute2(hap_filename, filetype='hap')
     hap_ref, hap_alt = get_common(leg_iter,hap_iter)
     hap_dict = {False: hap_ref, True: hap_alt}
     SP0 = False
@@ -192,7 +192,7 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     print(f'Done in {(time1-time0):.2f} sec.')
     return 0
 
-
+"""
 if __name__=='__main__':
     parser = ArgumentParser(
         description='Creates a multi-ethnic reference panel.')
@@ -202,30 +202,29 @@ if __name__=='__main__':
                         help='IMPUTE2 haplotype file')
     parser.add_argument('output_impute2_filename', metavar='FILENAME', type=str,
                         help='IMPUTE2 filename with no extension')
-    parser.add_argument('-d', '--max-dist', type=int, 
-                        metavar='INT', default=50000, 
+    parser.add_argument('-d', '--max-dist', type=int,
+                        metavar='INT', default=50000,
                         help='Consider only the LD between SNPs in a range of max-dist. Default value 50,000')
-    parser.add_argument('-s', '--step', type=int, 
+    parser.add_argument('-s', '--step', type=int,
                         metavar='INT', default=10,
                         help='The number of SNPs to be removed in each iteration. Default value 10.')
     parser.add_argument('-l', '--lower-limit', type=float,
                         metavar='FLOAT', default=0.1,
                         help='The minimal ratio between LD in two different superpopulations for considering them as close to each other. Default value 0.1.')
-    parser.add_argument('-u', '--upper-limit', type=float, 
-                        metavar='FLOAT', default='10', 
+    parser.add_argument('-u', '--upper-limit', type=float,
+                        metavar='FLOAT', default='10',
                         help='The maximal ratio between LD in two different superpopulations for considering them as close to each other. Default value 10.')
 
     x = main(**vars(parser.parse_args()))
     sys_exit(x)
-"""    
+"""
 if __name__=='__main__':
-    hap_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
+    hap_filename = '../build_reference_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.hap'
+    leg_filename = '../build_reference_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.legend'
     output_impute2_filename = 'chr21_COMMON_panel'
-    max_dist = 100000
+    max_dist = 5000
     step = 1
     lower_limit = 0.1
     upper_limit = 10.00
     x = main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
     sys_exit(x)
-"""

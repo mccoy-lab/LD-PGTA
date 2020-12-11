@@ -1,8 +1,8 @@
-##### Table of Contents  
+##### Table of Contents
 [Sequence Alignment](#seq_alignment) \
 [Create a reference panel](#ref_panel) \
 [Build a table of observed bases at SNP positions](#obs_tab) \
-[Build a table of LLRs at LD blocks along a chromosome](#aneuploidy_test) \
+[Build a table of LLRs at genomic windows along a chromosome](#aneuploidy_test) \
 [Simulating sequences that manifest BPH and SPH scenarios](#simulate)
 
 # Sequence Alignment #
@@ -41,7 +41,7 @@ For sequences made out of fragments shorter than 70bp we use the software bwa. T
 
 See [the article](https://dx.doi.org/10.1093%2Fbioinformatics%2Fbtp324) and the [documentation of the software for more details](https://github.com/lh3/bwa).
 
-For sequences made out of fragments larger than 70bp we use the software minimap2. The reference index is created from the genome reference by executing: 
+For sequences made out of fragments larger than 70bp we use the software minimap2. The reference index is created from the genome reference by executing:
 
 `minimap2 -x sr -d hg38.sr.mmi hg38.fa`
 
@@ -63,7 +63,7 @@ where the option `-t6' allows multi-threading with 6 threads.
 
 ## Convert from a SAM to a BAM format ##
 
-SAM is a text file, while BAM is essentially GZIP compressed binary forms of the text SAM file. Thus, converting from SAM to BAM format will reduce the data size and improve performance. In addition, a lot of applications (like browser viewing) require the reads in the BAM file to be coordinate-based sorted, .i.e, the reads are ordered from “left” to “right” across the reference genome just as you’d read across a line in a book. 
+SAM is a text file, while BAM is essentially GZIP compressed binary forms of the text SAM file. Thus, converting from SAM to BAM format will reduce the data size and improve performance. In addition, a lot of applications (like browser viewing) require the reads in the BAM file to be coordinate-based sorted, .i.e, the reads are ordered from “left” to “right” across the reference genome just as you’d read across a line in a book.
 
 `samtools view -bS -F 4 SRR6676163.sam | samtools sort -@ 6 -o SRR6676163.sorted.bam -`
 
@@ -84,10 +84,14 @@ VCF files from the 1000 Genome Project Phase 3 aligned against GRCh38/hg38:
 
 `wget 'ftp://ftp.sra.ebi.ac.uk/vol1/ERZ822/ERZ822766/*'`
 
+This call set is also available from:
+
+[http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/).
+
 Reference: [Variant calling on the GRCh38 assembly with the data from phase three of the 1000 Genomes Project](https://wellcomeopenresearch.org/articles/4-50/v2)
 
 ## Generate list of individuals to include in the creation of the reference panel ##
-Create a file containing a list of individuals to include in subsequent analysis. Each individual ID (as defined in the VCF headerline) should be included on a separate line. In order to generate such a list for the 1000 genome project phase 1\3 visit https://www.internationalgenome.org/data-portal/sample. 
+Create a file containing a list of individuals to include in subsequent analysis. Each individual ID (as defined in the VCF headerline) should be included on a separate line. In order to generate such a list for the 1000 genome project phase 1\3 visit https://www.internationalgenome.org/data-portal/sample.
 
 ## Generate a reference panel ##
 Here we create a reference panel using BCFtools.  First, the reference panel is stored in a BCF format:
@@ -147,15 +151,15 @@ where the first argument is the filename of the BAM file, containing reads mappe
 
 `--max-depth <FLOAT>` _Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit._
 
-`--output-filename <FILENAME>` _Output filename. The default filename is the same as the BAM filename, but with an extension of .obs.p ._
-    
+`--output-filename <FILENAME>` _Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p ._
+
 
 * In order to use the script, the Python module Pysam must be present. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
 
-# Build a table of LLRs at LD blocks along a chromosome #
+# Build a table of LLRs at genomic windows along a chromosome #
 <a name="aneuploidy_test"/>
 
-The script ANEUPLOIDY_TEST.py builds a dictionary that lists linkage disequilibrium (LD) blocks that contain at least two meaningful reads and gives the associated log-likelihood BPH/SPH ratio (LLR); BPH (Both Parental Homologs) correspond to the presence of three unmatched haplotypes, while SPH (Single Parental Homolog). In addition, the dictionary is analyzed and summary statistics are reported. The summary includes the mean LLR, the standard error, number of informative LD blocks and fraction of LD blocks with a negative LLR.
+The script ANEUPLOIDY_TEST.py builds a dictionary that lists linkage disequilibrium (LD) blocks that contain at least two meaningful reads and gives the associated log-likelihood BPH/SPH ratio (LLR); BPH (Both Parental Homologs) correspond to the presence of three unmatched haplotypes, while SPH (Single Parental Homolog). In addition, the dictionary is analyzed and summary statistics are reported. The summary includes the mean LLR, the standard error, number of informative genomic windows and fraction of genomic windows with a negative LLR.
 
 We run the script with the following arguments and flags:
 
@@ -163,15 +167,17 @@ We run the script with the following arguments and flags:
 
 where the first argument is the filename of a pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions. The second argument is the filename of the IMPUTE2 legend file, which lists the SNPs in our reference panel. The third required argument is the filename of the IMPUTE2 haplotype file, which lists the haplotypes in our reference panel. In addition, the following flags are supported:
 
-`--block-size <INT>` _Specifies the typical size of the LD block. The default value is 10^5._
+`--block-size <INT>` _Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window according to the local depth coverage._
 
-`--adaptive` _Adjusts the size of the LD block according to the local depth coverage._
+`--offset <INT>` _Shifts all the genomic windows by the requested base pairs. The default value is 0._
 
-`--offset <INT>` _Shifts all the LD blocks by the requested base pairs. The default value is 0._
+`--min-reads <INT>` _Takes into account only genomic windows with at least INT reads, admitting non-zero score. The default value is 3._
 
-`--min-reads <INT>` _Takes into account only LD blocks with at least INT reads, admitting non-zero rank. The default value is 2._
+`--max-reads <INT>` _Selects up to INT reads from each genomic windows. The default value is 16._
 
-`--max-reads <INT>` _Selects up to INT reads from each LD blocks. The reads in each block are selected in a descending order according to their rank. The default value is 16._
+`--min-HF <INT>` _Only haplotypes with a frequency between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05._
+
+`--min-score <INT>` _Consider only reads that reach the minimal score. The default value is 2._
 
 `--output-filename <FILENAME>` _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._
 
@@ -181,10 +187,10 @@ where the first argument is the filename of a pickle file created by MAKE_OBS_TA
 ## Creating mixtures of haploid sequences ##
 
 
-The script MIX_HAPLOIDS.py simulates observed bases at known SNP positions from an aneuploid cell, based on mixtures of haploid sequences. The simulation supports three scenarios: 
-1. Trisomy with two matched haplotypes (‘single parental homolog’; SPH). 
-2. Three unmatched haplotypes (‘both parental homologs’; BPH). 
-3. Trisomy with recombination that is charecterized by a transition between SPH to BPH along the chromosome.   
+The script MIX_HAPLOIDS.py simulates observed bases at known SNP positions from an aneuploid cell, based on mixtures of haploid sequences. The simulation supports three scenarios:
+1. Trisomy with two matched haplotypes (‘single parental homolog’; SPH).
+2. Three unmatched haplotypes (‘both parental homologs’; BPH).
+3. Trisomy with recombination that is charecterized by a transition between SPH to BPH along the chromosome.
 
 We run the script with the following arguments and flags:
 
@@ -204,7 +210,7 @@ where the three first arguments are the filenames of observation tables created 
 
 ## Create haploid-like observation table using phased genotypes from VCF files.
 
-The script SIMULATE_OBS_TAB.py simulates two observation tables of a haploid, using phased genotypes from VCF files. Each observation table includes SNP positions, alleles in a genotype of an individual and their corresponding line number within the IMPUTE2 legend file. 
+The script SIMULATE_OBS_TAB.py simulates two observation tables of a haploid, using phased genotypes from VCF files. Each observation table includes SNP positions, alleles in a genotype of an individual and their corresponding line number within the IMPUTE2 legend file.
 
 We run the script with the following arguments and flags:
 

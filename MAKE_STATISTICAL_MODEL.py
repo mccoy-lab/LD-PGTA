@@ -96,7 +96,7 @@ def DIPLOIDY(number_of_reads):
 def MONOSOMY(number_of_reads):
     """ Builds a statistical model for n-reads under the monosomy scenario. """
     
-    ### return {1: {(1,1), int(number_of_reads*'1',2)}}
+    ### return {1: {(1,1): int(number_of_reads*'1',2)}}
     degeneracies = (1,)
     model = ENGINE(number_of_reads,degeneracies)
     return COMPACT(model,number_of_reads,degeneracies)
@@ -120,6 +120,6 @@ def BUILD(x):
 
 if __name__ == "__main__":
     print('The module MAKE_STATISTICAL_MODEL was invoked directly.')
-    models = BUILD(18)
+    #models = BUILD(18)
 else:
     print('The module MAKE_STATISTICAL_MODEL was imported.')

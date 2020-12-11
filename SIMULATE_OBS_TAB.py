@@ -125,6 +125,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     sys.exit(main(**vars(args)))
 
+"""
 def test():
     bcftools_dir = ''
     sample_id = 'HG00097'
@@ -137,3 +138,4 @@ def test():
     vcf_filename = '../vcf_phase3_hg38_v2/ALL.%s.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz' % chr_id
     work_dir='results_COMMON'
     return main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,output_dir=work_dir)
+"""

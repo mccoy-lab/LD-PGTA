@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-LLR_CALCULATOR_VERIFIER
+LIKELIHOODS_VERIFIER
 
 Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
@@ -11,7 +11,6 @@ import pickle
 
 from operator import not_, itemgetter, countOf
 from itertools import combinations
-from math import log
 from time import time
 
 def read_impute2(impute2_filename,**kwargs):
@@ -67,33 +66,36 @@ def joint_frequencies_combo(*alleles,hap_dict,norm_const,normalize):
             result[''.join(A)] = countOf(map(all,zip(*itemgetter(*A)(hap))),True) / N
     return result
 
-def LLR2(*alleles,hap_dict,N):
+def likelihoods2(*alleles,hap_dict,N):
     F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,norm_const=N,normalize=True)
     a, b, ab = F['A'], F['B'], F['AB']
-    BPH = (ab+2*a*b)/3 #The probability of three unmatched haplotypes.
-    SPH = (5*ab+4*a*b)/9 #The probability of two identical haplotypes out three.
-    result = log(BPH/SPH)
-    return result
+    BPH = (ab+2*a*b)/3 #The likelihood of three unmatched haplotypes.
+    SPH = (5*ab+4*a*b)/9 #The likelihood of two identical haplotypes out three.
+    DIPLOIDY = (ab+a*b)/2 #The likelihood of diploidy.
+    MONOSOMY = F['AB'] #The likelihood of monosomy.
+    return MONOSOMY, DIPLOIDY, SPH, BPH
 
-def LLR3(*alleles,hap_dict,N):
+def likelihoods3(*alleles,hap_dict,N):
     F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,norm_const=N,normalize=True)
     a, b, c, ab, ac, bc, abc = F['A'], F['B'], F['C'], F['AB'], F['AC'], F['BC'], F['ABC']
-    BPH = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The probability of three unmatched haplotypes.
-    SPH = abc/3+2*(ab*c+ac*b+bc*a)/9  #The probability of two identical haplotypes out three.
-    result = None if SPH<1e-16 else log(BPH/SPH)
-    return result
+    BPH = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The likelihood of three unmatched haplotypes.
+    SPH = abc/3+2*(ab*c+ac*b+bc*a)/9  #The likelihood of two identical haplotypes out three.
+    DIPLOIDY = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy.
+    MONOSOMY = F['ABC'] #The likelihood of monosomy.
+    return MONOSOMY, DIPLOIDY, SPH, BPH
 
-def LLR4(*alleles,hap_dict,N):
+def likelihoods4(*alleles,hap_dict,N):
     F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,norm_const=N,normalize=True)
     a, b, c, d = F['A'], F['B'], F['C'], F['D'],
     ab, ac, ad, bc, bd, cd = F['AB'], F['AC'], F['AD'], F['BC'], F['BD'], F['CD'],
     abc, abd, acd, bcd = F['ABC'], F['ABD'], F['ACD'], F['BCD']
     abcd = F['ABCD']
-    BPH = (abcd+2*(ab*c*d+a*bd*c+a*bc*d+ac*b*d+a*b*cd+ad*b*c+abc*d+a*bcd+acd*b+abd*c+ab*cd+ad*bc+ac*bd))/27  #The probability of three unmatched haplotypes.
-    SPH = (17*abcd+10*(abc*d+bcd*a+acd*b+abd*c)+8*(ab*cd+ad*bc+ac*bd))/81  #The probability of two identical haplotypes out three.
-    result = None if SPH<1e-16 or BPH<1e-16 else log(BPH/SPH)
-    return result
-
+    BPH = (abcd+2*(ab*c*d+a*bd*c+a*bc*d+ac*b*d+a*b*cd+ad*b*c+abc*d+a*bcd+acd*b+abd*c+ab*cd+ad*bc+ac*bd))/27  #The likelihood of three unmatched haplotypes.
+    SPH = (17*abcd+10*(abc*d+bcd*a+acd*b+abd*c)+8*(ab*cd+ad*bc+ac*bd))/81  #The likelihood of two identical haplotypes out three.
+    DIPLOIDY = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy.
+    MONOSOMY = F['ABCD'] #The likelihood of monosomy.
+    return MONOSOMY, DIPLOIDY, SPH, BPH
+   
 if __name__ != "__main__":
     print("The module was imported.")
 else:
@@ -119,15 +121,15 @@ else:
     print('-----joint_frequencies_combo-----')
     print(joint_frequencies_combo(positions[0],hap_dict=hap_dict,norm_const=N,normalize=False))
     print(joint_frequencies_combo(positions[:4],hap_dict=hap_dict,norm_const=N,normalize=False))
-    print('-----LLR4-Haplotypes-----')
+    print('-----likelihoods4-Haplotypes-----')
     pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
-    print(LLR4(*pos,hap_dict=hap_dict,N=N))
-    print('-----LLR2-----')
-    print(LLR2(*positions[:2],hap_dict=hap_dict,N=N))
-    print('-----LLR3-----')
-    print(LLR3(*positions[:3],hap_dict=hap_dict,N=N))
-    print('-----LLR4-----')
-    print(LLR4(*positions[:4],hap_dict=hap_dict,N=N))
+    print(likelihoods4(*pos,hap_dict=hap_dict,N=N))
+    print('-----likelihoods2-----')
+    print(likelihoods2(*positions[:2],hap_dict=hap_dict,N=N))
+    print('-----likelihoods3-----')
+    print(likelihoods3(*positions[:3],hap_dict=hap_dict,N=N))
+    print('-----likelihoods4-----')
+    print(likelihoods4(*positions[:4],hap_dict=hap_dict,N=N))
 
     b = time()
 

@@ -55,7 +55,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output
     return LLR_dict, info
 
 def make_simulated_obs_tab(sample_id,sp,chr_id,output_dir):
-    bcftools_dir = '' #'../bcftools-1.10.2/bin'
+    bcftools_dir = '../bcftools-1.10.2/bin'
     #sample_id = 'HG00096'
     #chr_id = 'chr21'
     #leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
@@ -84,18 +84,18 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     runInParallel(*func)
     MixHaploids2(f'{work_dir:s}{C[0]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[1]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[2]:s}.chr21.hg38.obs.p', read_length=read_length, depth=depth, output_dir=work_dir, recombination_spots=[0.00,1.00])
     filenames = (f'mixed3haploids.X{depth:.2f}.{C[0]:s}.{C[1]:s}.{C[2]:s}.chr21.recomb.{i:.2f}.obs.p' for i in (0,1))
-    func2 = (eval(f'lambda: aneuploidy_test_demo(\'{work_dir:s}{f:s}\',\'{chr_id:s}\',\'{sp:s}\',\'MODELS/MODELS16D.p\',{min_reads:d},{max_reads:d},\'{work_dir:s}\')') for f in filenames)
+    func2 = (eval(f'lambda: aneuploidy_test_demo(\'{work_dir:s}{f:s}\',\'{chr_id:s}\',\'{sp:s}\',\'MODELS/MODELS16.p\',{min_reads:d},{max_reads:d},\'{work_dir:s}\')') for f in filenames)
     runInParallel(*func2)
     return 0
 
 
 if __name__ == "__main__":
-    depth=0.01
+    depth=0.1
     sp='EUR'
     chr_id='chr21'
     read_length = 35
-    #min_reads,max_reads = 4,16
-    #main()
+    min_reads,max_reads = 3,8
+    main(depth,sp,chr_id,read_length,min_reads,max_reads)
     #for i in range(20):
     #    runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
     #depth=0.02
@@ -110,10 +110,10 @@ if __name__ == "__main__":
     #depth=0.1
     #for i in range(20):
     #    runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
-    min_reads,max_reads = 4,14
-    depth=0.5
-    for i in range(20):
-        runInParallel(*(main for _ in range(4)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
+    #min_reads,max_reads = 4,14
+    #depth=0.5
+    #for i in range(20):
+    #    runInParallel(*(main for _ in range(4)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")
