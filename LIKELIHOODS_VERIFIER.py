@@ -121,7 +121,7 @@ else:
     print('-----joint_frequencies_combo-----')
     print(joint_frequencies_combo(positions[0],hap_dict=hap_dict,norm_const=N,normalize=False))
     print(joint_frequencies_combo(positions[:4],hap_dict=hap_dict,norm_const=N,normalize=False))
-    print('-----likelihoods4-Haplotypes-----')
+    print('-----likelihoods4-haplotypes-----')
     pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
     print(likelihoods4(*pos,hap_dict=hap_dict,N=N))
     print('-----likelihoods2-----')
