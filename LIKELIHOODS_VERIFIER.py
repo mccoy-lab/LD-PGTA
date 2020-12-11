@@ -4,7 +4,7 @@
 LIKELIHOODS_VERIFIER
 
 Daniel Ariad (daniel@ariad.org)
-Aug 31, 2020
+Dec 11, 2020
 """
 
 import pickle
