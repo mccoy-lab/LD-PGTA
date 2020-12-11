@@ -113,11 +113,14 @@ def stability(A,B):
                 result[Ak] = r
     return result
 
-def get_common(leg_iter,hap_iter):
+def get_common(leg_iter,hap_iter,included_SP):
     """ Creates a reference panel for each superpopulation. The reference panel
     contains only SNPs that are common to all the five superpopulations. """
 
-    superpop = {'AFR':(0,659),'AMR':(660,1006),'EAS':(1007,1510),'EUR':(1511,2013),'SAS':(2014,2502)}
+    all_superpop = {'AFR':(0,659),'AMR':(660,1006),'EAS':(1007,1510),'EUR':(1511,2013),'SAS':(2014,2502)}
+    
+    superpop = {sp: all_superpop[sp] for sp in included_SP}
+    
     hap_ref = defaultdict(dict)
     hap_alt = defaultdict(dict)
 
@@ -163,20 +166,21 @@ def write_impute2(read_filename, write_filename, lines, filetype):
                     impute2_out.write(line)
     return 0
 
-def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit):
+def main(hap_filename,leg_filename,included_SP,output_impute2_filename,max_dist,step,lower_limit,upper_limit):
     """ Mainly compares the LD matrices of all the superpopulation to LD matrix
     of the european LD matrix to create a list of SNPs that their LD with their
     neighbor SNPs is stable across superpopulations. """
     global aux
+    ###included_SP = ('EUR','EAS','SAS') ### ('EUR','AFR','AMR','EAS','SAS')
     time0 = time()
     aux = define_aux(lower_limit,upper_limit)
     leg_iter = read_impute2(leg_filename, filetype='leg')
     hap_iter = read_impute2(hap_filename, filetype='hap')
-    hap_ref, hap_alt = get_common(leg_iter,hap_iter)
+    hap_ref, hap_alt = get_common(leg_iter,hap_iter,included_SP)
     hap_dict = {False: hap_ref, True: hap_alt}
     SP0 = False
     for aim in (0.75,0.50,0.25,0.10,0.05,0.01,0.005,0.001,0):
-        for sp0,sp1 in combinations(('EUR','AFR','AMR','EAS','SAS'),2):
+        for sp0,sp1 in combinations(included_SP,2):
             print('Comparing the LD between two superpopulations, %s and %s.' % (sp0,sp1))
             for inv0, inv1 in combinations_with_replacement((True,False),2):
                 SP1 = replicate_structure(symmetrize(build_LD_matrix(hap_dict[inv1][sp1], max_dist=max_dist)), SP0)
@@ -186,8 +190,8 @@ def main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_l
     POSITIONS = {*SP0}
     leg_iter = read_impute2(leg_filename, filetype='leg')
     lines = [i for i,j in enumerate(leg_iter) if j[1] in POSITIONS]
-    write_impute2(hap_filename, output_impute2_filename+'.hap', lines, 'hap')
-    write_impute2(leg_filename, output_impute2_filename+'.legend', lines, 'legend')
+    write_impute2(hap_filename, output_impute2_filename+'_'+'_'.join(included_SP)+'.hap', lines, 'hap')
+    write_impute2(leg_filename, output_impute2_filename+'_'+'_'.join(included_SP)+'.legend', lines, 'legend')
     time1 = time()
     print(f'Done in {(time1-time0):.2f} sec.')
     return 0
@@ -221,10 +225,11 @@ if __name__=='__main__':
 if __name__=='__main__':
     hap_filename = '../build_reference_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.hap'
     leg_filename = '../build_reference_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.legend'
+    included_SP = ('EUR','EAS','SAS')
     output_impute2_filename = 'chr21_COMMON_panel'
     max_dist = 5000
     step = 1
-    lower_limit = 0.1
-    upper_limit = 10.00
-    x = main(hap_filename,leg_filename,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
+    lower_limit = 1/1.1
+    upper_limit = 1.1
+    x = main(hap_filename,leg_filename,included_SP,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
     sys_exit(x)
