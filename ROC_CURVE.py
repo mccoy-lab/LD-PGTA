@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+ROC_CURVE
+
 Daniel Ariad (daniel@ariad.org)
-Aug 31, 2020
+Dec 20, 2020
 """
 
 import pickle, statistics
@@ -16,23 +18,6 @@ def chr_length(chr_id):
                   'chr16': 90338345, 'chr17':  83257441, 'chr18': 80373285, 'chr19': 58617616, 'chr20': 64444167,
                   'chr21': 46709983, 'chr22': 50818468, 'chrX': 156040895, 'chrY': 57227415}
     return length_dict[chr_id]
-
-def jackknife_std(sample,weights):
-    """ Given sample elements and the weight of each element, the jackknife
-    standard deviation is calculated. 
-    
-    *** More information about delete-m jackknife for unequal m can be found in
-    F.M.Busing et al. (1999), [DOI:10.1023/A:1008800423698]. """
-
-    N = len(sample)
-    t0 = sum(sample) / N
-    S = sum(weights)
-    H = [S/w for w in weights]
-    T = [sum(sample[:i]+sample[i+1:])/(N-1) for i in range(N)]
-    pseudo_values = [h*t0-(h-1)*t for t,h in zip(T,H)]
-    jackknife_estimator = sum((p/h for p,h in zip(pseudo_values,H)))
-    jackknife_variance = sum(((p-jackknife_estimator)**2/(h-1) for p,h in zip(pseudo_values,H)))/N
-    return jackknife_variance**.5
     
 def mean_and_var(sample):
     """ Calculates the mean and the sample standard deviation. """
@@ -52,35 +37,27 @@ def load_llr(filename):
     log-likelihood BPH/SPH ratios (LLRs). """
     
     with open(filename, 'rb') as f:
-        LLR_dict = pickle.load(f)
+        likelihoods = pickle.load(f)
         info = pickle.load(f)
-    return LLR_dict, info
+    return likelihoods, info
 
 def show_info(filename,info):
+    S = info['statistics']
+    X = info['statistics']['LLRs_per_chromosome'][('BPH','SPH')]
     print('\nFilename: %s' % filename)
-    print('Depth: %.2f, Number of genomic windows: %d, Fraction of genomic windows with a negative LLR: %.3f' % (info['depth'], info['statistics']['num_of_windows'],info['statistics']['fraction_of_negative_LLRs']))
-    print('Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['statistics']['reads_mean'], info['statistics'].get('reads_std',info['statistics'].get('reads_var'))))
-    print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( info['statistics']['mean'], info['statistics']['std']))
-    print('Calculation was done in %.3f sec.' % info['runtime'])
+    print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S['reads_mean'], S['reads_std']))
+    print('Number of genomic windows: %d, Mean and standard error of genomic window size:  %d, %d.' % (S['num_of_windows'],S['window_size_mean'],S['window_size_std']))
+    print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( X['mean'],  X['std_of_mean']))
+    print('Fraction of genomic windows with a negative LLR: %.3f' % (X['fraction_of_negative_LLRs']))
+    print('The calculation was done in %.3f sec.' % info['runtime'])
 
-def rate(x):
-    """ Return the fraction of True elements. """
-    return x.count(True)/len(x)
-
-def confidence(LLR_dict,info,N,z):
+def confidence(info,N,z):
     """ Binning is applied by aggregating the mean LLR of a window across N
         consecutive windows. The boundaries of the bins as well as the mean LLR
         and the standard-error per bin are returned. """
         
-    TEST = [num_of_reads>info['max_reads']  
-            for num_of_reads in info['statistics']['reads_per_window_dict'].values() if num_of_reads>=info['min_reads'] ]    
-    
-    WEIGHTS = [min(num_of_reads-1,info['max_reads'])   
-               for num_of_reads in info['statistics']['reads_per_window_dict'].values() if num_of_reads>=info['min_reads']]    
-    
-    LLR_stat = {block: mean_and_var(LLRs)  
-                for block,LLRs in LLR_dict.items() if None not in LLRs}
-    
+    LLR_stat = info['statistics']['LLRs_per_genomic_window'][('BPH','SPH')]
+     
     K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
             
     i = lambda j: j*(len(V)//N)
@@ -88,7 +65,7 @@ def confidence(LLR_dict,info,N,z):
     
     x = lambda p,q: (K[p][0],K[q-1][-1])
     y = lambda p,q: statistics.mean(M[p:q])
-    e = lambda p,q: z * (std_of_mean(V[p:q]) if rate(TEST[p:q])>0.85 else jackknife_std(M[p:q],WEIGHTS[p:q]))
+    e = lambda p,q: z * std_of_mean(V[p:q]) 
     
     X,Y,E = ([func(i(j),f(j)) for j in range(N)] for func in (x,y,e))
 
@@ -103,7 +80,7 @@ def build_confidence_dict(criterias, num_of_buckets, work_dir):
     filenames = glob.glob(work_dir + '*.LLR.p')
     result = {'SPH': {}, 'BPH': {}}
     for filename in filenames:
-        LLR_dict, info = load_llr(filename)
+        likelihoods, info = load_llr(filename)
         subinfo = {x: info.get(x,None) for x in criterias.keys()}
         ### print(subinfo)
         if criterias==subinfo:
@@ -116,7 +93,7 @@ def build_confidence_dict(criterias, num_of_buckets, work_dir):
             #print(scenario)
             show_info(filename,info)
             result[scenario][filename] = tuple({'mean': mean, 'std': std} 
-                                               for (pos,mean,std) in zip(*confidence(LLR_dict,info,N=num_of_buckets,z=1)))
+                                               for (pos,mean,std) in zip(*confidence(info,N=num_of_buckets,z=1)))
     return result
 
 def build_ROC_curve(criterias, positive, thresholds, num_of_buckets, work_dir):
@@ -151,13 +128,13 @@ def build_ROC_curve(criterias, positive, thresholds, num_of_buckets, work_dir):
             
     return result
 
-def plot_single_case(LLR_dict,info,N,**kwargs):
+def plot_single_case(info,N,**kwargs):
     """ Plots the mean LLR vs. chromosomal position """
     import matplotlib.pyplot as plt
     save = kwargs.get('save', '')
     
     # Create lists for the plot    
-    X,Y,E = confidence(LLR_dict,info,N,z=1)
+    X,Y,E = confidence(info,N,z=1)
     C = [(x[1]+x[0])/2 for x in X]
     widths = [x[1]-x[0] for x in X]
     #X_boundaries = tuple(k for j in range(N+1) for k in (K[j*a][0], K[min((j+1)*a,len(K)-1)][-1]))

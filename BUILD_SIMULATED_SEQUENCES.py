@@ -71,20 +71,20 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     ###depth = 0.5
     ###sp = 'EUR'
     ###chr_id = 'chr21'
-    work_dir = 'results_EAS' #f'results_{sp:s}/'
+    work_dir = f'results_{sp:s}/' #'results_EAS' #
     #####################
     seed(None, version=2)
     work_dir = work_dir.rstrip('/') + '/' if len(work_dir)!=0 else ''
-    INDIVIDUALS = read_ref(f'../build_reference_panel/EAS_panel.txt') #{sp:s}_panel.txt')
+    INDIVIDUALS = read_ref(f'../build_reference_panel/{sp:s}_panel.txt') #EAS_panel.txt') 
     A = sample(INDIVIDUALS,k=3)
     B = choices(['A','B'],k=3)
     C = [i+j for i,j in zip(A,B)]
     #for a in A: make_simulated_obs_tab(a,sp,chr_id,work_dir)
-    func = (eval(f'lambda: make_simulated_obs_tab(\'{a:s}\', \'{sp:s}\', \'{chr_id:s}\', \'{work_dir:s}\')') for a in A)
+    func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{work_dir:s}')") for a in A)
     runInParallel(*func)
     MixHaploids2(f'{work_dir:s}{C[0]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[1]:s}.chr21.hg38.obs.p', f'{work_dir:s}{C[2]:s}.chr21.hg38.obs.p', read_length=read_length, depth=depth, output_dir=work_dir, recombination_spots=[0.00,1.00])
     filenames = (f'mixed3haploids.X{depth:.2f}.{C[0]:s}.{C[1]:s}.{C[2]:s}.chr21.recomb.{i:.2f}.obs.p' for i in (0,1))
-    func2 = (eval(f'lambda: aneuploidy_test_demo(\'{work_dir:s}{f:s}\',\'{chr_id:s}\',\'{sp:s}\',\'MODELS/MODELS16.p\',{min_reads:d},{max_reads:d},\'{work_dir:s}\')') for f in filenames)
+    func2 = (eval(f"lambda: aneuploidy_test_demo('{work_dir:s}{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
     runInParallel(*func2)
     return 0
 

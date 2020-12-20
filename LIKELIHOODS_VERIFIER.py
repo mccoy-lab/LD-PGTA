@@ -4,7 +4,7 @@
 LIKELIHOODS_VERIFIER
 
 Daniel Ariad (daniel@ariad.org)
-Dec 11, 2020
+Aug 31, 2020
 """
 
 import pickle
@@ -101,7 +101,7 @@ if __name__ != "__main__":
 else:
     print("Executed when invoked directly")
     a = time()
-    obs_filename = 'results_EUR/mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.obs.p'
+    obs_filename = 'results_EAS/mixed3haploids.X0.50.HG02035B.HG00451A.HG02513A.chr21.recomb.1.00.obs.p'
     hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
 

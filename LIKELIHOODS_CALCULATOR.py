@@ -217,7 +217,7 @@ def wrapper_func_of_create_likelihoods_for_debugging(obs_filename,leg_filename,h
 
     ###likelihoods = create_likelihoods(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return likelihoods
-
+"""
 if __name__ != "__main__":
     print('The module LIKELIHOODS_CALCULATOR was imported.')
 else:
@@ -236,7 +236,7 @@ else:
     import time
     from MAKE_OBS_TAB import read_impute2
     a = time.time()
-    obs_filename = 'results_EUR/mixed2haploids.X0.05.SRR10393062.SRR151495.0-2.hg38.obs.p'
+    obs_filename = 'results_EAS/mixed3haploids.X0.50.HG02035B.HG00451A.HG02513A.chr21.recomb.1.00.obs.p'
     hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
 
@@ -248,8 +248,8 @@ else:
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
 
-    #with bz2.BZ2File('MODELS/MODELS16D.pbz2', 'rb') as f:
-    with open('MODELS/MODELS16D.p', 'rb') as f:
+    #with bz2.BZ2File('MODELS/MODELS16.pbz2', 'rb') as f:
+    with open('MODELS/MODELS16.p', 'rb') as f:
         models_dict = pickle.load(f)
 
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
@@ -289,4 +289,4 @@ else:
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))
-"""
+

@@ -181,6 +181,8 @@ where the first argument is the filename of a pickle file created by MAKE_OBS_TA
 
 `--output-filename <FILENAME>` _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._
 
+* The presence of the Python module gmpy2 would accelerate performance. gmpy2 is an implementation of a standard GMP (GNU Multiple Precision Arithmetic Library) and supports arbitrary precision integers. For more information check [ gmpy2 ](https://pypi.org/project/gmpy2/) and also [gmpy2’s documentation](https://gmpy2.readthedocs.io/).
+
 # Simulating sequences that manifest BPH and SPH scenarios #
 <a name="simulate"/>
 

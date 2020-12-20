@@ -13,19 +13,61 @@ Nov 2, 2020
 
 import collections, time, pickle, argparse, re, sys, random, inspect, os
 from MAKE_OBS_TAB import read_impute2
-from LIKELIHOODS_CALCULATOR import wrapper_func_of_create_likelihoods as get_likelihoods
+from LIKELIHOODS_CALCULATOR import wrapper_func_of_create_likelihoods 
 
-from itertools import product
+from itertools import product, repeat, starmap
 from functools import reduce
-from operator import not_, and_
+from operator import not_, and_, itemgetter
 from statistics import mean, variance, pstdev
 from math import log
 
-def mean_and_var(sample):
-    """ Calculates the mean and the sample standard deviation. """
-    m = mean(sample)
-    var = variance(sample, xbar=m)
+try:
+    from math import comb
+except:
+    print('caution: cound not import comb from the math module.')
+    def comb(n, k):
+        """ Return the number of ways to choose k items from n items without repetition and without order. """
+        if not 0 <= k <= n:
+            return 0
+        b = 1
+        for t in range(min(k, n-k)):
+            b *= n
+            b //= t+1
+            n -= 1
+        return b
+
+def mean_and_var(data):
+    """ Calculates the mean and variance. """
+    m = mean(filter(None,data))
+    var = variance(filter(None,data), xbar=m)
     return m, var 
+
+def mean_and_std(data):
+    """ Calculates the mean and population standard deviation. """
+    m = mean(filter(None,data))
+    std = pstdev(filter(None,data), mu=m)
+    return m, std 
+
+def summarize(M,V):
+    """ Calculates chromosome-wide statistics of the LLRs """
+    result =  {'mean': mean(M),
+               'std_of_mean': sum(V)**.5/len(V),  #The standard deviation is calculated according to the Bienaymé formula.
+               'fraction_of_negative_LLRs': [i<0 for i in M].count(1)/len(M)}
+    return result
+
+def LLR(y,x):
+    """ Calculates the logarithm of y over x and deals with edge cases. """
+    if x and y:
+        result = log(y/x)
+    elif x and not y:
+        result = -1.23456789 
+    elif not x and y:
+        result = +1.23456789 
+    elif not x and not y:
+        result = 0 
+    else:
+        result = None    
+    return result
 
 def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
@@ -69,8 +111,8 @@ def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF):
 
 def pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads):
     """ Draws up to max_reads reads from a given genomic window. In addition,
-        if the number of reads in a given genomic window is less than the
-        minimal requirment then the genomic window would not be considered."""
+        when the number of reads in a given genomic window is less than the
+        minimal requirment then no reads are picked."""
 
     if len(read_IDs)<max(3,min_reads):
         haplotypes = None
@@ -79,8 +121,20 @@ def pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads):
         haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
     
     return haplotypes
+
+def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
+    """ Ensures that the number of subsamples is not larger than the number
+    of unique subsamples. """ 
     
-def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,max_reads,minimal_score):
+    if  min_reads <= num_of_reads > max_reads :
+        eff_subsamples = min(comb(num_of_reads,max_reads),subsamples)
+    elif min_reads <= num_of_reads <= max_reads:
+        eff_subsamples = min(num_of_reads,subsamples)
+    else:
+        eff_subsamples = 0
+    return eff_subsamples
+        
+def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score):
     """ Returns an iterator over the genomic windows together with read IDs of
         the reads that overlap with SNPs in the genomic window. Only reads with
         a score larger than one are considered. """
@@ -103,18 +157,60 @@ def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,max_reads,minimal
             if a<=pos<b:
                 readIDs_in_window.update(read_ID for read_ID in aux_dict[pos] if minimal_score<=score_dict[read_ID])
                 break
-            elif adaptive and 0<len(readIDs_in_window)<2*max_reads and b-a<350000:
+            elif adaptive and 0<len(readIDs_in_window)<max(min_reads,2*max_reads) and b-a<350000:
                 b += 10000
             else:
                 yield ((a,b-1), readIDs_in_window)
                 a, b, readIDs_in_window = b, b+window_size, set() 
-                
+
+def statistics(likelihoods,windows_dict):
+    window_size_mean, window_size_std = mean_and_std([j-i for (i,j) in likelihoods])    
+    reads_mean, reads_std = mean_and_std([len(read_IDs) for window,read_IDs in windows_dict.items() if window in likelihoods])
+    num_of_windows = len(likelihoods)
+    
+    
+    pairs = (('BPH','SPH'), ('BPH','DISOMY'), ('DISOMY','SPH'), ('SPH','MONOSOMY')); _ = {};
+    LLRs_per_genomic_window = {(i,j): {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
+                       for window,L in likelihoods.items()} for i,j in pairs}
+    
+    LLRs_per_chromosome = {pair: summarize(*zip(*stat.values())) for pair,stat in LLRs_per_genomic_window.items()}
+    
+    result = {'num_of_windows': num_of_windows,
+              'reads_mean': reads_mean, 
+              'reads_std': reads_std,
+              'window_size_mean': window_size_mean,
+              'window_size_std': window_size_std,
+              'LLRs_per_genomic_window': LLRs_per_genomic_window,
+              'LLRs_per_chromosome': LLRs_per_chromosome}
+    
+    return result
+
+def print_summary(obs_filename,info):
+    S = info['statistics']
+    print('\nFilename: %s' % obs_filename)
+    print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S['reads_mean'], S['reads_std']))
+    print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S['num_of_windows'],S['window_size_mean'],S['window_size_std']))
+    for (i,j), L in S['LLRs_per_chromosome'].items():
+        print(f"--- LLR between {i:s} and {j:s} ----")        
+        print(f"Mean LLR: {L['mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
+        print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
+
+def save_results(output_filename,output_dir,obs_filename,likelihoods,info):
+    if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
+    output_dir = output_dir.rstrip('/') + '/' if len(output_dir)!=0 else ''
+    default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)
+    output_filename = default_filename if output_filename=='' else output_filename
+    with open( output_dir + output_filename, "wb") as f:
+        pickle.dump(likelihoods, f, protocol=4)
+        pickle.dump(info, f, protocol=4)
+    return 0
+            
 def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF,output_filename,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
     independent genomic windows. For each genomic window it gives the
     associated log-likelihood BPH/SPH ratio (LLR)."""
 
-    a = time.time()
+    time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
     with open(obs_filename, 'rb') as f:
@@ -126,47 +222,23 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     score_dict = build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF)
-    windows_dict = {window: read_IDs for window,read_IDs in iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,max_reads,minimal_score)}       
-    
+    windows_dict = dict(iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score))       
     
     filename = inspect.getframeinfo(inspect.currentframe()).filename
     path = os.path.dirname(os.path.abspath(filename))
     model = kwargs.get('model', path + '/MODELS/' + ('MODELS18.p' if max_reads>16 else 'MODELS16.p'))
-    likelihoods = get_likelihoods(obs_tab, leg_tab, hap_tab, model)
-    LLR = lambda SPH,BPH: 1.23456789 if SPH<1e-18 else log(BPH/SPH) 
-    LLR_dict = collections.defaultdict(list)
-
-    for k in range(subsamples):
-        sys.stdout.write('\r')
-        sys.stdout.write(f"[{'=' * (33*(k+1)//subsamples):{33}s}] {int(100*(k+1)/subsamples)}% ")
+    get_likelihoods = wrapper_func_of_create_likelihoods(obs_tab, leg_tab, hap_tab, model)
+    
+    likelihoods = {}
+        
+    for k,(window,read_IDs) in enumerate(windows_dict.items()):    
+        sys.stdout.write(f"\r[{'=' * (33*(k+1)//len(windows_dict)):{33}s}] {int(100*(k+1)/len(windows_dict))}%")
         sys.stdout.flush()
         
-        windows_dict_picked = {window: pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads)
-                           for window,read_IDs in windows_dict.items()}
-
-        for window,haplotypes in windows_dict_picked.items():
-            LLR_dict[window].append(LLR(*likelihoods(*haplotypes)[-2:]) if haplotypes!=None else None)
- 
-    ############################### STATISTICS ################################
-    reads_per_window_dict = {window:len(read_IDs) for window,read_IDs in windows_dict.items()}
-    reads_per_window_filtered = [l for l in reads_per_window_dict.values() if l>1]
-    reads_mean = mean(reads_per_window_filtered)
-    reads_std = pstdev(reads_per_window_filtered, mu=reads_mean)
-    
-    LLR_stat = {window: mean_and_var(LLRs) for window,LLRs in LLR_dict.items() if None not in LLRs}
-    
-    M, V = zip(*LLR_stat.values())
-    mean_LLR, std_of_mean_LLR = sum(M)/len(M), sum(V)**.5/len(V) #The standard deviation is calculated according to the Bienaymé formula.
-
-    num_of_windows = len(M)
-    fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
-    
-    print('\nFilename: %s' % obs_filename)
-    print('Depth: %.2f, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], reads_mean, reads_std))
-    print('Number of genomic windows: %d, Fraction of genomic windows with a negative LLR: %.3f' % (num_of_windows,fraction_of_negative_LLRs))
-    print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( mean_LLR,  std_of_mean_LLR))
-    ###########################################################################
-    
+        effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
+        if effN>0:
+            likelihoods[window] = tuple(get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads)) for _ in range(effN))
+            
     info.update({'window_size': window_size,
                  'subsamples': subsamples,
                  'offset': offset,
@@ -174,27 +246,18 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
                  'max_reads': max_reads,
                  'minimal_score': minimal_score,
                  'min_HF': min_HF,
-                 'runtime': time.time()-a})
-
-    info['statistics'] = {'mean': mean_LLR, 'std': std_of_mean_LLR,
-                          'num_of_windows': num_of_windows,
-                          'fraction_of_negative_LLRs': fraction_of_negative_LLRs,
-                          'reads_mean': reads_mean, 'reads_std': reads_std,
-                          'reads_per_window_dict': reads_per_window_dict}
-
+                 'statistics': statistics(likelihoods,windows_dict),
+                 'runtime': time.time()-time0})
+    
     if output_filename!=None:
-        output_dir = kwargs.get('output_dir', 'results')
-        if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
-        output_dir = output_dir.rstrip('/') + '/' if len(output_dir)!=0 else ''
-        default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)
-        output_filename = default_filename if output_filename=='' else output_filename
-        with open( output_dir + output_filename, "wb") as f:
-            pickle.dump(LLR_dict, f, protocol=4)
-            pickle.dump(info, f, protocol=4)
+        save_results(output_filename,kwargs.get('output_dir', 'results'),obs_filename,likelihoods,info)
 
-    b = time.time()
-    print('Done calculating LLRs for all the genomic windows in %.3f sec.' % ((b-a)))
-    return LLR_dict, info
+    print_summary(obs_filename,info)
+    
+    time1 = time.time()
+    print('Done calculating LLRs for all the genomic windows in %.3f sec.' % ((time1-time0)))
+    
+    return likelihoods, info
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -239,101 +302,3 @@ else:
     print("The module ANEUPLOIDY_TEST was imported.")
 
 ### END OF FILE ###
-
-
-"""
-if __name__ == "__main__":
-    print("Executed when invoked directly")
-    a = time.time()
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
-
-    args = dict(obs_filename = 'results_EUR/mixed3haploids.X0.05.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.obs.p' % 0,
-                hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap',
-                leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend',
-                window_size = 5e4,
-                subsamples = 100,
-                offset = 0,
-                min_reads = 2,
-                max_reads = 16,
-                output_filename = None)
-
-    with open(args['obs_filename'], 'rb') as f:
-        obs_tab = pickle.load(f)
-        info = pickle.load(f)
-        
-    hap_tab = read_impute2(args['hap_filename'], filetype='hap')
-    leg_tab = read_impute2(args['leg_filename'], filetype='leg')
-
-    reads_dict = build_reads_dict(obs_tab,leg_tab)
-    score_dict = build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab)
-    windows_dict = {window: read_IDs for window,read_IDs in iter_windows(obs_tab,leg_tab,score_dict,args['window_size'],args['offset'],args['max_reads'])}
-    
-    reads_per_window_dict = {window:len(read_IDs) for window,read_IDs in windows_dict.items()}
-    reads_per_window_filtered = [l for l in reads_per_window_dict.values() if l>1]
-    reads_mean = mean(reads_per_window_filtered)
-    reads_std = pstdev(reads_per_window_filtered, mu=reads_mean)
-    
-    sys.exit(0)
-
-
-    LLR = get_LLR(obs_tab, leg_tab, hap_tab, 'MODELS/MODELS18D.p' if args['max_reads']>16 else 'MODELS/MODELS16D.p')
-    LLR_dict = collections.defaultdict(list)
-
-    for k in range(args['subsamples']):
-        sys.stdout.write('\r')
-        sys.stdout.write(f"[{'=' * int(k+1):{args['subsamples']}s}] {int(100*(k+1)/args['subsamples'])}% ")
-        sys.stdout.flush()
-        
-        windows_dict_picked = {window: pick_reads(reads_dict,score_dict,read_IDs,args['min_reads'],args['max_reads'])
-                           for window,read_IDs in windows_dict.items()}
-
-        for window,haplotypes in windows_dict_picked.items():
-            LLR_dict[window].append(LLR(*haplotypes) if haplotypes!=None else None)
- 
-    LLR_stat = {window: mean_and_var(LLRs) for window,LLRs in LLR_dict.items() if None not in LLRs}
-    
-    M, V = zip(*LLR_stat.values())
-    mean, std = sum(M)/len(M), sum(V)**.5/len(V) #The standard deviation is calculated according to the Bienaymé formula.
-
-    num_of_windows = len(M)
-    fraction_of_negative_LLRs = sum([1 for i in M if i<0])/len(M)
-    
-    
-    
-    print('\nFilename: %s' % args['obs_filename'])
-    print('Depth: %.2f, Number of genomic windows: %d, Fraction of genomic windows with a negative LLR: %.3f' % (info['depth'], num_of_windows,fraction_of_negative_LLRs))
-    print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( mean, std))
-    
-    info.update({'window_size': args['window_size'],
-                 'offset': args['offset'],
-                 'min_reads': args['min_reads'],
-                 'max_reads': args['max_reads'],
-                 'runtime': time.time()-a})
-
-    info['statistics'] = {'mean': mean, 'std': std,
-                          'num_of_genomic_windows': num_of_windows,
-                          'fraction_of_negative_LLRs': fraction_of_negative_LLRs}
-
-    if args['output_filename']!=None:
-        default_filename = re.sub('(.*)obs','\\1LLR', args['obs_filename'].split('/')[-1],1)
-        output_filename = default_filename if args['output_filename']=='' else args['output_filename']
-        with open( output_filename, "wb") as f:
-            pickle.dump(LLR_dict, f, protocol=4)
-            pickle.dump(info, f, protocol=4)
-    
-    
-    #filename = 'results_EUR/mixed3haploids.X0.10.HG00096A.HG00096B.HG00097A.chr21.recomb.%.2f.LLR.p' % (i * 0.1)
-    #with open(filename, 'rb') as f:
-    #    LLR_dict = pickle.load(f)
-    #    info = pickle.load(f)
-    #info['statistics']['reads_per_window_dict'] = reads_per_window_dict
-    #info['statistics']['reads_mean'] = reads_mean
-    #info['statistics']['reads_var'] = reads_var
-    #with open( filename, "wb") as f:
-    #    pickle.dump(LLR_dict, f, protocol=4)
-    #    pickle.dump(info, f, protocol=4)
-    #print(i)
-    
-    b = time.time()
-    print('Done calculating LLRs for all the genomic window in %.3f sec.' % ((b-a)))
-"""

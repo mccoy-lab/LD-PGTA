@@ -225,11 +225,11 @@ if __name__=='__main__':
 if __name__=='__main__':
     hap_filename = '../build_reference_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.hap'
     leg_filename = '../build_reference_panel/ALL_panel.hg38.BCFtools/chr21_ALL_panel.legend'
-    included_SP = ('EUR','EAS','SAS')
+    included_SP = ('EAS','SAS')
     output_impute2_filename = 'chr21_COMMON_panel'
     max_dist = 5000
     step = 1
-    lower_limit = 1/1.1
-    upper_limit = 1.1
+    lower_limit = 0.1
+    upper_limit = 10.00
     x = main(hap_filename,leg_filename,included_SP,output_impute2_filename,max_dist,step,lower_limit,upper_limit)
     sys_exit(x)
