@@ -8,7 +8,7 @@ Daniel Ariad (daniel@ariad.org)
 Nov 18, 2020
 
 """
-import time, re, pickle
+import time, re, pickle, os
 
 def make_obs_tab_demo(bam_filename,chr_id,sp):
     from MAKE_OBS_TAB import retrive_bases
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     with open('/home/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females.p', 'rb') as f:
         db_TEST = pickle.load(f)
    
-    ###DONE = []
+    DONE = []
     for case in db_TEST:
         if case not in DONE:
             bam_filename = case['filename']
@@ -131,10 +131,18 @@ if __name__ == "__main__":
             try:
                 for chr_num in case['chr_num']:
                     chr_id = f'chr{chr_num:d}'
-                    make_obs_tab_demo(case['filename'],chr_id,sp)
                     obs_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1]) + f'.{chr_id:s}.obs.p'
-                    aneuploidy_test_demo(obs_filename, chr_id,sp)
+                    if not os.path.isfile(obs_filename): 
+                        make_obs_tab_demo(case['filename'],chr_id,sp)
+                    else:
+                        print(f'{obs_filename:s} already exists.')
+                    LLR_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1]) + f'.{chr_id:s}.LLR.p'
+                    if not os.path.isfile(LLR_filename): 
+                        aneuploidy_test_demo(obs_filename, chr_id,sp)
+                    else:
+                        print(f'{LLR_filename:s} already exists.')
             except:
+                print('error!')
                 continue
         DONE.append(case)
                 

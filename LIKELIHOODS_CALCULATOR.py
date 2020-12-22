@@ -174,7 +174,7 @@ class analyze:
         result = (MONOSOMY, DIPLOIDY, SPH, BPH)
         return result
         
-def wrapper_func_of_likelihoods(obs_tab,leg_tab,hap_tab,models_filename):
+def wrapper_of_likelihoods(obs_tab,leg_tab,hap_tab,models_filename):
     """ Wraps the attribute likelihoods. It receives an observations array,
         legend array, haplotypes array and a dictionary of statistical models.
         Based on the given data it creates an instances and returns the
@@ -189,7 +189,7 @@ def wrapper_func_of_likelihoods(obs_tab,leg_tab,hap_tab,models_filename):
 
     return likelihoods
 
-def wrapper_func_of_likelihoods_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
+def wrapper_of_likelihoods_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
     """ Wraps the attribute likelihoods. It receives an observations file, 
         IMPUTE2 legend file, IMPUTE2 haplotypes file, and a file with four
         statistical models. Based on the given data it creates an instances

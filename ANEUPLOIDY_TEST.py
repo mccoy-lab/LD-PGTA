@@ -13,7 +13,7 @@ Nov 2, 2020
 
 import collections, time, pickle, argparse, re, sys, random, inspect, os
 from MAKE_OBS_TAB import read_impute2
-from LIKELIHOODS_CALCULATOR import wrapper_func_of_create_likelihoods 
+from LIKELIHOODS_CALCULATOR import wrapper_of_likelihoods 
 
 from itertools import product, repeat, starmap
 from functools import reduce
