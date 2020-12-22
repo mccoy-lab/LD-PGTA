@@ -36,14 +36,14 @@ def runInParallel(*fns,**kwargs):
 def aneuploidy_test_demo(obs_filename,chr_id,sp,model):
     from ANEUPLOIDY_TEST import aneuploidy_test
     args = dict(obs_filename = f'results_{sp:s}/ABC.obs.p',
-                hap_filename = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap',
-                leg_filename = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend', 
+                hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap',
+                leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
                 window_size = 10e4,
                 subsamples = 100,
                 offset = 0,
-                min_reads = 6,
-                max_reads = 14,
-                min_HF = 0.15,
+                min_reads = 3,
+                max_reads = 6,
+                min_HF = 0.05,
                 minimal_score = 2,
                 output_filename = None,
                 model = model)
@@ -85,19 +85,19 @@ def make_simulated_obs_tab(sample_id,chr_id,sp):
     return simulate(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,output_dir=work_dir)
         
 if __name__ == "__main__":
-    from random import sample, choices, seed
-    seed(None, version=2)
-    INDIVIDUALS = read_ref('/home/ariad/Dropbox/postdoc_JHU/Tools/build_reference_panel/EUR_panel.txt')
-    for r in range(10):
-        A = sample(INDIVIDUALS,k=3)
-        B = choices(['A','B'],k=3) 
-        C = [i+j for i,j in zip(A,B)]    
-        func = [eval(f'lambda: make_simulated_obs_tab(\'{a:s}\',\'EUR\')') for a in A] 
-        runInParallel(*func)    
-        D = MixHaploids2(f'{C[0]:s}.chr21.hg38.obs.p', f'{C[1]:s}.chr21.hg38.obs.p', f'{C[2]:s}.chr21.hg38.obs.p', read_length=35, depth=0.50, work_dir='results_EUR', recombination_spots=[0.00,1.00])        
-        filenames = (f'mixed3haploids.X0.50.{C[0]:s}.{C[1]:s}.{C[2]:s}.chr21.recomb.{i:.2f}.obs.p' for i in (0,1))
-        func2 = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\',\'EUR\',\'MODELS/MODELS16D.p\')' % (f,'chr21')) for f in filenames)
-        runInParallel(*func2)
+    #from random import sample, choices, seed
+    #seed(None, version=2)
+    #INDIVIDUALS = read_ref('/home/ariad/Dropbox/postdoc_JHU/Tools/build_reference_panel/EUR_panel.txt')
+    #for r in range(10):
+    #    A = sample(INDIVIDUALS,k=3)
+    #    B = choices(['A','B'],k=3) 
+    #    C = [i+j for i,j in zip(A,B)]    
+    #    func = [eval(f'lambda: make_simulated_obs_tab(\'{a:s}\',\'EUR\')') for a in A] 
+    #    runInParallel(*func)    
+    #    D = MixHaploids2(f'{C[0]:s}.chr21.hg38.obs.p', f'{C[1]:s}.chr21.hg38.obs.p', f'{C[2]:s}.chr21.hg38.obs.p', read_length=35, depth=0.50, work_dir='results_EUR', recombination_spots=[0.00,1.00])        
+    #    filenames = (f'mixed3haploids.X0.50.{C[0]:s}.{C[1]:s}.{C[2]:s}.chr21.recomb.{i:.2f}.obs.p' for i in (0,1))
+    #    func2 = (eval('lambda: aneuploidy_test_demo(\'%s\',\'%s\',\'EUR\',\'MODELS/MODELS16D.p\')' % (f,'chr21')) for f in filenames)
+    #    runInParallel(*func2)
     
         
     
@@ -126,8 +126,7 @@ if __name__ == "__main__":
     #C = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00357B.NA20524A.chr21.recomb.0.00.obs.p','chr21','EUR','MODELS/MODELS16D.p') 
     #D = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00357B.NA20524A.chr21.recomb.1.00.obs.p','chr21','EUR','MODELS/MODELS16D.p')             
   
-    #runInParallel(A,B,C,D)
-    
+    #runInParallel(A,B,C,D)    
     #A = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00357B.NA20524A.chr21.recomb.0.00.obs.p','chr21','MODELS_CLASSIC.p') 
     #B = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00357B.NA20524A.chr21.recomb.1.00.obs.p','chr21','MODELS_CLASSIC.p')      
     #A = lambda: aneuploidy_test_demo('mixed3haploids.X0.50.HG00096A.HG00096B.HG00097A.chr21.recomb.0.00.obs.p','chr21','MODELS_6.p') 

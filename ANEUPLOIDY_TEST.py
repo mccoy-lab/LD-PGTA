@@ -71,7 +71,7 @@ def LLR(y,x):
 
 def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
-        return int(''.join('1' if x else '0' for i in x),2)
+        return int(''.join('1' if i else '0' for i in x), 2)
     
 def build_reads_dict(obs_tab,leg_tab):
     """ Returns a dictionary that lists read IDs of reads that overlap with
@@ -238,7 +238,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
         if effN>0:
             likelihoods[window] = tuple(get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads)) for _ in range(effN))
-            
+
     info.update({'window_size': window_size,
                  'subsamples': subsamples,
                  'offset': offset,

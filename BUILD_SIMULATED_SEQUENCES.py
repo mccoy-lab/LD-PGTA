@@ -38,8 +38,8 @@ def runInParallel(*fns,**kwargs):
 def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output_dir):
     from ANEUPLOIDY_TEST import aneuploidy_test
     args = dict(obs_filename = f'results_{sp:s}/ABC.obs.p',
-                hap_filename = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap',
-                leg_filename = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
+                hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap',
+                leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
                 window_size = 0,
                 subsamples = 100,
                 offset = 0,
@@ -55,7 +55,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output
     return LLR_dict, info
 
 def make_simulated_obs_tab(sample_id,sp,chr_id,output_dir):
-    bcftools_dir = '../bcftools-1.10.2/bin'
+    bcftools_dir = '' #'../bcftools-1.10.2/bin'
     #sample_id = 'HG00096'
     #chr_id = 'chr21'
     #leg_filename = '../build_reference_panel/ref_panel.ALL.hg38.BCFtools/chr21_ALL_panel.legend'
@@ -90,7 +90,7 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 
 
 if __name__ == "__main__":
-    depth=0.1
+    depth=0.05
     sp='EUR'
     chr_id='chr21'
     read_length = 35
