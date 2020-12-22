@@ -31,7 +31,7 @@ except:
 
 def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
-        return int(''.join(f'{i:d}' for i in x),2)
+        return int(''.join('1' if x else '0' for i in x),2)
 
 class analyze:
     """ Based on two IMPUTE2 arrays, which contain the legend and haplotypes,

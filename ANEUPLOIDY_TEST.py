@@ -71,7 +71,7 @@ def LLR(y,x):
 
 def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
-        return int(''.join(f'{i:d}' for i in x),2)
+        return int(''.join('1' if x else '0' for i in x),2)
     
 def build_reads_dict(obs_tab,leg_tab):
     """ Returns a dictionary that lists read IDs of reads that overlap with
