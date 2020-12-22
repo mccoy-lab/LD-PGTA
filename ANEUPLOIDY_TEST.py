@@ -226,7 +226,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     
     filename = inspect.getframeinfo(inspect.currentframe()).filename
     path = os.path.dirname(os.path.abspath(filename))
-    model = kwargs.get('model', path + '/MODELS/' + ('MODELS18.p' if max_reads>16 else 'MODELS16.p'))
+    model = kwargs.get('model', path + '/MODELS/' + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
     get_likelihoods = wrapper_func_of_create_likelihoods(obs_tab, leg_tab, hap_tab, model)
     
     likelihoods = {}
