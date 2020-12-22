@@ -7,7 +7,9 @@ Created on Sat Dec 19 14:18:44 2020
 """
 
 import pickle, statistics
-
+from statistics import mean, variance
+from itertools import starmap
+from math import log
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
     #The data of chromosome length was taken from https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh38
@@ -23,7 +25,27 @@ def std_of_mean(variances):
         Bienaymé formula. """
     return sum(variances)**.5/len(variances)
 
-def load_llr(filename):
+def mean_and_var(data):
+    """ Calculates the mean and variance. """
+    m = mean(filter(None,data))
+    var = variance(filter(None,data), xbar=m)
+    return m, var 
+
+def LLR(y,x):
+    """ Calculates the logarithm of y over x and deals with edge cases. """
+    if x and y:
+        result = log(y/x)
+    elif x and not y:
+        result = -1.23456789 
+    elif not x and y:
+        result = +1.23456789 
+    elif not x and not y:
+        result = 0 
+    else:
+        result = None    
+    return result
+
+def load_likelihoods(filename):
     """ Loads from a file a dictionary that lists genomic windows that contain
     at least two reads and gives the bootstrap distribution of the 
     log-likelihood BPH/SPH ratios (LLRs). """
@@ -33,9 +55,9 @@ def load_llr(filename):
         info = pickle.load(f)
     return likelihoods, info
 
-def show_info(filename,info):
+def show_info(filename,info,pair):
     S = info['statistics']
-    X = info['statistics']['LLRs_per_chromosome'][('BPH','SPH')]
+    X = info['statistics']['LLRs_per_chromosome'][pair]
     print('\nFilename: %s' % filename)
     print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S['reads_mean'], S['reads_std']))
     print('Number of genomic windows: %d, Mean and standard error of genomic window size:  %d, %d.' % (S['num_of_windows'],S['window_size_mean'],S['window_size_std']))
@@ -43,13 +65,11 @@ def show_info(filename,info):
     print('Fraction of genomic windows with a negative LLR: %.3f' % (X['fraction_of_negative_LLRs']))
     print('The calculation was done in %.3f sec.' % info['runtime'])
 
-def confidence(info,pair,N,z):
+def confidence(LLR_stat,N,z):
     """ Binning is applied by aggregating the mean LLR of a window across N
         consecutive windows. The boundaries of the bins as well as the mean LLR
         and the standard-error per bin are returned. """
-        
-    LLR_stat = info['statistics']['LLRs_per_genomic_window'][pair]
-     
+             
     K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
             
     i = lambda j: j*(len(V)//N)
@@ -122,21 +142,25 @@ def bar_plot(info,pair,N,**kwargs):
     
     return 1
 
-def triple_plot(info,N,**kwargs):
+def triple_plot(likelihoods,info,N,**kwargs):
     import matplotlib as mpl
     import matplotlib.pyplot as plt
     #from scipy.interpolate import interp1d
     
     save = kwargs.get('save', '')
     pairs = {('BPH','DISOMY'):'saddlebrown', ('DISOMY','SPH'):'darkgreen', ('SPH','MONOSOMY'):'lightskyblue'}
+
+    _ = {};
+    LLRs_per_genomic_window = {(i,j): {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
+                       for window,L in likelihoods.items()} for i,j in pairs}
     
     fig,(ax1)=plt.subplots(1,1)
     fig.set_size_inches(9, 6, forward=True)    
     
-    for p,c in pairs.items():
-        X,Y,E,C = confidence(info,p,N,z=1)
+    for p,LLR_stat in LLRs_per_genomic_window.items():
+        X,Y,E,C = confidence(LLR_stat,N,z=1)
         T = [(x[1]+x[0])/2 for x in X]                
-        ax1.plot([X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]],[i for i in Y for j in (1,2)], label=f'LLR of {p[0]:s} to {p[1]:s}',color=c,linewidth=2)
+        ax1.plot([X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]],[i for i in Y for j in (1,2)], label=f'LLR of {p[0]:s} to {p[1]:s}',color=pairs[p],linewidth=2)
         ax1.errorbar(T, Y, yerr = E, ecolor='black',marker=None, ls='none',alpha=0.1) 
 
     ax1.set_ylabel('Log-likelihood ratio')
@@ -170,13 +194,83 @@ def triple_plot(info,N,**kwargs):
     else:
        plt.tight_layout()
        plt.show()
+ 
+def panel_plot(DATA,N,**kwargs):
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    #from scipy.interpolate import interp1d
     
+    save = kwargs.get('save', '')
+    #pairs = {('BPH','DISOMY'):'saddlebrown', ('DISOMY','SPH'):'darkgreen', ('SPH','MONOSOMY'):'lightskyblue'}
+    pairs = {('DISOMY','MONOSOMY'):'lightskyblue',}
+
+    fig,axs =plt.subplots(4,6)
+    fig.set_size_inches(36, 24, forward=True)    
+    fig.suptitle(kwargs.get('title', ''), fontsize=16)
+    
+    AX = [i for j in axs for i in j]
+    
+    for ax1,(likelihoods,info) in zip(AX,DATA):
+        _ = {};
+        LLRs_per_genomic_window = {(i,j): {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
+                       for window,L in likelihoods.items()} for i,j in pairs}
+    
+        for (p,LLR_stat) in LLRs_per_genomic_window.items():
+            X,Y,E,C = confidence(LLR_stat,N,z=1)
+            T = [(x[1]+x[0])/2 for x in X]                
+            ax1.plot([X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]],[i for i in Y for j in (1,2)], label=f'LLR of {p[0]:s} to {p[1]:s}',color=pairs[p], linewidth=2)
+            ax1.errorbar(T, Y, yerr = E, ecolor='black',marker=None, ls='none',alpha=0.1) 
+    
+        ax1.set_ylabel('Log-likelihood ratio')
+        ax1.set_xlabel('Normalized chromosome position')
+        ax1.set_title(info['chr_id'])
+        #Replace ticks along the x-axis 
+        X_ticks = [X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]]
+        X_labels = [('%.2f' % (j/chr_length(info['chr_id']))) for j in X_ticks] 
+        ax1.set_xticks(X_ticks)
+        ax1.set_xticklabels(X_labels)
+        
+        ax1.plot((lambda _: (min(_),max(_)))([j for i in X for j in i]),[0,0],color='red', ls='dotted',alpha=0.5)
+        
+        # get handles
+        handles, labels = ax1.get_legend_handles_labels()
+        # remove the errorbars
+        #handles = [h[0] for h in handles]
+        # use them in the legend
+        #ax1.legend(handles, labels, loc='upper left',numpoints=1)
+        
+        ax1.legend(labels, loc='upper right',numpoints=1)
+        
+    if save!='':
+        print('Saving plot...')
+        ax1.set_title(save.rpartition('/')[-1].removesuffix('.png'))
+        plt.savefig(save, dpi=150, facecolor='w',
+                    edgecolor='w', orientation='landscape',
+                    format='png', transparent=False, bbox_inches='tight',
+                    pad_inches=0.1, metadata=None)
+        plt.close(fig)
+    else:
+       plt.tight_layout()
+       plt.show()    
 
 if __name__ == "__main__":
     #for i in range(1,23):
-    #    likelihoods, info = load_llr(f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/13782FA-C6KKV_20.chr{i:d}.LLR.p')
-    #    #bar_plot(info,('BPH','SPH'),N=10)
-    #    triple_plot(info,N=10,save=f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/13782FA-C6KKV_20.chr{i:d}.png')
+        #likelihoods, info = load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr{i:d}.LLR.p')
+        #bar_plot(info,('BPH','SPH'),N=10)
+        #triple_plot(info,N=10,save=f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr{i:d}.png')
     
-    likelihoods, info = load_llr(f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/13782FA-C6KKV_20.chr7.LLR.p')
-    triple_plot(info,N=10)
+    #DATA = [load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr{i:d}.LLR.p') for i in range(1,23)]
+    #panel_plot(DATA,N=10,title='12751FA-AWL31_14')
+    #likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr7.LLR.p')
+    #triple_plot(likelihoods,info,N=10)
+    
+    bob = ['10523FA-AFFRU_3', '10523FA-AFFRU_4', '10560FA-AFFPH_3', '10675FA-BJNTV_2', '10675FA-BJNTV_3', '10675FA-BJNTV_4', '10675FA-BJNTV_5', '10686FA-AFFPE_9', '10846FA-AFPAB_3', '10871FA-AJ3U4_12', '10951FA-AJ3WW_3', '10969FA-AJ470_2', '11522FA-AP925_3', '11578FA-AR3WC_3', '11598FA-AP923_9', '12662FA-B5Y5R_1', '12662FA-B5Y5R_3', '12699FA-B8F4K_4', '12789FA-AWL1L_12', '12962FA-BK2G8_6', '14529FA-CM2GK_2', 'GP-CWFRM_8', 'MZ-AFFC4_1', '13068FA-BK2G5_23', '10675FA-BJNTV_3c', 'MZ-AFFC4_2', '10964FA-AJ470_1', '13121FA-BK23M_23', '13086FA-BK2G5_6', '10668FA-AFDL2_2', '11550FA-AP91V_5', '10722FA-AFFCT_3a', '12055FA-ANTJ1_15', '12454FA-AW7BB_2', '10967FA-AJ470_F10', '11946FA-AR452_9', '11550FA-AP91V_4', '13744FA-C4RPY_2', '13086FA-BK2G5_8', '10658FA-AFDL2_F10', '14220FA-CFP2Y_1', '12446FA-AU3UC_29', '14212FA-CFP2Y_5', '11946FA-AR452_1', '11944FA-AR452_13', '11511FA-AP91V_8']
+    for i in bob:
+        for j in [11,17,19,20,21,22]:
+            try:
+                
+                likelihoods, info = load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/{i:s}.chr{j:d}.LLR.p')
+                show_info(f'{i:s}.chr{j:d}.LLR.p',info,('SPH','MONOSOMY'))
+            except:
+                print(f'{i:s}.chr{j:d}.LLR.p')
+                continue

@@ -5,14 +5,14 @@
 LIKELIHOODS_CALCULATOR
 
 Given a reads that originated form the same genomic window, the likelihood of 
-a four scenarios, namely, monosomy, diploidy, SPH and BPH is calculated.
+a four scenarios, namely, monosomy, disomy, SPH and BPH is calculated.
 
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
 
 Daniel Ariad (daniel@ariad.org)
-Aug 31, 2020
+Dec 21, 2020
 """
 
 import pickle, os, sys, bz2
@@ -29,37 +29,50 @@ except:
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')
 
-def build_hap_dict(obs_tab,leg_tab,hap_tab):
-    """ Returns a dictionary that lists chromosome positions of SNPs and gives
-        their relevent row from haplotypes table. The row is stored as a tuple
-        of booleans, where True represents the observed allele. We denote
-        the returned dictionary as the reference panel."""
+def bools2int(x):
+        """ Transforms a tuple/list of bools to a int. """
+        return int(''.join(f'{i:d}' for i in x),2)
 
-    hap_dict = dict()
-    mismatches = 0
+class analyze:
+    """ Based on two IMPUTE2 arrays, which contain the legend and haplotypes,
+    and a dictionary with statisitcal models (models_dict), it allows to
+    calculate the likelihoods of observed alleles under various statistical
+    models (monosomy, disomy, SPH and BPH). """
+   
+    
+    def __init__(self, obs_tab, leg_tab, hap_tab, models_dict):
+        self.obs_tab = obs_tab
+        self.leg_tab = leg_tab
+        self.hap_tab = hap_tab
+        self.models_dict = models_dict
+        self.hap_dict = self.build_hap_dict()
+        self.number_of_reference_haplotypes = len(hap_tab[0])
 
-    bools2int = lambda x: int(''.join('%d'%i for i in x),2)
+    def build_hap_dict(self):
+        """ Returns a dictionary that lists chromosome positions of SNPs and gives
+            their relevent row from haplotypes table. The row is stored as a tuple
+            of booleans, where True represents the observed allele. We denote
+            the returned dictionary as the reference panel."""
+    
+        hap_dict = dict()
+        mismatches = 0
+    
+        for (pos, ind, read_id, base) in self.obs_tab:
+            chr_id, pos2, ref, alt = self.leg_tab[ind]
+            if pos!=pos2:
+                raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')
+            if base==alt:
+                hap_dict[(pos,base)] = bools2int(self.hap_tab[ind])
+            elif base==ref:
+                hap_dict[(pos,base)] = bools2int(map(not_,self.hap_tab[ind]))
+            else:
+                mismatches += 1
+    
+        print('%.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(self.obs_tab))))
+    
+        return hap_dict
 
-    for (pos, ind, read_id, base) in obs_tab:
-        chr_id, pos2, ref, alt = leg_tab[ind]
-        if pos!=pos2:
-            raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')
-        if base==alt:
-            hap_dict[(pos,base)] = bools2int(hap_tab[ind])
-        elif base==ref:
-            hap_dict[(pos,base)] = bools2int(map(not_,hap_tab[ind]))
-        else:
-            mismatches += 1
-
-    print('%.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
-
-    return hap_dict
-
-def create_frequencies(hap_dict):
-    """ Returns the function combo_joint_frequencies, which extracts from the dictionary
-        hap_dict the joint frequencies of observed alleles. """
-
-    def intrenal_hap_dict(*alleles):
+    def intrenal_hap_dict(self, *alleles):
         """ This function allows treatment of alleles and haplotypes on an
         equal footing. This is done in three steps: (1) All the alleles and
         haplotypes are enumerated. (2) For each given haplotype, tuples in the
@@ -73,20 +86,20 @@ def create_frequencies(hap_dict):
             if type(X[0])==tuple: #Checks if X is a tuple/list of alleles.
                 n = len(X)
                 if n==1:
-                    hap[1 << i] = hap_dict[X[0]]
+                    hap[1 << i] = self.hap_dict[X[0]]
                 elif n==2:
-                    hap[1 << i] = hap_dict[X[0]] & hap_dict[X[1]]
+                    hap[1 << i] = self.hap_dict[X[0]] & self.hap_dict[X[1]]
                 else:
-                    hap[1 << i] = reduce(and_,itemgetter(*X)(hap_dict))
+                    hap[1 << i] = reduce(and_,itemgetter(*X)(self.hap_dict))
 
             elif type(X[0])==int: #Checks if X is a single allele.
-                hap[1 << i] = hap_dict[X]
+                hap[1 << i] = self.hap_dict[X]
             else:
                 raise Exception('error: joint_frequencies only accepts alleles and tuple/list of alleles.')
 
         return hap
 
-    def joint_frequencies_combo(*alleles):
+    def joint_frequencies_combo(self, *alleles):
         """ Based on the reference panel, it calculates unnormalized joint
             frequencies of observed alleles. The function arguments are alleles,
             that is, tuples of position and base, e.g., (100,'T'), (123, 'A')
@@ -100,7 +113,7 @@ def create_frequencies(hap_dict):
             arguments can also include haplotypes, that is, tuples of alleles;
             Haplotypes are treated in the same manner as alleles. """
 
-        hap = intrenal_hap_dict(*alleles)
+        hap = self.intrenal_hap_dict(*alleles)
 
         result = {c: popcount(A) for c,A in hap.items() }
 
@@ -118,79 +131,69 @@ def create_frequencies(hap_dict):
             result[sum(hap.keys())] = popcount(reduce(and_,hap.values()))
 
         return result
-
-    return joint_frequencies_combo
-
-def create_likelihoods(models_dict,joint_frequencies_combo,number_of_reference_haplotypes):
-    """ This function receives the dictionary models_dict with the
-    statisitcal models and the function frequncies, which calculates
-    joint frequncies. Based on these arguments it creates the function
-    likelihoods, which calculates the log-likelihood BPH/SPH ratio."""
-
-    def likelihoods(*alleles):
-        """ Calculates the log-likelihood BPH/SPH ratio for a given tuple of
-        alleles and haplotypes. """
+    
+    def likelihoods(self, *alleles):
+        """ Calculates the likelihood to observe a set of alleles
+        (and haplotypes) under various statistical models. """
         
-        F = joint_frequencies_combo(*alleles) #Divide values by D to normalize the joint frequencies.
+        F = self.joint_frequencies_combo(*alleles) #Divide values by D to normalize the joint frequencies.
         N = len(alleles)
-        D = number_of_reference_haplotypes
+        D = self.number_of_reference_haplotypes
 
         ### BPH ###
-        (((A0, A1),((B0,),)),) = models_dict[N]['BPH'][1].items()
+        (((A0, A1),((B0,),)),) = self.models_dict[N]['BPH'][1].items()
         BPH = F[B0] * A0 / ( A1 * D )
 
         BPH += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in models_dict[N]['BPH'][2].items()) / D**2
+                   for (A0, A1), C in self.models_dict[N]['BPH'][2].items()) / D**2
 
         if N>2:
             BPH += sum( sum(F[B0] * sum(F[B1] * F[B2] for (B1, B2) in C[B0]) for B0 in C) * A0 / A1
-                       for (A0, A1), C in models_dict[N]['BPH'][3].items()) / D**3
+                       for (A0, A1), C in self.models_dict[N]['BPH'][3].items()) / D**3
 
         ### SPH ###
-        (((A0, A1),((B0,),)),) = models_dict[N]['SPH'][1].items()
+        (((A0, A1),((B0,),)),) = self.models_dict[N]['SPH'][1].items()
         SPH = F[B0] * A0 / ( A1 * D ) 
 
         SPH += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in models_dict[N]['SPH'][2].items()) / D**2
+                   for (A0, A1), C in self.models_dict[N]['SPH'][2].items()) / D**2
 
         
         ### DIPLOIDY ###
-        (((A0, A1),((B0,),)),) = models_dict[N]['DIPLOIDY'][1].items()
+        (((A0, A1),((B0,),)),) = self.models_dict[N]['DIPLOIDY'][1].items()
         DIPLOIDY = F[B0] * A0 / ( A1 * D ) 
 
         DIPLOIDY += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in models_dict[N]['DIPLOIDY'][2].items()) / D**2
+                   for (A0, A1), C in self.models_dict[N]['DIPLOIDY'][2].items()) / D**2
 
         ### MONOSOMY ###
-        ((B0,),) = models_dict[N]['MONOSOMY'][1][(1,1)]
+        ((B0,),) = self.models_dict[N]['MONOSOMY'][1][(1,1)]
         MONOSOMY = F[B0] / D 
-        ###MONOSOMY = F[int(N*'1',2)] / D 
+        #MONOSOMY = F[int(N*'1',2)] / D 
 
-        ####result = 1.23456789 if SPH<1e-18 else log(BPH/SPH)
         result = (MONOSOMY, DIPLOIDY, SPH, BPH)
         return result
         
-    return likelihoods
-
-def wrapper_func_of_create_likelihoods(obs_tab,leg_tab,hap_tab,models_filename):
-    """ Wraps the fuction create_likelihoods. It receives an observations array,
-        legend array and haplotypes array. Based on the given data it creates 
-        and returns the function likelihoods."""
+def wrapper_func_of_likelihoods(obs_tab,leg_tab,hap_tab,models_filename):
+    """ Wraps the attribute likelihoods. It receives an observations array,
+        legend array, haplotypes array and a dictionary of statistical models.
+        Based on the given data it creates an instances and returns the
+        attribute likelihoods."""
 
     if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
-    ###with open(models_filename, 'rb') as f:
-    ###with bz2.BZ2File(models_filename, 'rb') as f:
-    load_model = bz2.BZ2File if models_filename.split('.')[-1]=='pbz2' else open
+    load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    likelihoods = create_likelihoods(models_dict, create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab)), len(hap_tab[0]))
+    likelihoods = analyze(obs_tab, leg_tab, hap_tab, models_dict).likelihoods
+
     return likelihoods
 
-def wrapper_func_of_create_likelihoods_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
-    """ Wraps the function create_likelihoods. It receives an observations file, IMPUTE2
-        legend file, IMPUTE2 haplotypes file, and the statistical model. Based
-        on the given data it creates and returns the likelihoods function."""
+def wrapper_func_of_likelihoods_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
+    """ Wraps the attribute likelihoods. It receives an observations file, 
+        IMPUTE2 legend file, IMPUTE2 haplotypes file, and a file with four
+        statistical models. Based on the given data it creates an instances
+        and returns the attribute likelihoods."""
 
     from MAKE_OBS_TAB import read_impute2
 
@@ -205,19 +208,14 @@ def wrapper_func_of_create_likelihoods_for_debugging(obs_filename,leg_filename,h
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
 
-    ###with open(models_filename, 'rb') as f:
-    ###with bz2.BZ2File(models_filename, 'rb') as f:
-    load_model = bz2.BZ2File if models_filename.split('.')[-1]=='pbz2' else open
+    load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
-    joint_frequencies_combo = create_frequencies(hap_dict)
-    likelihoods = create_likelihoods(models_dict, joint_frequencies_combo, len(hap_tab[0]))
+    likelihoods = analyze(obs_tab, leg_tab, hap_tab, models_dict).likelihoods
 
-    ###likelihoods = create_likelihoods(models_dict,create_frequencies(build_hap_dict(obs_tab, leg_tab, hap_tab))) #This line replaces the three lines above.
     return likelihoods
-"""
+
 if __name__ != "__main__":
     print('The module LIKELIHOODS_CALCULATOR was imported.')
 else:
@@ -226,8 +224,9 @@ else:
 
 ###############################   END OF FILE   ###############################
 
-"""
 
+
+"""
 if __name__ != "__main__":
     print("The module LIKELIHOODS_CALCULATOR was imported.")
 else:
@@ -252,41 +251,37 @@ else:
     with open('MODELS/MODELS16.p', 'rb') as f:
         models_dict = pickle.load(f)
 
-    hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
-    #aux_dict = build_aux_dict(obs_tab, leg_tab)
+    A = analyze(obs_tab, leg_tab, hap_tab, models_dict)
 
-    positions = tuple(hap_dict.keys())
+    positions = tuple(A.hap_dict.keys())
 
-    #frequencies, frequency = create_frequencies(hap_dict)
-    N = len(hap_tab[0])
-    frequencies = create_frequencies(hap_dict)
-    def frequencies2(*x):
-        return {bin(a)[2:]:b for a,b in frequencies(*x).items()}
+    frequencies = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x).items()}
 
-    likelihoods = create_likelihoods(models_dict,frequencies,N)
+    likelihoods = A.likelihoods
 
     pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
 
-    print(frequencies2(positions[0]))
-    print(frequencies2(positions[:4]))
+    print(frequencies(positions[0]))
+    print(frequencies(positions[:4]))
     print('-----')
     print(pos)
-    print(frequencies2(*pos))
+    print(frequencies(*pos))
     print(likelihoods(*pos))
     print('-----')
     print(positions[:2])
-    print(frequencies2(*positions[:2]))
+    print(frequencies(*positions[:2]))
     print(likelihoods(*positions[:2]))
     print('-----')
     print(positions[:3])
-    print(frequencies2(*positions[:3]))
+    print(frequencies(*positions[:3]))
     print(likelihoods(*positions[:3]))
     print('-----')
     print(positions[:4])
-    print(frequencies2(*positions[:4]))
+    print(frequencies(*positions[:4]))
     print(likelihoods(*positions[:4]))
 
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))
 
+"""

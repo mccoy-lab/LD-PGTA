@@ -8,7 +8,7 @@ Daniel Ariad (daniel@ariad.org)
 Nov 18, 2020
 
 """
-import time, re
+import time, re, pickle
 
 def make_obs_tab_demo(bam_filename,chr_id,sp):
     from MAKE_OBS_TAB import retrive_bases
@@ -117,29 +117,27 @@ if __name__ == "__main__":
                     {'filename': '11944FA-AR452_13.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
                     {'filename': '11511FA-AP91V_8.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]}]
     
-    db_TEST = [{'filename': '15040FA-J2NP3_13.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]}]
-    db_TEST2 = [#{'filename': '11433FA-ALNVD_3.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)] },
-                #{'filename': '14799FA-CRGVJ_8.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)] },
-                #{'filename': '14286FA-CFHN7_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)] },
-                #{'filename': '13935FA-C7R7Y_28.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)] },
-                #{'filename': '13948FA-C7R7Y_30.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)] },
-                {'filename': '13935FA-C7R7Y_35.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)] }]
-    db_TEST3 = [{'filename': '12789FA-AWL1L_7.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)]}]
-    db_TEST4 = [{'filename': '10534FA-AFFRU_23.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)] },
-                {'filename': '10568FA-AFFAN_4.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)] },
-                {'filename': '10846FA-AFPAB_2.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)] },
-                {'filename': '13782FA-C6KKV_20.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)] },
-                {'filename': '10967FA-AJ470_F6.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)] }]
-
-
-    for case in db_TEST4:
-        bam_filename = case['filename']
-        sp = case['sp']
-        for chr_num in case['chr_num']:
-            chr_id = f'chr{chr_num:d}'
-            make_obs_tab_demo(case['filename'],chr_id,sp)
-            obs_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1]) + f'.{chr_id:s}.obs.p'
-            aneuploidy_test_demo(obs_filename, chr_id,sp)  
+    db_AAAAA = [{'filename': '12751FA-AWL31_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]}]
+    
+    with open('/home/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females.p', 'rb') as f:
+        db_TEST = pickle.load(f)
+   
+    ###DONE = []
+    for case in db_TEST:
+        if case not in DONE:
+            bam_filename = case['filename']
+            print(case['filename'])
+            sp = case['sp']
+            try:
+                for chr_num in case['chr_num']:
+                    chr_id = f'chr{chr_num:d}'
+                    make_obs_tab_demo(case['filename'],chr_id,sp)
+                    obs_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1]) + f'.{chr_id:s}.obs.p'
+                    aneuploidy_test_demo(obs_filename, chr_id,sp)
+            except:
+                continue
+        DONE.append(case)
+                
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")
     
