@@ -90,11 +90,11 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 
 
 if __name__ == "__main__":
-    depth=0.05
+    depth=0.1
     sp='EUR'
     chr_id='chr21'
     read_length = 35
-    min_reads,max_reads = 3,8
+    min_reads,max_reads = 3,14
     main(depth,sp,chr_id,read_length,min_reads,max_reads)
     #for i in range(20):
     #    runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))

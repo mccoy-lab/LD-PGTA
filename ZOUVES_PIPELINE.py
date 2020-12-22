@@ -123,7 +123,9 @@ if __name__ == "__main__":
         db_TEST = pickle.load(f)
    
     DONE = []
-    for case in db_TEST:
+    ERRORS = []
+    output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/'
+    for case in db_DIPLOID:
         if case not in DONE:
             bam_filename = case['filename']
             print(case['filename'])
@@ -131,21 +133,27 @@ if __name__ == "__main__":
             try:
                 for chr_num in case['chr_num']:
                     chr_id = f'chr{chr_num:d}'
-                    obs_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1]) + f'.{chr_id:s}.obs.p'
-                    if not os.path.isfile(obs_filename): 
-                        make_obs_tab_demo(case['filename'],chr_id,sp)
+                    obs_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.obs.p'
+                    LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
+                    
+                    if not os.path.isfile(output_dir+obs_filename): 
+                        make_obs_tab_demo(case['filename'],chr_id, sp)
                     else:
                         print(f'{obs_filename:s} already exists.')
-                    LLR_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1]) + f'.{chr_id:s}.LLR.p'
-                    if not os.path.isfile(LLR_filename): 
-                        aneuploidy_test_demo(obs_filename, chr_id,sp)
+                    
+                    if not os.path.isfile(output_dir+LLR_filename): 
+                        aneuploidy_test_demo(obs_filename, chr_id, sp)
                     else:
                         print(f'{LLR_filename:s} already exists.')
-            except:
-                print('error!')
+            except Exception as error: 
+                print('ERROR: ', error)
+                if os.path.isfile(output_dir+obs_filename): os.remove(output_dir+obs_filename)
+                if os.path.isfile(output_dir+LLR_filename): os.remove(output_dir+LLR_filename)
+                ERRORS.append((bam_filename.strip().split('/')[-1],error))
                 continue
         DONE.append(case)
-                
+
+    print(ERRORS)                
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")
     

@@ -15,9 +15,9 @@ import collections, time, pickle, argparse, re, sys, random, inspect, os
 from MAKE_OBS_TAB import read_impute2
 from LIKELIHOODS_CALCULATOR import wrapper_of_likelihoods 
 
-from itertools import product, repeat, starmap
+from itertools import product, starmap
 from functools import reduce
-from operator import not_, and_, itemgetter
+from operator import not_, and_
 from statistics import mean, variance, pstdev
 from math import log
 
@@ -38,14 +38,14 @@ except:
 
 def mean_and_var(data):
     """ Calculates the mean and variance. """
-    m = mean(filter(None,data))
-    var = variance(filter(None,data), xbar=m)
+    m = mean(data)
+    var = variance(data, xbar=m)
     return m, var 
 
 def mean_and_std(data):
     """ Calculates the mean and population standard deviation. """
-    m = mean(filter(None,data))
-    std = pstdev(filter(None,data), mu=m)
+    m = mean(data)
+    std = pstdev(data, mu=m)
     return m, std 
 
 def summarize(M,V):
@@ -109,31 +109,6 @@ def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF):
 
     return score_dict
 
-def pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads):
-    """ Draws up to max_reads reads from a given genomic window. In addition,
-        when the number of reads in a given genomic window is less than the
-        minimal requirment then no reads are picked."""
-
-    if len(read_IDs)<max(3,min_reads):
-        haplotypes = None
-    else:
-        drawn_read_IDs = random.sample(read_IDs, min(len(read_IDs)-1,max_reads))
-        haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
-    
-    return haplotypes
-
-def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
-    """ Ensures that the number of subsamples is not larger than the number
-    of unique subsamples. """ 
-    
-    if  min_reads <= num_of_reads > max_reads :
-        eff_subsamples = min(comb(num_of_reads,max_reads),subsamples)
-    elif min_reads <= num_of_reads <= max_reads:
-        eff_subsamples = min(num_of_reads,subsamples)
-    else:
-        eff_subsamples = 0
-    return eff_subsamples
-        
 def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score):
     """ Returns an iterator over the genomic windows together with read IDs of
         the reads that overlap with SNPs in the genomic window. Only reads with
@@ -163,6 +138,50 @@ def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_rea
                 yield ((a,b-1), readIDs_in_window)
                 a, b, readIDs_in_window = b, b+window_size, set() 
 
+def pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads):
+    """ Draws up to max_reads reads from a given genomic window. """
+
+    drawn_read_IDs = random.sample(read_IDs, min(len(read_IDs)-1,max_reads))
+    haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
+    
+    return haplotypes
+
+def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
+    """ Ensures that the number of subsamples is not larger than the number
+    of unique subsamples. """ 
+    
+    if  min_reads <= num_of_reads > max_reads :
+        eff_subsamples = min(comb(num_of_reads,max_reads),subsamples)
+    elif min_reads <= num_of_reads <= max_reads:
+        eff_subsamples = min(num_of_reads,subsamples)
+    else:
+        eff_subsamples = 0
+    return eff_subsamples
+
+def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF):
+    """ Applies a bootstrap approach in which: (i) the resample size is smaller
+    than the sample size and (ii) resampling is done without replacement. """
+    
+    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
+
+    reads_dict = build_reads_dict(obs_tab,leg_tab)
+    score_dict = build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF)
+    windows_dict = dict(iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score))       
+    
+    get_likelihoods = wrapper_of_likelihoods(obs_tab, leg_tab, hap_tab, model_filename)
+    
+    likelihoods = {}
+    
+    min_reads == max(min_reads,3) # Due to the bootstrap approach, min_reads must be at least 3.    
+    for k,(window,read_IDs) in enumerate(windows_dict.items()):    
+        sys.stdout.write(f"\r[{'=' * (33*(k+1)//len(windows_dict)):{33}s}] {int(100*(k+1)/len(windows_dict))}%"); sys.stdout.flush()
+        
+        effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
+        if effN>0:
+            likelihoods[window] = tuple(get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads)) for _ in range(effN))
+    
+    return likelihoods, windows_dict
+        
 def statistics(likelihoods,windows_dict):
     window_size_mean, window_size_std = mean_and_std([j-i for (i,j) in likelihoods])    
     reads_mean, reads_std = mean_and_std([len(read_IDs) for window,read_IDs in windows_dict.items() if window in likelihoods])
@@ -211,8 +230,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     associated log-likelihood BPH/SPH ratio (LLR)."""
 
     time0 = time.time()
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
-
+    
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
@@ -220,24 +238,10 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')
 
-    reads_dict = build_reads_dict(obs_tab,leg_tab)
-    score_dict = build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF)
-    windows_dict = dict(iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score))       
+    path = os.path.realpath(__file__).rpartition('/')[0]  + '/MODELS/'
+    model_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
     
-    filename = inspect.getframeinfo(inspect.currentframe()).filename
-    path = os.path.dirname(os.path.abspath(filename))
-    model = kwargs.get('model', path + '/MODELS/' + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
-    get_likelihoods = wrapper_of_likelihoods(obs_tab, leg_tab, hap_tab, model)
-    
-    likelihoods = {}
-        
-    for k,(window,read_IDs) in enumerate(windows_dict.items()):    
-        sys.stdout.write(f"\r[{'=' * (33*(k+1)//len(windows_dict)):{33}s}] {int(100*(k+1)/len(windows_dict))}%")
-        sys.stdout.flush()
-        
-        effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
-        if effN>0:
-            likelihoods[window] = tuple(get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads)) for _ in range(effN))
+    likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF)
 
     info.update({'window_size': window_size,
                  'subsamples': subsamples,
