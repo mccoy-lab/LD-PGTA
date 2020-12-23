@@ -125,7 +125,7 @@ if __name__ == "__main__":
     DONE = []
     ERRORS = []
     output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/'
-    for case in db_DIPLOID:
+    for case in db_TEST:
         if case not in DONE:
             bam_filename = case['filename']
             print(case['filename'])
@@ -151,7 +151,7 @@ if __name__ == "__main__":
                 if os.path.isfile(output_dir+LLR_filename): os.remove(output_dir+LLR_filename)
                 ERRORS.append((bam_filename.strip().split('/')[-1],error))
                 continue
-        DONE.append(case)
+        DONE.append(bam_filename.strip().split('/')[-1])
 
     print(ERRORS)                
 else:

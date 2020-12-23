@@ -2,13 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 ANEUPLOIDY_TEST
-Builds a dictionary that lists genomic windows that contain at least two reads
-and gives the associated log-likelihood BPH/SPH ratio (LLR).
+
+Builds a dictionary that lists genomic windows that contain at least three
+reads and gives the likelihoods to observese these reads under various 
+typpes of aneuploidy, namely, monosomy, disomy, SPH and BPH.
+
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
 Daniel Ariad (daniel@ariad.org)
-Nov 2, 2020
+Dec 22, 2020
 """
 
 import collections, time, pickle, argparse, re, sys, random, inspect, os
@@ -33,7 +36,7 @@ except:
         for t in range(min(k, n-k)):
             b *= n
             b //= t+1
-            n -= 1
+            n -= 1    
         return b
 
 def mean_and_var(data):
@@ -71,18 +74,18 @@ def LLR(y,x):
 
 def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
-        return int(''.join('1' if i else '0' for i in x), 2)
+        return int(''.join('1' if i else '0' for i in x), 2) 
     
 def build_reads_dict(obs_tab,leg_tab):
     """ Returns a dictionary that lists read IDs of reads that overlap with
         SNPs and gives the alleles in each read. """
 
     reads = collections.defaultdict(list)
-
+    
     for (pos, ind, read_id, base) in obs_tab:
         if base in leg_tab[ind][2:]:
             reads[read_id].append((pos,base))
-
+            
     return reads
 
 def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF):
@@ -156,6 +159,7 @@ def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
         eff_subsamples = min(num_of_reads,subsamples)
     else:
         eff_subsamples = 0
+        
     return eff_subsamples
 
 def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF):
@@ -183,6 +187,9 @@ def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,
     return likelihoods, windows_dict
         
 def statistics(likelihoods,windows_dict):
+    """ Compares likelihoods of different aneuploidy scenarios and extracts
+    useful information about the genmoic windows. """
+    
     window_size_mean, window_size_std = mean_and_std([j-i for (i,j) in likelihoods])    
     reads_mean, reads_std = mean_and_std([len(read_IDs) for window,read_IDs in windows_dict.items() if window in likelihoods])
     num_of_windows = len(likelihoods)
