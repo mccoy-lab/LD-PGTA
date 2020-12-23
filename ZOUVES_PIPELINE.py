@@ -17,7 +17,7 @@ def make_obs_tab_demo(bam_filename,chr_id,sp):
             'legend_filename': f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
             'max_depth': 0,
             'min_bq': 30,
-            'min_mq': 30,
+            'min_mq': 30 if 'chrX'!=chr_id!='chrY' else 0,
             'handle_multiple_observations': 'all',
             'fasta_filename': '',#'../genome_ref_hg38/hg38.fa', 
             'output_filename': ''}
@@ -117,7 +117,35 @@ if __name__ == "__main__":
                     {'filename': '11944FA-AR452_13.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
                     {'filename': '11511FA-AP91V_8.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]}]
     
-    db_AAAAA = [{'filename': '12751FA-AWL31_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]}]
+    db_HAPLOIDS = [{'filename': '12751FA-AWL31_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12459FA-AU3UR_8.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14338FA-CFHJ8_14.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14715FA-CTGFC_21.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14080FA-CBRH3_24.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14260FA-CFPGD_19.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14451FA-CFN45_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12751FA-B5Y5C_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '11968FA-AP1KV_6.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13885FA-C6JPJ_10.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12459FA-ARHR1_1.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13402FA-BK37C_22.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12459FA-AU3UM_12.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14417FA-CFMY3_11.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12456FA-ARHR1_16.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13474FA-BRCNL_11.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13335FA-BK7V7_16.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13198FA-BK2FN_12.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '11143FA-AK9EU_26.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13327FA-BK7V7_21.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12150FA-AW823_LB-8-AMP-17.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13213FA-BK2FN_20.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '11968FA-AP1KV_6.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': 'RES-11733-AW727_LB-8N-AMP16.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']}]
+    
+    
+    db_Ydisomy = [{'filename': '12663FA-B8DPD_11.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                  {'filename': '13068FA-BK2G5_23.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)]+['X','Y']},
+                  {'filename': '12405FA-AU3TR_3.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']}]
     
     with open('/home/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females.p', 'rb') as f:
         db_TEST = pickle.load(f)
@@ -125,14 +153,14 @@ if __name__ == "__main__":
     DONE = []
     ERRORS = []
     output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/'
-    for case in db_TEST:
+    for case in db_HAPLOIDS:
         if case not in DONE:
             bam_filename = case['filename']
             print(case['filename'])
             sp = case['sp']
             try:
                 for chr_num in case['chr_num']:
-                    chr_id = f'chr{chr_num:d}'
+                    chr_id = 'chr'+str(chr_num)
                     obs_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.obs.p'
                     LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
                     

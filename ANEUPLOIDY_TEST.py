@@ -14,7 +14,7 @@ Daniel Ariad (daniel@ariad.org)
 Dec 22, 2020
 """
 
-import collections, time, pickle, argparse, re, sys, random, inspect, os
+import collections, time, pickle, argparse, re, sys, random, os
 from MAKE_OBS_TAB import read_impute2
 from LIKELIHOODS_CALCULATOR import wrapper_of_likelihoods 
 
@@ -23,6 +23,14 @@ from functools import reduce
 from operator import not_, and_
 from statistics import mean, variance, pstdev
 from math import log
+
+try:
+    from gmpy2 import popcount
+except:
+    print('caution: cound not import the gmpy2 module.')
+    def popcount(x):
+        """ Counts non-zero bits in positive integer. """
+        return bin(x).count('1')
 
 try:
     from math import comb
@@ -107,7 +115,7 @@ def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF):
     score_dict = dict()
     for read_id in reads_dict:
         haplotypes = (hap_dict[pos] for pos,base in reads_dict[read_id] if pos in hap_dict)
-        score_dict[read_id] = sum(min_HF <= bin(reduce(and_,hap)).count('1')/N <= (1-min_HF)
+        score_dict[read_id] = sum(min_HF <= popcount(reduce(and_,hap))/N <= (1-min_HF)
                                   for hap in product(*haplotypes) if len(hap)!=0)
 
     return score_dict
@@ -241,6 +249,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
+        
+    if len(obs_tab)==0: raise Exception('Error: obs_tab is empty. This might indicate that a pair of homologs are missing.')
         
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')

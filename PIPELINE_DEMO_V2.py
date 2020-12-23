@@ -50,7 +50,7 @@ def make_obs_tab_demo(bam_filename,chr_id,sp):
             'legend_filename': f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
             'max_depth': 0,
             'min_bq': 30,
-            'min_mq': 30,
+            'min_mq': 30 if 'chrX'!=chr_id!='chrY' else 0,
             'handle_multiple_observations': 'all',
             'fasta_filename': '',#'../genome_ref_hg38/hg38.fa', 
             'output_filename': ''}
@@ -60,8 +60,8 @@ def make_obs_tab_demo(bam_filename,chr_id,sp):
     return result
 
 if __name__ == "__main__":
-    make_obs_tab_demo('11522FA-AP925_3.bam', 'chr11', 'SAS')
-    aneuploidy_test_demo('11522FA-AP925_3.chr11.obs.p', 'chr11', 'SAS')
+    make_obs_tab_demo('11968FA-AP1KV_6.bam', 'chrX', 'SAS')
+    aneuploidy_test_demo('11968FA-AP1KV_6.chrX.obs.p', 'chrX', 'SAS')
     pass
     
     

@@ -6,7 +6,7 @@ Created on Sat Dec 19 14:18:44 2020
 @author: ariad
 """
 
-import pickle, statistics
+import pickle, statistics, re
 from statistics import mean, variance
 from itertools import starmap
 from math import log
@@ -27,8 +27,8 @@ def std_of_mean(variances):
 
 def mean_and_var(data):
     """ Calculates the mean and variance. """
-    m = mean(filter(None,data))
-    var = variance(filter(None,data), xbar=m)
+    m = mean(data)
+    var = variance(data, xbar=m)
     return m, var 
 
 def LLR(y,x):
@@ -254,6 +254,32 @@ def panel_plot(DATA,N,**kwargs):
        plt.show()    
 
 if __name__ == "__main__":
+    db_HAPLOIDS = [{'filename': '12751FA-AWL31_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   #{'filename': '12459FA-AU3UR_8.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14338FA-CFHJ8_14.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14715FA-CTGFC_21.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14080FA-CBRH3_24.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14260FA-CFPGD_19.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14451FA-CFN45_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12751FA-B5Y5C_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '11968FA-AP1KV_6.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13885FA-C6JPJ_10.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12459FA-ARHR1_1.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13402FA-BK37C_22.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12459FA-AU3UM_12.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '14417FA-CFMY3_11.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12456FA-ARHR1_16.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13474FA-BRCNL_11.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13335FA-BK7V7_16.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13198FA-BK2FN_12.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '11143FA-AK9EU_26.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13327FA-BK7V7_21.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '12150FA-AW823_LB-8-AMP-17.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '13213FA-BK2FN_20.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': '11968FA-AP1KV_6.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
+                   {'filename': 'RES-11733-AW727_LB-8N-AMP16.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']}]
+    
+    
     #for i in range(1,23):
         #likelihoods, info = load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr{i:d}.LLR.p')
         #bar_plot(info,('BPH','SPH'),N=10)
@@ -264,13 +290,26 @@ if __name__ == "__main__":
     #likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr7.LLR.p')
     #triple_plot(likelihoods,info,N=10)
     
-    bob = ['10523FA-AFFRU_3', '10523FA-AFFRU_4', '10560FA-AFFPH_3', '10675FA-BJNTV_2', '10675FA-BJNTV_3', '10675FA-BJNTV_4', '10675FA-BJNTV_5', '10686FA-AFFPE_9', '10846FA-AFPAB_3', '10871FA-AJ3U4_12', '10951FA-AJ3WW_3', '10969FA-AJ470_2', '11522FA-AP925_3', '11578FA-AR3WC_3', '11598FA-AP923_9', '12662FA-B5Y5R_1', '12662FA-B5Y5R_3', '12699FA-B8F4K_4', '12789FA-AWL1L_12', '12962FA-BK2G8_6', '14529FA-CM2GK_2', 'GP-CWFRM_8', 'MZ-AFFC4_1', '13068FA-BK2G5_23', '10675FA-BJNTV_3c', 'MZ-AFFC4_2', '10964FA-AJ470_1', '13121FA-BK23M_23', '13086FA-BK2G5_6', '10668FA-AFDL2_2', '11550FA-AP91V_5', '10722FA-AFFCT_3a', '12055FA-ANTJ1_15', '12454FA-AW7BB_2', '10967FA-AJ470_F10', '11946FA-AR452_9', '11550FA-AP91V_4', '13744FA-C4RPY_2', '13086FA-BK2G5_8', '10658FA-AFDL2_F10', '14220FA-CFP2Y_1', '12446FA-AU3UC_29', '14212FA-CFP2Y_5', '11946FA-AR452_1', '11944FA-AR452_13', '11511FA-AP91V_8']
-    for i in bob:
-        for j in [11,17,19,20,21,22]:
+    #bob = ['10523FA-AFFRU_3', '10523FA-AFFRU_4', '10560FA-AFFPH_3', '10675FA-BJNTV_2', '10675FA-BJNTV_3', '10675FA-BJNTV_4', '10675FA-BJNTV_5', '10686FA-AFFPE_9', '10846FA-AFPAB_3', '10871FA-AJ3U4_12', '10951FA-AJ3WW_3', '10969FA-AJ470_2', '11522FA-AP925_3', '11578FA-AR3WC_3', '11598FA-AP923_9', '12662FA-B5Y5R_1', '12662FA-B5Y5R_3', '12699FA-B8F4K_4', '12789FA-AWL1L_12', '12962FA-BK2G8_6', '14529FA-CM2GK_2', 'GP-CWFRM_8', 'MZ-AFFC4_1', '13068FA-BK2G5_23', '10675FA-BJNTV_3c', 'MZ-AFFC4_2', '10964FA-AJ470_1', '13121FA-BK23M_23', '13086FA-BK2G5_6', '10668FA-AFDL2_2', '11550FA-AP91V_5', '10722FA-AFFCT_3a', '12055FA-ANTJ1_15', '12454FA-AW7BB_2', '10967FA-AJ470_F10', '11946FA-AR452_9', '11550FA-AP91V_4', '13744FA-C4RPY_2', '13086FA-BK2G5_8', '10658FA-AFDL2_F10', '14220FA-CFP2Y_1', '12446FA-AU3UC_29', '14212FA-CFP2Y_5', '11946FA-AR452_1', '11944FA-AR452_13', '11511FA-AP91V_8']
+    #with open('/home/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females.p', 'rb') as f:
+    #    db_TEST = pickle.load(f)
+    
+    ERRORS = []
+    HAPLOIDS = []
+    for case in db_HAPLOIDS:
+        buffer = []
+        bam_filename = case['filename']
+        for chr_num in case['chr_num']:
             try:
-                
-                likelihoods, info = load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/{i:s}.chr{j:d}.LLR.p')
-                show_info(f'{i:s}.chr{j:d}.LLR.p',info,('SPH','MONOSOMY'))
-            except:
-                print(f'{i:s}.chr{j:d}.LLR.p')
+                chr_id = 'chr'+ str(chr_num)
+                LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
+                likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/' + LLR_filename)
+                show_info(LLR_filename,info,('SPH','MONOSOMY'))
+                if chr_id=='chr1' and info['statistics']['num_of_windows']<50: break
+                buffer.append(info['statistics']['LLRs_per_chromosome'][('SPH','MONOSOMY')]['mean'])
+            except Exception as error: 
+                print(f'ERROR: {LLR_filename:s} ---', error)
+                ERRORS.append((bam_filename.strip().split('/')[-1],error))
                 continue
+        if sum(i<0 for i in buffer)>10:
+            HAPLOIDS.append(case)

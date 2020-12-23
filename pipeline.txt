@@ -124,10 +124,12 @@ The arguments that were used:
 
 Then, we convert from BCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT:
 
-`bcftools convert chr21_EUR_panel.bcf --haplegendsample IMPUTE2`\
+`bcftools convert chr21_EUR_panel.bcf --haplegendsample chr21_EUR_panel`\
 `gunzip chr21_EUR_panel.legend.gz`\
 `gunzip chr21_EUR_panel.hap.gz`\
 `rm chr21_EUR_panel.bcf`
+
+where `--haplegendsample prefix` _converts from BCF to hap/legend/sample format used by IMPUTE2. The columns of the .legend file are ID,POS,REF,ALT. Moreover, in order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The columns of the .sample file are population, group and sex._
 
 # Build a table of observed bases at SNP positions #
 <a name="obs_tab"/>
@@ -154,7 +156,7 @@ where the first argument is the filename of the BAM file, containing reads mappe
 `--output-filename <FILENAME>` _Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p ._
 
 
-* In order to use the script, the Python module Pysam must be present. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
+* In order to use the script, the Python module Pysam (v0.15.4) must be present. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
 
 # Build a table of LLRs at genomic windows along a chromosome #
 <a name="aneuploidy_test"/>
