@@ -250,7 +250,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
         obs_tab = pickle.load(f)
         info = pickle.load(f)
         
-    if len(obs_tab)==0: raise Exception('Error: obs_tab is empty. This might indicate that a pair of homologs are missing.')
+    if not len(obs_tab): raise Exception('Error: obs_tab is empty.')
         
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')
@@ -260,6 +260,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     
     likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF)
 
+    if not len(likelihoods): raise Exception('Error: likelihoods is empty.')
+     
     info.update({'window_size': window_size,
                  'subsamples': subsamples,
                  'offset': offset,
