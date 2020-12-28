@@ -83,7 +83,23 @@ def LLR(y,x):
 def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
         return int(''.join('1' if i else '0' for i in x), 2) 
+
+def mismatches(obs_tab,leg_tab):
+    """ Calculates the fraction of observed alleles at known SNP positions that
+    mismatched the legend. """ 
     
+    mismatches = 0    
+    if not len(obs_tab): raise Exception('error: obs_tab is empty.')
+    for (pos, ind, read_id, base) in obs_tab:
+        chr_id, pos2, ref, alt = leg_tab[ind]
+        if pos!=pos2:
+            raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')
+        elif base!=alt and base!=ref:
+            mismatches += 1
+    result = mismatches/len(obs_tab)
+    
+    return result
+        
 def build_reads_dict(obs_tab,leg_tab):
     """ Returns a dictionary that lists read IDs of reads that overlap with
         SNPs and gives the alleles in each read. """
@@ -96,7 +112,7 @@ def build_reads_dict(obs_tab,leg_tab):
             
     return reads
 
-def build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF):
+def build_score_dict(reads_dict,obs_tab,hap_tab,min_HF):
     """ Returns a dicitonary lists read_IDs and gives their score. The scoring
     algorithm scores each read according to the number of differet haplotypes
     that the reference panel supports at the chromosomal region that overlaps
@@ -177,7 +193,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
-    score_dict = build_score_dict(reads_dict,obs_tab,leg_tab,hap_tab,min_HF)
+    score_dict = build_score_dict(reads_dict,obs_tab,hap_tab,min_HF)
     windows_dict = dict(iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score))       
     
     get_likelihoods = wrapper_of_likelihoods(obs_tab, leg_tab, hap_tab, model_filename)
@@ -194,7 +210,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,
     
     return likelihoods, windows_dict
         
-def statistics(likelihoods,windows_dict):
+def statistics(likelihoods,windows_dict,mismatched_alleles):
     """ Compares likelihoods of different aneuploidy scenarios and extracts
     useful information about the genmoic windows. """
     
@@ -215,7 +231,8 @@ def statistics(likelihoods,windows_dict):
               'window_size_mean': window_size_mean,
               'window_size_std': window_size_std,
               'LLRs_per_genomic_window': LLRs_per_genomic_window,
-              'LLRs_per_chromosome': LLRs_per_chromosome}
+              'LLRs_per_chromosome': LLRs_per_chromosome,
+              'mismatched_alleles': mismatched_alleles}
     
     return result
 
@@ -250,11 +267,11 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
         obs_tab = pickle.load(f)
         info = pickle.load(f)
         
-    if not len(obs_tab): raise Exception('Error: obs_tab is empty.')
-        
-    hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')
-
+    hap_tab = read_impute2(hap_filename, filetype='hap')
+    
+    mismatched_alleles = mismatches(obs_tab,leg_tab)
+    
     path = os.path.realpath(__file__).rpartition('/')[0]  + '/MODELS/'
     model_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
     
@@ -269,7 +286,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
                  'max_reads': max_reads,
                  'minimal_score': minimal_score,
                  'min_HF': min_HF,
-                 'statistics': statistics(likelihoods,windows_dict),
+                 'statistics': statistics(likelihoods,windows_dict,mismatched_alleles),
                  'runtime': time.time()-time0})
     
     if output_filename!=None:
