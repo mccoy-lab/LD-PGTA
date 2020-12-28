@@ -10,6 +10,8 @@ import pickle, statistics, re
 from statistics import mean, variance
 from itertools import starmap
 from math import log
+from collections import Counter
+
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
     #The data of chromosome length was taken from https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh38
@@ -79,7 +81,7 @@ def confidence(LLR_stat,N,z):
     y = lambda p,q: statistics.mean(M[p:q])
     e = lambda p,q: z * std_of_mean(V[p:q]) 
     c = lambda p,q: [u<0 for u in M[p:q]].count(True) / (q-p)
-    X,Y,E,C = ([func(i(j),f(j)) for j in range(N)] for func in (x,y,e,c))
+    X,Y,E,C = ([func(i(j),f(j)) for j in range(N) if f(j)-i(j)>0] for func in (x,y,e,c))
 
     return X,Y,E,C
 
@@ -254,31 +256,134 @@ def panel_plot(DATA,N,**kwargs):
        plt.show()    
 
 if __name__ == "__main__":
-    db_HAPLOIDS = [{'filename': '12751FA-AWL31_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   #{'filename': '12459FA-AU3UR_8.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '14338FA-CFHJ8_14.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '14715FA-CTGFC_21.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '14080FA-CBRH3_24.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '14260FA-CFPGD_19.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '14451FA-CFN45_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '12751FA-B5Y5C_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '11968FA-AP1KV_6.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '13885FA-C6JPJ_10.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '12459FA-ARHR1_1.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '13402FA-BK37C_22.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '12459FA-AU3UM_12.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '14417FA-CFMY3_11.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '12456FA-ARHR1_16.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '13474FA-BRCNL_11.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '13335FA-BK7V7_16.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '13198FA-BK2FN_12.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '11143FA-AK9EU_26.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '13327FA-BK7V7_21.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '12150FA-AW823_LB-8-AMP-17.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '13213FA-BK2FN_20.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': '11968FA-AP1KV_6.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X','Y']},
-                   {'filename': 'RES-11733-AW727_LB-8N-AMP16.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X','Y']}]
+    db_HAPLOIDS = [{'filename': '12751FA-AWL31_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12459FA-AU3UR_8.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '14338FA-CFHJ8_14.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '14715FA-CTGFC_21.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '14080FA-CBRH3_24.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '14260FA-CFPGD_19.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '14451FA-CFN45_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '12751FA-B5Y5C_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '11968FA-AP1KV_6.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '13885FA-C6JPJ_10.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12459FA-ARHR1_1.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13402FA-BK37C_22.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '12459FA-AU3UM_12.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '14417FA-CFMY3_11.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12456FA-ARHR1_16.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13474FA-BRCNL_11.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '13335FA-BK7V7_16.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '13198FA-BK2FN_12.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '11143FA-AK9EU_26.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '13327FA-BK7V7_21.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': '12150FA-AW823_LB-8-AMP-17.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13213FA-BK2FN_20.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13213FA-BK2FN_2.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13297FA-B6TD2_12.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '11946FA-AR48V_9.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   {'filename': 'RES-11733-AW727_LB-8N-AMP16.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13578FA-BRD32_12.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '11946FA-AR48V_3.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13597FA-C476J_35.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13659FA-BJKF9_10.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12073FA-ANTJ1_4.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12394FA-AU3TP_2.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '13297FA-B6TD2_17.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12459FA-AU3UM_8.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '11257FA-ANDVJ_11.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '11826FA-AR21R_28.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12155FA-AW829_LB-7-AMP17.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12149FA-AW823_LB-16-AMP17.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']},
+                   #{'filename': '12150FA-AW823_LB-8-AMP-17.bam', 'sp': 'EUR','chr_num': [*range(1,23)]+['X']}
+                   ]
     
+    db_Ydisomy = [{'filename': '12663FA-B8DPD_11.bam', 'sp': 'SAS', 'chr_num': [*range(1,23)]+['X']},
+                  {'filename': '13068FA-BK2G5_23.bam', 'sp': 'AMR', 'chr_num': [*range(1,23)]+['X']},
+                  {'filename': '12405FA-AU3TR_3.bam', 'sp': 'EUR', 'chr_num': [*range(1,23)]+['X']}]
+    
+    db_DIPLOID = [  {'filename': '10523FA-AFFRU_3.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10523FA-AFFRU_4.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10560FA-AFFPH_3.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10675FA-BJNTV_2.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10675FA-BJNTV_3.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10675FA-BJNTV_4.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10675FA-BJNTV_5.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10686FA-AFFPE_9.bam', 'sp': 'SAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10846FA-AFPAB_3.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10871FA-AJ3U4_12.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10951FA-AJ3WW_3.bam', 'sp': 'SAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10969FA-AJ470_2.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11522FA-AP925_3.bam', 'sp': 'SAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11578FA-AR3WC_3.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11598FA-AP923_9.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '12662FA-B5Y5R_1.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '12662FA-B5Y5R_3.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '12699FA-B8F4K_4.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '12789FA-AWL1L_12.bam', 'sp': 'AFR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '12962FA-BK2G8_6.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '14529FA-CM2GK_2.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': 'GP-CWFRM_8.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': 'MZ-AFFC4_1.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '13068FA-BK2G5_23.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10675FA-BJNTV_3c.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': 'MZ-AFFC4_2.bam', 'sp': 'SAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10964FA-AJ470_1.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '13121FA-BK23M_23.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '13086FA-BK2G5_6.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10668FA-AFDL2_2.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11550FA-AP91V_5.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10722FA-AFFCT_3a.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '12055FA-ANTJ1_15.bam', 'sp': 'SAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '12454FA-AW7BB_2.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10967FA-AJ470_F10.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11946FA-AR452_9.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11550FA-AP91V_4.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '13744FA-C4RPY_2.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '13086FA-BK2G5_8.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '10658FA-AFDL2_F10.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '14220FA-CFP2Y_1.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '12446FA-AU3UC_29.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '14212FA-CFP2Y_5.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11946FA-AR452_1.bam', 'sp': 'EAS', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11944FA-AR452_13.bam', 'sp': 'EUR', 'chr_num': [11,17,19,20,21,22]},
+                {'filename': '11511FA-AP91V_8.bam', 'sp': 'AMR', 'chr_num': [11,17,19,20,21,22]}]
+    
+    db_DIPLOID_noisy =  [{'filename': '10469FA-A9DBT_5.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '10560FA-AFFPH_5.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11095FA-AK9FG_5.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11422FA-APA42_4.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11517FA-AP925_2.bam', 'sp': 'SAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11594FA-AP923_15.bam', 'sp': 'AMR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '12853FA-AWKB8_1.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '12862FA-AWKB8_1.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '14529FA-CM2GK_3.bam', 'sp': 'AMR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '14529FA-CM2GK_4.bam', 'sp': 'AMR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '14953FA-CWLHB_6.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '14974FA-CWFV7_13.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '14974FA-CWFV7_14.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '14992FA-CWLYV_1.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '15022FA-J2MJB_11.bam', 'sp': 'AMR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '15042FA-J2JJH_4.bam', 'sp': 'AMR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': 'GP-CWFG9_1.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': 'GP-CWGJL_3.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': 'GP-CWGJL_6.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11946FA-AR452_7.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': 'RES-11892-AU3TL_5T.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '12446FA-AU3UC_32.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '10722FA-AFFCT_5.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '13068FA-BK2G5_27.bam', 'sp': 'AMR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11944FA-AR452_15.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11557FA-AP2W6_4.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '12446FA-AU3UC_19.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11557FA-AP2W6_1.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)}, 
+                     {'filename': '11143FA-AL3GC_27.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11494FA-AP9FW_6.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '14217FA-CFP2Y_3.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '11180FA-AK9G0_8.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '13126FA-B6RLR_12944FA-1.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '13948FA-C7R7Y_23.bam', 'sp': 'EUR', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '12881FA-AWK94_5.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)},
+                     {'filename': '12446FA-AU3UC_28.bam', 'sp': 'EAS', 'chr_num': (1, 2, 3, 11, 17, 21)}]
     
     #for i in range(1,23):
         #likelihoods, info = load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr{i:d}.LLR.p')
@@ -291,12 +396,16 @@ if __name__ == "__main__":
     #triple_plot(likelihoods,info,N=10)
     
     #bob = ['10523FA-AFFRU_3', '10523FA-AFFRU_4', '10560FA-AFFPH_3', '10675FA-BJNTV_2', '10675FA-BJNTV_3', '10675FA-BJNTV_4', '10675FA-BJNTV_5', '10686FA-AFFPE_9', '10846FA-AFPAB_3', '10871FA-AJ3U4_12', '10951FA-AJ3WW_3', '10969FA-AJ470_2', '11522FA-AP925_3', '11578FA-AR3WC_3', '11598FA-AP923_9', '12662FA-B5Y5R_1', '12662FA-B5Y5R_3', '12699FA-B8F4K_4', '12789FA-AWL1L_12', '12962FA-BK2G8_6', '14529FA-CM2GK_2', 'GP-CWFRM_8', 'MZ-AFFC4_1', '13068FA-BK2G5_23', '10675FA-BJNTV_3c', 'MZ-AFFC4_2', '10964FA-AJ470_1', '13121FA-BK23M_23', '13086FA-BK2G5_6', '10668FA-AFDL2_2', '11550FA-AP91V_5', '10722FA-AFFCT_3a', '12055FA-ANTJ1_15', '12454FA-AW7BB_2', '10967FA-AJ470_F10', '11946FA-AR452_9', '11550FA-AP91V_4', '13744FA-C4RPY_2', '13086FA-BK2G5_8', '10658FA-AFDL2_F10', '14220FA-CFP2Y_1', '12446FA-AU3UC_29', '14212FA-CFP2Y_5', '11946FA-AR452_1', '11944FA-AR452_13', '11511FA-AP91V_8']
-    #with open('/home/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females.p', 'rb') as f:
-    #    db_TEST = pickle.load(f)
+    
+    
+    with open('/home/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females.p', 'rb') as f:
+        db_TEST = pickle.load(f)
+        #db_TEST = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR']K = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR']
     
     ERRORS = []
     HAPLOIDS = []
-    for case in db_HAPLOIDS:
+    TRIPLOIDS = []
+    for case in db_DIPLOID:
         buffer = []
         bam_filename = case['filename']
         for chr_num in case['chr_num']:
@@ -305,11 +414,24 @@ if __name__ == "__main__":
                 LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
                 likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/' + LLR_filename)
                 show_info(LLR_filename,info,('SPH','MONOSOMY'))
-                if chr_id=='chr1' and info['statistics']['num_of_windows']<50: break
-                buffer.append(info['statistics']['LLRs_per_chromosome'][('SPH','MONOSOMY')]['mean'])
+                if chr_id!='chrX' and info['statistics']['num_of_windows']<20: raise Exception('Number of genomic windows is below 20')
+                S = info['statistics']['LLRs_per_chromosome']
+                a =  S[('SPH','MONOSOMY')]['mean']<0 and S[('DISOMY','SPH')]['mean']<0 and S[('BPH','DISOMY')]['mean']<0
+                b =  S[('SPH','MONOSOMY')]['mean']>0 and S[('DISOMY','SPH')]['mean']>0 and S[('BPH','DISOMY')]['mean']>0
+                buffer.append(b-a)
             except Exception as error: 
                 print(f'ERROR: {LLR_filename:s} ---', error)
                 ERRORS.append((bam_filename.strip().split('/')[-1],error))
                 continue
-        if sum(i<0 for i in buffer)>10:
+        sb = sum(buffer)
+        if sb<-2:
             HAPLOIDS.append(case)
+        elif sb>2:
+            TRIPLOIDS.append(case)
+    print(Counter(i[0] for i in ERRORS))
+    
+    #for case in db_Ydisomy:
+    #    print(case)
+    #    DATA = [load_likelihoods(f"/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/{case['filename'][:-4]:s}.chr{i:s}.LLR.p") for i in [*map(str,range(1,23))]+['X']]
+    #    panel_plot(DATA,N=10,title=f"{case['filename'][:-4]:s}")
+    

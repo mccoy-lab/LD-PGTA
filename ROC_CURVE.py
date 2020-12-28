@@ -67,7 +67,7 @@ def confidence(info,N,z):
     y = lambda p,q: statistics.mean(M[p:q])
     e = lambda p,q: z * std_of_mean(V[p:q]) 
     
-    X,Y,E = ([func(i(j),f(j)) for j in range(N)] for func in (x,y,e))
+    X,Y,E = ([func(i(j),f(j)) for j in range(N) if  if f(j)-i(j)>0] for func in (x,y,e))
 
     return X,Y,E
 
