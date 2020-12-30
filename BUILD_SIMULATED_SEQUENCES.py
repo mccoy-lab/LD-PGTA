@@ -76,11 +76,12 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     B = choices(['A','B'],k=3)
     C = [i+j for i,j in zip(A,B)]
     #for a in A: make_simulated_obs_tab(a,sp,chr_id,work_dir)
-    func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{work_dir:s}')") for a in A)
-    runInParallel(*func)
-    MixHaploids_wrapper(f'{work_dir:s}{C[0]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[1]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[2]:s}.{chr_id:s}.hg38.obs.p', read_length=read_length, depth=depth, scenarios=('monosomy','disomy','SPH','BPH'),output_dir=work_dir, recombination_spots=[0])
-    filenames = (f'mixed3haploids.X{depth:.2f}.{C[0]:s}.{C[1]:s}.{C[2]:s}.{chr_id:s}.recomb.{i:.2f}.obs.p' for i in (0,1))
-    func2 = (eval(f"lambda: aneuploidy_test_demo('{work_dir:s}{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
+    #func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{work_dir:s}')") for a in A)
+    #runInParallel(*func)
+    C = ['NA12778B', 'NA12778A', 'NA20508B']
+    filenames = MixHaploids_wrapper(f'{work_dir:s}{C[0]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[1]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[2]:s}.{chr_id:s}.hg38.obs.p', read_length=read_length, depth=depth, scenarios=('monosomy','disomy','SPH','BPH'),output_dir=work_dir)
+    #(f'mixed3haploids.X{depth:.2f}.{C[0]:s}.{C[1]:s}.{C[2]:s}.{chr_id:s}.recomb.{i:.2f}.obs.p' for i in (0,1))
+    func2 = (eval(f"lambda: aneuploidy_test_demo('{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
     runInParallel(*func2)
     return 0
 
@@ -91,9 +92,9 @@ if __name__ == "__main__":
     chr_id='chr21'
     read_length = 36
     min_reads,max_reads = 3,5
-    for n in [*range(1,23)]+['X']:
-        chr_id = 'chr' + str(n)
-        main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    #for n in [*range(1,23)]+['X']:
+    #chr_id = 'chr' + str(n)
+    main(depth,sp,chr_id,read_length,min_reads,max_reads)
     #for i in range(20):
     #    runInParallel(*(main for _ in range(12)),args=(depth,sp,chr_id,read_length,min_reads,max_reads))
     #depth=0.02
