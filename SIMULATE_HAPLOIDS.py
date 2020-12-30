@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SIMULATE_OBS_TAB
+SIMULATE_HAPLOIDS
 
 Simulates an observation table, obs_tab of a haploid, using phased genotypes from VCF files.
 
@@ -89,15 +89,18 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
 
     info = {'chr_id': chr_id,
             'depth': 1,
-            'read_length': 1}
+            'read_length': 1,
+            'sample_id': sample_id}
     
     with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
+        info1 = {**info, 'haplotype': 'A'}  
         pickle.dump(obs_tab1, binfile, protocol=4)
-        pickle.dump(info, binfile, protocol=4)
+        pickle.dump(info1 , binfile, protocol=4)
 
     with open(output_dir+sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
+        info2 = {**info, 'haplotype': 'B'}  
         pickle.dump(obs_tab2, binfile, protocol=4)
-        pickle.dump(info, binfile, protocol=4)
+        pickle.dump(info2, binfile, protocol=4)
 
     b = time.time()
     print('Done in %.3f sec.' % ((b-a)))
