@@ -82,10 +82,9 @@ def sort_obs_tab(obs_dict, handle_multiple_observations):
     
     return obs_tab_sorted
 
-def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, **kwargs):
+def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot):
     """ Mixes simulated reads to DNA sequencing of various aneuploidy landscapes. """ 
     
-    recombination_spot = kwargs.get('recombination_spot', 0)
     num_of_reads = number_of_reads(chr_id,read_length,depth)
     L = len(cache)
         
@@ -129,25 +128,25 @@ def senarios_iter(sc, rs):
         else:
             yield s, None
 
-def save(obs_tab_sorted,info,ind,recombination_spot,given_output_filename,**kwargs):
+def save_results(obs_tab_sorted,info,ind,recombination_spot,given_output_filename,**kwargs):
     """ Saves the simulated observation table togther with the 
         supplementary information. """
     
     suffix = f'.{ind:d}' if ind else ''
     rs = f'.rs{recombination_spot:.2f}' if info['scenario']=='BPH' else ''
     
-    default_output_filename = f"simulated.{info['scenario']:s}.{info['chr_id']:s}.x{info['depth']:s}.{'.'.join(info['sample_ids']):s}{rs:s}.obs.p"
-    output_filename = default_output_filename if given_output_filename=='' else given_output_filename+suffix
+    default_output_filename = f"simulated.{info['scenario']:s}.{info['chr_id']:s}.x{info['depth']:.3f}.{'.'.join(info['sample_ids']):s}{rs:s}.obs.p"
+    output_filename = default_output_filename if given_output_filename=='' else given_output_filename.rsplit('/', 1).pop()+suffix
     
     output_dir = kwargs.get('output_dir', 'results')
-    if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     output_dir += '/' if output_dir[-1:]!='/' else ''
+    if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     
     with open(  output_dir + output_filename , 'wb' ) as f:
             pickle.dump( obs_tab_sorted, f, protocol=4)
             pickle.dump( info, f, protocol=4)    
     
-    return output_filename
+    return output_dir + output_filename
     
 def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     """ Given N observation tables of haploid sequences, an observation
@@ -175,39 +174,39 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     
     number_of_required_obs_files = {'monosomy': 1, 'disomy': 2, 'SPH': 2, 'BPH': 3}
     
-    cases = tuple(enumerate(senarios_iter(scenarios, rs), start=1))
-    for ind, (scenario, recombination_spot) in cases: 
+    output_filenames = []
+    
+    cases = tuple(senarios_iter(scenarios, rs))
+
+    for ind, (scenario, recombination_spot) in enumerate(cases, start=1): 
         
         if len(obs_filenames) < number_of_required_obs_files[scenario]:
             raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]:d} observation files.') 
             
-            obs_dict = build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot)
-            
-            sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rpartition('/')[-1][:-6])
-                              + info_dicts[i].get('haplotype','A')
-                                       for i in range(number_of_required_obs_files[scenario])] 
-            
-            info = {'chr_id': chr_id,
-                    'depth': depth,
-                    'read_length': read_length,
-                    'scenario': scenario,
-                    'recombination_spot': recombination_spot,
-                    'sample_ids': sample_ids}
-                        
-            obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
-            
-            info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
-            
-            if given_output_filename!=None:
-                save(obs_tab_sorted,info,ind,recombination_spot,given_output_filename,**kwargs)
-            
-            sys.stdout.write('\r')
-            sys.stdout.write(f"[{'=' * int(ind):{len(cases)}s}] {int(100*ind/len(cases))}% ")
-            sys.stdout.flush()
-            
+        obs_dict = build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot)
+        obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
+        
+        sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rpartition('/')[-1][:-6])
+                          + info_dicts[i].get('haplotype','A')
+                                   for i in range(number_of_required_obs_files[scenario])] 
+        
+        info = {'chr_id': chr_id,
+                'depth': depth,
+                'read_length': read_length,
+                'scenario': scenario,
+                'recombination_spot': recombination_spot,
+                'sample_ids': sample_ids,
+                'handle_multiple_observations_when_mixing': handle_multiple_observations}
+        
+        if given_output_filename!=None:
+            fn = save_results(obs_tab_sorted,info,ind,recombination_spot,given_output_filename,**kwargs)
+            output_filenames.append(fn)
+        
+        sys.stdout.write(f"\r[{'=' * int(ind):{len(cases)}s}] {int(100*ind/len(cases))}% "); sys.stdout.flush()
+        
     time1 = time.time()
-    print('Done simulating the observations table of a trisomic cell in %.2f sec.' % (time1-time0))
-    return tuple(obs_tab_sorted), info
+    print(f'\nDone simulating the observations table of a trisomic cell in {time1-time0:.2f} sec.')
+    return output_filenames
 
 def MixHaploids_wrapper(*obs_filenames, read_length, depth, scenarios, **kwargs):
     return MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs)
