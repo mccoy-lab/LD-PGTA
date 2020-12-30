@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 
@@ -13,7 +13,7 @@ transition between SPH to BPH along the chromosome.
 MIX_HAPLOIDS
 
 Daniel Ariad (daniel@ariad.org)
-Aug 14st, 2020
+Dec 29th, 2020
 
 """
 import pickle, time, random, operator, collections, warnings, argparse, sys, os
@@ -22,25 +22,8 @@ from itertools import islice
 
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
-def compare_haploids(obs_filename1, obs_filename2):
-    """ Given observation tables of twp haploid sequences with a depth coverage
-        of at least 1X, the fraction of exclusive alleles is calculated. """
-        
-    time0 = time.time()
-    obs_tab1 = pickle.load(open(obs_filename1, 'rb'))
-    obs_tab2 = pickle.load(open(obs_filename2, 'rb'))
-    alleles = collections.defaultdict(list)
-    for pos, impute2_ind, reads_id, obs_base in obs_tab1:
-        alleles[pos].append(obs_base)
-    for pos, impute2_ind, reads_id, obs_base in obs_tab2:
-        alleles[pos].append(obs_base)
-    sample = tuple(x[0]!=x[1] for x in alleles.values() if len(x)>1)
-    result = sum(sample)/len(sample)
-    time1 = time.time()
-    print('Done in %.2f sec.' % (time1-time0))
-    return result
-
-###############################################################################
+class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): 
+    pass
 
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
@@ -99,11 +82,11 @@ def sort_obs_tab(obs_dict, handle_multiple_observations):
     
     return obs_tab_sorted
 
-def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, recombination_spot):
-    """ Mixes simulated reads to mimic Illumina dye sequencing of a trisomic cell. """ 
+def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, **kwargs):
+    """ Mixes simulated reads to DNA sequencing of various aneuploidy landscapes. """ 
     
+    recombination_spot = kwargs.get('recombination_spot', 0)
     num_of_reads = number_of_reads(chr_id,read_length,depth)
-         
     L = len(cache)
         
     obs_dict = collections.defaultdict(list)
@@ -111,14 +94,17 @@ def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, recombination_sp
     for i in range(num_of_reads):
         p = randrange(chr_length(chr_id))+1
         read_boundaries = (p,p+read_length)
-        if L==1:
-            W = [1,]
-        elif L==2:
-            W = [2,1]
-        elif L==3:
-            W = [1,1,1] if p > recombination_spot * chr_length(chr_id) else [2,1,0]
+        if scenario=='monosomy':
+            W = [1,] + [0] * (L - 1)
+        elif scenario=='diploid':
+            W = [1,1] + [0] * (L - 2)
+        elif scenario=='SPH':
+            W = [2,1] + [0] * (L - 2)
+        elif scenario=='BPH':
+            inequality = p > recombination_spot * chr_length(chr_id)
+            W = [1,1,1] + [0] * (L - 3) if inequality else [2,1,] + [0] * (L - 2)
         else:
-            raise Exception('Error: given more than three OBS files.')   
+            raise Exception('error: undefined scenario.')   
            
         rnd = choices(range(len(W)), weights=W, k=1)[0]
         reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1]-1,chr(65+rnd),i) 
@@ -129,19 +115,49 @@ def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, recombination_sp
 
     return obs_dict
 
-def MixHaploids(obs_filenames, read_length, depth, **kwargs):
+def senarios_iter(scenarios, rs):
+    """ Iterates over the different scenarios, taking into account a possible
+    list of recombination spots. """
+    
+    recombination_spots = {rs} if type(rs) in (float,int) else {*rs}
+    for s in {*scenarios}: 
+        if s=='BPH':
+            for b in recombination_spots:
+                yield s,b
+        else:
+            yield s, None
+
+def save(obs_tab_sorted,info,ind,recombination_spot,given_output_filename,**kwargs):
+    """ Saves the simulated observation table togther with the 
+        supplementary information. """
+    
+    suffix = f'.{ind:d}' if ind else ''
+    rs = f'.rs{recombination_spot:.2f}' if info['scenario']=='BPH' else ''
+    
+    default_output_filename = f"simulated.{info['scenario']:s}.{info['chr_id']:s}.x{info['depth']:s}.{'.'.join(info['sample_ids']):s}{rs:s}.obs.p"
+    output_filename = default_output_filename if given_output_filename=='' else given_output_filename+suffix
+    
+    output_dir = kwargs.get('output_dir', 'results')
+    if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
+    output_dir += '/' if output_dir[-1:]!='/' else ''
+    
+    with open(  output_dir + output_filename , 'wb' ) as f:
+            pickle.dump( obs_tab_sorted, f, protocol=4)
+            pickle.dump( info, f, protocol=4)    
+    
+    return output_filename
+    
+def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     """ Given N observation tables of haploid sequences, an observation
-        table that depicts a trisomic cell is created. """    
+        table that depicts a chromosomal aneuploidy is created. """    
         
     time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
     
     handle_multiple_observations = kwargs.get('handle_multiple_observations','all')
     rs = kwargs.get('recombination_spots', 0)
-    recombination_spots = [rs] if type(rs) in (float,int) else rs
-    #work_dir = kwargs.get('work_dir', '')
     given_output_filename = kwargs.get('output_filename','')
-    
+        
     obs_tabs, info_dicts = [], []
     for filename in obs_filenames:
         with open(filename, 'rb') as f:
@@ -155,61 +171,68 @@ def MixHaploids(obs_filenames, read_length, depth, **kwargs):
     
     cache = [build_dictionary_of_reads(obs_tab,chr_id,read_length) for i, obs_tab in enumerate(obs_tabs)]
     
-    for u, recombination_spot in enumerate(recombination_spots,start=1):
+    number_of_required_obs_files = {'monosomy': 1, 'disomy': 2, 'SPH': 2, 'BPH': 3}
+    
+    cases = tuple(enumerate(senarios_iter(scenarios, rs), start=1))
+    for ind, (scenario, recombination_spot) in cases: 
         
-        obs_dict = build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, recombination_spot)
-        
-        info = info_dicts[0]
-        
-        scenario = 'HAPLOID' if len(cache)==1 else ('SPH' if len(cache)==2 else 'BPH')
-        info.update({'depth': depth,
-                     'read_length': read_length,
-                     'scenario': scenario,
-                     'recombination_spot': recombination_spot
-                     })
-        
-        obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
-        
-        info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
-        
-        if given_output_filename!=None:
-            MIX = '.'.join(filename.strip().split('/')[-1].strip().split('.')[0] for filename in obs_filenames)
-            RECOMB = f'.recomb.{recombination_spot:.2f}' if len(obs_filenames)==3 else ''
-            default_output_filename = f'mixed{len(obs_filenames):d}haploids.X{depth:.2f}.' + MIX + '.' + chr_id + RECOMB + '.obs.p'    
-            output_filename = default_output_filename if given_output_filename=='' else f'{u:d}.' + given_output_filename 
+        if len(obs_filenames) < number_of_required_obs_files[scenario]:
+            raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]:d} observation files.') 
             
-            output_dir = kwargs.get('output_dir', 'results')
-            if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
-            output_dir += '/' if len(output_dir)!=0 and output_dir[-1]!='/' else ''
-            with open(  output_dir + output_filename , 'wb' ) as f:
-                    pickle.dump( obs_tab_sorted, f, protocol=4)
-                    pickle.dump( info, f, protocol=4)    
-        
-        sys.stdout.write('\r')
-        sys.stdout.write(f"[{'=' * int(u):{len(recombination_spots)}s}] {int(100*u/len(recombination_spots))}% ")
-        sys.stdout.flush()
-        
+            obs_dict = build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot)
+            
+            sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rpartition('/')[-1][:-6])
+                              + info_dicts[i].get('haplotype','A')
+                                       for i in range(number_of_required_obs_files[scenario])] 
+            
+            info = {'chr_id': chr_id,
+                    'depth': depth,
+                    'read_length': read_length,
+                    'scenario': scenario,
+                    'recombination_spot': recombination_spot,
+                    'sample_ids': sample_ids}
+                        
+            obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
+            
+            info['handle_multiple_observations_when_mixing'] = handle_multiple_observations
+            
+            if given_output_filename!=None:
+                save(obs_tab_sorted,info,ind,recombination_spot,given_output_filename,**kwargs)
+            
+            sys.stdout.write('\r')
+            sys.stdout.write(f"[{'=' * int(ind):{len(cases)}s}] {int(100*ind/len(cases))}% ")
+            sys.stdout.flush()
+            
     time1 = time.time()
     print('Done simulating the observations table of a trisomic cell in %.2f sec.' % (time1-time0))
     return tuple(obs_tab_sorted), info
 
-def MixHaploids2(*obs_filenames, read_length, depth, **kwargs):
+def MixHaploids_wrapper(*obs_filenames, read_length, depth, **kwargs):
     return MixHaploids(obs_filenames, read_length, depth, **kwargs)
 
-if __name__ == "__main__":     
+if __name__ == "__main__":       
     parser = argparse.ArgumentParser(
-        description='Simulates observed bases at known SNP positions from a trisomic cell.')
+        description="Simulates an observation table of various aneuploidy landscapes:\n"
+                    "\t(1) Monosomy - a single copy of a chromosome pair.\n"
+                    "\t(2) Disomy - two unmatched haplotypes.\n"
+                    "\t(3) SPH (`single parental homolog') - trisomy with two matched haplotypes.\n"
+                    "\t(4) BPH (`both parental homologs') - trisomy with three unmatched haplotypes.\n"
+                    "\t(5) Meiotic trisomy - trisomy with recombination, charecterized by a transition between SPH to BPH.\n", formatter_class=Formatter)
     parser.add_argument('obs_filenames', metavar='OBS_FILENAME', type=str, nargs='+',
-                        help='Pickle files created by MAKE_OBS_TAB, containing base observations at known SNP positions.')
+                        help='Pickle files created by SIMULATE_HAPLOIDS, containing base observations at known SNP positions.')
     parser.add_argument('-d', '--depth', type=float, 
                         metavar='FLOAT', default=0.1, 
                         help='The average coverage for the whole chromosome.  Default value 0.1')
     parser.add_argument('-l', '--read-length', type=int, 
                         metavar='INT', default=150,
                         help='The number of base pairs (bp) sequenced from a DNA fragment. Default value 150.')
+    parser.add_argument('-s', '--scenarios', type=list,
+                        metavar='monosomy/disomy/SPH/BPH', default='BPH',
+                        help="The simulation supports four scenarios: monosomy/disomy/SPH/BPH."
+                             "Giving a list of scenarios, e.g. SPH,BPH would create a batch of simulations.")
     parser.add_argument('-r', '--recombination-spots', type=list,
-                        metavar='FLOAT/LIST', default=0,
-                        help='Introduces a transion between SPH and BPH along the chromosome. '
+                        metavar='FLOAT', default=0,
+                        help='Relevent only for the BPH scenario. Introduces a transion between SPH and BPH along the chromosome. '
                              'The location of the recombination spot is determined by a fraction, ranging between 0 to 1. '
                              'Giving 0 and 1 as arguemnts means having the SPH and BPH senarios along the entire chromosome, respectively. '
                              'In addition, giving a list of fractions, e.g. 0.2,0.4,0.6, would create a batch of simulations.')
