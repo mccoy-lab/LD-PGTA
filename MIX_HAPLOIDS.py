@@ -96,7 +96,7 @@ def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, **kwar
         read_boundaries = (p,p+read_length)
         if scenario=='monosomy':
             W = [1,] + [0] * (L - 1)
-        elif scenario=='diploid':
+        elif scenario=='disomy':
             W = [1,1] + [0] * (L - 2)
         elif scenario=='SPH':
             W = [2,1] + [0] * (L - 2)
