@@ -247,9 +247,9 @@ def print_summary(obs_filename,info):
         print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
 
 def save_results(output_filename,output_dir,obs_filename,likelihoods,info):
+    output_dir += '/' if output_dir[-1:]!='/' else ''
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
-    output_dir = output_dir.rstrip('/') + '/' if len(output_dir)!=0 else ''
-    default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.split('/')[-1],1)
+    default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.rsplit('/', 1).pop(),1)
     output_filename = default_filename if output_filename=='' else output_filename
     with open( output_dir + output_filename, "wb") as f:
         pickle.dump(likelihoods, f, protocol=4)
