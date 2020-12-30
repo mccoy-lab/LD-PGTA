@@ -115,11 +115,13 @@ def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, **kwar
 
     return obs_dict
 
-def senarios_iter(scenarios, rs):
+def senarios_iter(sc, rs):
     """ Iterates over the different scenarios, taking into account a possible
     list of recombination spots. """
     
-    recombination_spots = {rs} if type(rs) in (float,int) else {*rs}
+    recombination_spots = {rs} if type(rs) in (float, int) else {*rs}
+    scenarios = {sc} if type(sc) is str else {*sc}
+
     for s in {*scenarios}: 
         if s=='BPH':
             for b in recombination_spots:
@@ -207,8 +209,8 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     print('Done simulating the observations table of a trisomic cell in %.2f sec.' % (time1-time0))
     return tuple(obs_tab_sorted), info
 
-def MixHaploids_wrapper(*obs_filenames, read_length, depth, **kwargs):
-    return MixHaploids(obs_filenames, read_length, depth, **kwargs)
+def MixHaploids_wrapper(*obs_filenames, read_length, depth, scenarios, **kwargs):
+    return MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs)
 
 if __name__ == "__main__":       
     parser = argparse.ArgumentParser(
