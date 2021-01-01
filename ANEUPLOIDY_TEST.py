@@ -159,13 +159,13 @@ def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_rea
             if a<=pos<b:
                 readIDs_in_window.update(read_ID for read_ID in aux_dict[pos] if minimal_score<=score_dict[read_ID])
                 break
-            elif adaptive and 0<len(readIDs_in_window)<max(min_reads,2*max_reads) and b-a<350000:
+            elif adaptive and 0<len(readIDs_in_window)<min_reads and b-a<350000:
                 b += 10000
             else:
                 yield ((a,b-1), readIDs_in_window)
                 a, b, readIDs_in_window = b, b+window_size, set() 
 
-def pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads):
+def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
     """ Draws up to max_reads reads from a given genomic window. """
 
     drawn_read_IDs = random.sample(read_IDs, min(len(read_IDs)-1,max_reads))
@@ -191,6 +191,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,
     than the sample size and (ii) resampling is done without replacement. """
     
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
+    min_reads == max(min_reads,3) # Due to the bootstrap approach, min_reads must be at least 3.    
 
     reads_dict = build_reads_dict(obs_tab,leg_tab)
     score_dict = build_score_dict(reads_dict,obs_tab,hap_tab,min_HF)
@@ -200,13 +201,12 @@ def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,
     
     likelihoods = {}
     
-    min_reads == max(min_reads,3) # Due to the bootstrap approach, min_reads must be at least 3.    
     for k,(window,read_IDs) in enumerate(windows_dict.items()):    
         sys.stdout.write(f"\r[{'=' * (33*(k+1)//len(windows_dict)):{33}s}] {int(100*(k+1)/len(windows_dict))}%"); sys.stdout.flush()
         
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
         if effN>0:
-            likelihoods[window] = tuple(get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,min_reads,max_reads)) for _ in range(effN))
+            likelihoods[window] = tuple(get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
     
     return likelihoods, windows_dict
         
