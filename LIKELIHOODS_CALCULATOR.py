@@ -99,11 +99,11 @@ class analyze:
 
         return hap
 
-    def joint_frequencies_combo(self, *alleles):
-        """ Based on the reference panel, it calculates unnormalized joint
-            frequencies of observed alleles. The function arguments are alleles,
-            that is, tuples of position and base, e.g., (100,'T'), (123, 'A')
-            and (386, 'C'). Each allele is enumerated according to the order it
+    def joint_frequencies_combo(self, *alleles, normalize):
+        """ Based on the reference panel, it calculates joint frequencies of
+            observed alleles. The function arguments are alleles, that is, 
+            tuples of position and base, e.g., (100,'T'), (123, 'A') and 
+            (386, 'C'). Each allele is enumerated according to the order it
             was received by the function. The function returns a dictionary that
             lists all the possible subgroups of the given alleles. Each key in
             the dictionary is a tuple of intergers that are lexicographically
@@ -130,15 +130,19 @@ class analyze:
         if len(alleles)>=4:
             result[sum(hap.keys())] = popcount(reduce(and_,hap.values()))
 
+        if normalize:
+            result = {k: v/self.number_of_reference_haplotypes for k,v in result.items()}
+            
         return result
     
     def likelihoods(self, *alleles):
-        """ Calculates the likelihood to observe a set of alleles
-        (and haplotypes) under various statistical models. """
+        """ Calculates the likelihood to observe a set with alleles
+        and haplotypes under four scenarios, namely, monosomy, disomy, SPH
+        and BPH. """
         
-        F = self.joint_frequencies_combo(*alleles) #Divide values by D to normalize the joint frequencies.
+        F = self.joint_frequencies_combo(*alleles, normalize=False) 
         N = len(alleles)
-        D = self.number_of_reference_haplotypes
+        D = self.number_of_reference_haplotypes #Divide values by D to normalize the joint frequencies.
 
         ### BPH ###
         (((A0, A1),((B0,),)),) = self.models_dict[N]['BPH'][1].items()
@@ -160,19 +164,58 @@ class analyze:
 
         
         ### DIPLOIDY ###
-        (((A0, A1),((B0,),)),) = self.models_dict[N]['DIPLOIDY'][1].items()
-        DIPLOIDY = F[B0] * A0 / ( A1 * D ) 
+        (((A0, A1),((B0,),)),) = self.models_dict[N]['DISOMY'][1].items()
+        DISOMY = F[B0] * A0 / ( A1 * D ) 
 
-        DIPLOIDY += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in self.models_dict[N]['DIPLOIDY'][2].items()) / D**2
+        DISOMY += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
+                   for (A0, A1), C in self.models_dict[N]['DISOMY'][2].items()) / D**2
 
         ### MONOSOMY ###
         ((B0,),) = self.models_dict[N]['MONOSOMY'][1][(1,1)]
         MONOSOMY = F[B0] / D 
         #MONOSOMY = F[int(N*'1',2)] / D 
 
-        result = (MONOSOMY, DIPLOIDY, SPH, BPH)
+        result = (MONOSOMY, DISOMY, SPH, BPH)
         return result
+    
+    def likelihoods2(self, *alleles):
+        """ Calculates the likelihood to observe two alleles/haplotypes
+        under four scenarios, namely, monosomy, disomy, SPH and BPH. """
+        
+        F = self.joint_frequencies_combo(*alleles, normalize=True)
+        a, b, ab = F[1], F[2], F[3]
+        BPH = (ab+2*a*b)/3 #The likelihood of three unmatched haplotypes.
+        SPH = (5*ab+4*a*b)/9 #The likelihood of two identical haplotypes out three.
+        DISOMY = (ab+a*b)/2 #The likelihood of diploidy.
+        MONOSOMY = ab #The likelihood of monosomy.
+        return MONOSOMY, DISOMY, SPH, BPH
+
+    def likelihoods3(self, *alleles):
+        """ Calculates the likelihood to observe three alleles/haplotypes
+        under four scenarios, namely, monosomy, disomy, SPH and BPH. """
+        
+        F = self.joint_frequencies_combo(*alleles, normalize=True)
+        a, b, c, ab, ac, bc, abc = F[1], F[2], F[4], F[3], F[5], F[6], F[7]
+        BPH = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The likelihood of three unmatched haplotypes.
+        SPH = abc/3+2*(ab*c+ac*b+bc*a)/9  #The likelihood of two identical haplotypes out three.
+        DISOMY = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy.
+        MONOSOMY = abc #The likelihood of monosomy.
+        return MONOSOMY, DISOMY, SPH, BPH
+    
+    def likelihoods4(self, *alleles):
+        """ Calculates the likelihood to observe four alleles/haplotypes
+        under four scenarios, namely, monosomy, disomy, SPH and BPH. """
+        
+        F = self.joint_frequencies_combo(*alleles, normalize=True)
+        a, b, c, d = F[1], F[2], F[4], F[8],
+        ab, ac, ad, bc, bd, cd = F[3], F[5], F[9], F[6], F[10], F[12],
+        abc, abd, acd, bcd = F[7], F[11], F[13], F[14]
+        abcd = F[15]
+        BPH = (abcd+2*(ab*c*d+a*bd*c+a*bc*d+ac*b*d+a*b*cd+ad*b*c+abc*d+a*bcd+acd*b+abd*c+ab*cd+ad*bc+ac*bd))/27  #The likelihood of three unmatched haplotypes.
+        SPH = (17*abcd+10*(abc*d+bcd*a+acd*b+abd*c)+8*(ab*cd+ad*bc+ac*bd))/81  #The likelihood of two identical haplotypes out three.
+        DISOMY = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy.
+        MONOSOMY = F[15] #The likelihood of monosomy.
+        return MONOSOMY, DISOMY, SPH, BPH
         
 def wrapper_of_likelihoods(obs_tab,leg_tab,hap_tab,models_filename):
     """ Wraps the attribute likelihoods. It receives an observations array,
@@ -253,35 +296,43 @@ else:
 
     A = analyze(obs_tab, leg_tab, hap_tab, models_dict)
 
-    positions = tuple(A.hap_dict.keys())
+    alleles = tuple(A.hap_dict.keys())
 
-    frequencies = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x).items()}
+    frequencies = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,normalize=True).items()}
 
     likelihoods = A.likelihoods
+    likelihoods2 = A.likelihoods2
+    likelihoods3 = A.likelihoods3
+    likelihoods4 = A.likelihoods4
 
-    pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
+    x = 123
+    haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16])
 
-    print(frequencies(positions[0]))
-    print(frequencies(positions[:4]))
-    print('-----')
-    print(pos)
-    print(frequencies(*pos))
-    print(likelihoods(*pos))
-    print('-----')
-    print(positions[:2])
-    print(frequencies(*positions[:2]))
-    print(likelihoods(*positions[:2]))
-    print('-----')
-    print(positions[:3])
-    print(frequencies(*positions[:3]))
-    print(likelihoods(*positions[:3]))
-    print('-----')
-    print(positions[:4])
-    print(frequencies(*positions[:4]))
-    print(likelihoods(*positions[:4]))
+    print('-----joint_frequencies_combo-----')    
+    print(frequencies(alleles[x+0]))
+    print(frequencies(alleles[x:x+4]))
+    print('-----likelihoods4-haplotypes-----')
+    print(haplotypes)
+    print(frequencies(*haplotypes))
+    print(likelihoods(*haplotypes))
+    print(likelihoods4(*haplotypes))
+    print('-----likelihoods2-----')
+    print(alleles[:2])
+    print(frequencies(*alleles[x:x+2]))
+    print(likelihoods(*alleles[x:x+2]))
+    print(likelihoods2(*alleles[x:x+2]))
+    print('-----likelihoods3-----')
+    print(alleles[:3])
+    print(frequencies(*alleles[x:x+3]))
+    print(likelihoods(*alleles[x:x+3]))
+    print(likelihoods3(*alleles[x:x+3]))
+    print('-----likelihoods4-----')
+    print(alleles[:4])
+    print(frequencies(*alleles[x:x+4]))
+    print(likelihoods(*alleles[x:x+4]))
+    print(likelihoods4(*alleles[x:x+4]))
 
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))
-
 """

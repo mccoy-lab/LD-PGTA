@@ -71,18 +71,18 @@ def likelihoods2(*alleles,hap_dict,N):
     a, b, ab = F['A'], F['B'], F['AB']
     BPH = (ab+2*a*b)/3 #The likelihood of three unmatched haplotypes.
     SPH = (5*ab+4*a*b)/9 #The likelihood of two identical haplotypes out three.
-    DIPLOIDY = (ab+a*b)/2 #The likelihood of diploidy.
-    MONOSOMY = F['AB'] #The likelihood of monosomy.
-    return MONOSOMY, DIPLOIDY, SPH, BPH
+    DISOMY = (ab+a*b)/2 #The likelihood of diploidy.
+    MONOSOMY = ab #The likelihood of monosomy.
+    return MONOSOMY, DISOMY, SPH, BPH
 
 def likelihoods3(*alleles,hap_dict,N):
     F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,norm_const=N,normalize=True)
     a, b, c, ab, ac, bc, abc = F['A'], F['B'], F['C'], F['AB'], F['AC'], F['BC'], F['ABC']
     BPH = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The likelihood of three unmatched haplotypes.
     SPH = abc/3+2*(ab*c+ac*b+bc*a)/9  #The likelihood of two identical haplotypes out three.
-    DIPLOIDY = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy.
-    MONOSOMY = F['ABC'] #The likelihood of monosomy.
-    return MONOSOMY, DIPLOIDY, SPH, BPH
+    DISOMY = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy.
+    MONOSOMY = abc #The likelihood of monosomy.
+    return MONOSOMY, DISOMY, SPH, BPH
 
 def likelihoods4(*alleles,hap_dict,N):
     F = joint_frequencies_combo(*alleles,hap_dict=hap_dict,norm_const=N,normalize=True)
@@ -92,9 +92,9 @@ def likelihoods4(*alleles,hap_dict,N):
     abcd = F['ABCD']
     BPH = (abcd+2*(ab*c*d+a*bd*c+a*bc*d+ac*b*d+a*b*cd+ad*b*c+abc*d+a*bcd+acd*b+abd*c+ab*cd+ad*bc+ac*bd))/27  #The likelihood of three unmatched haplotypes.
     SPH = (17*abcd+10*(abc*d+bcd*a+acd*b+abd*c)+8*(ab*cd+ad*bc+ac*bd))/81  #The likelihood of two identical haplotypes out three.
-    DIPLOIDY = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy.
-    MONOSOMY = F['ABCD'] #The likelihood of monosomy.
-    return MONOSOMY, DIPLOIDY, SPH, BPH
+    DISOMY = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy.
+    MONOSOMY = abcd #The likelihood of monosomy.
+    return MONOSOMY, DISOMY, SPH, BPH
    
 if __name__ != "__main__":
     print("The module was imported.")
@@ -115,21 +115,22 @@ else:
 
     hap_dict = build_hap_dict(obs_tab, leg_tab, hap_tab)
     #aux_dict = build_aux_dict(obs_tab, leg_tab)
-
-    positions = tuple(hap_dict.keys())
+    
+    x = 123
+    alleles = tuple(hap_dict.keys())
     N = len(hap_tab[0])
     print('-----joint_frequencies_combo-----')
-    print(joint_frequencies_combo(positions[0],hap_dict=hap_dict,norm_const=N,normalize=False))
-    print(joint_frequencies_combo(positions[:4],hap_dict=hap_dict,norm_const=N,normalize=False))
+    print(joint_frequencies_combo(alleles[x+0],hap_dict=hap_dict,norm_const=N,normalize=True))
+    print(joint_frequencies_combo(alleles[x:x+4],hap_dict=hap_dict,norm_const=N,normalize=True))
     print('-----likelihoods4-haplotypes-----')
-    pos = (positions[:4],positions[4:8],positions[8:12],positions[12:16])
-    print(likelihoods4(*pos,hap_dict=hap_dict,N=N))
+    haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16])
+    print(likelihoods4(*haplotypes,hap_dict=hap_dict,N=N))
     print('-----likelihoods2-----')
-    print(likelihoods2(*positions[:2],hap_dict=hap_dict,N=N))
+    print(likelihoods2(*alleles[x:x+2],hap_dict=hap_dict,N=N))
     print('-----likelihoods3-----')
-    print(likelihoods3(*positions[:3],hap_dict=hap_dict,N=N))
+    print(likelihoods3(*alleles[x:x+3],hap_dict=hap_dict,N=N))
     print('-----likelihoods4-----')
-    print(likelihoods4(*positions[:4],hap_dict=hap_dict,N=N))
+    print(likelihoods4(*alleles[x:x+4],hap_dict=hap_dict,N=N))
 
     b = time()
 

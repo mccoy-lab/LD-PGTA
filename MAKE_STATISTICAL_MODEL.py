@@ -3,8 +3,7 @@
 """
 MAKE_STATISTICAL_MODEL
 
-Builds statistical models for diploid cells as well as aneuploidy cells 
-with BPH, SPH and monosomy.
+Builds statistical models for 4 scenarios, namely, BPH, SPH, disomy and monosomy.
  
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
@@ -86,7 +85,7 @@ def SPH(number_of_reads):
     model = ENGINE(number_of_reads,degeneracies)
     return COMPACT(model,number_of_reads,degeneracies)
 
-def DIPLOIDY(number_of_reads):
+def DISOMY(number_of_reads):
     """ Builds a statistical model for n-reads under the diploidy scenario. """
     
     degeneracies = (1, 1)
@@ -109,7 +108,7 @@ def BUILD(x):
     for i in range(2,x+1):
         print('Building the statistical model for %d reads.' % i)
         a = time()
-        models[i]= {'MONOSOMY': MONOSOMY(i), 'DIPLOIDY': DIPLOIDY(i), 'SPH': SPH(i), 'BPH': BPH(i)}
+        models[i]= {'MONOSOMY': MONOSOMY(i), 'DISOMY': DISOMY(i), 'SPH': SPH(i), 'BPH': BPH(i)}
         b = time()
         print('Done building in %.3f sec.' % ((b-a)))
     with open( f'MODELS{x:d}.p', 'wb') as f:

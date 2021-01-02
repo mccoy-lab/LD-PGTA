@@ -4,8 +4,8 @@
 ANEUPLOIDY_TEST
 
 Builds a dictionary that lists genomic windows that contain at least three
-reads and gives the likelihoods to observese these reads under various 
-typpes of aneuploidy, namely, monosomy, disomy, SPH and BPH.
+reads and gives the likelihoods to observese these reads under various
+aneuploidy landscapes --- i.e., monosomy, disomy, SPH and BPH.
 
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
@@ -259,7 +259,8 @@ def save_results(output_filename,output_dir,obs_filename,likelihoods,info):
 def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF,output_filename,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
     independent genomic windows. For each genomic window it gives the
-    associated log-likelihood BPH/SPH ratio (LLR)."""
+    likelihood of four scenarios, namely, monosomy, disomy, SPH and BPH.
+    It also returns a dictionary with various run parameters. """
 
     time0 = time.time()
     
