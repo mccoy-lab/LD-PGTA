@@ -33,7 +33,7 @@ def bools2int(x):
         """ Transforms a tuple/list of bools to a int. """
         return int(''.join('1' if i else '0' for i in x), 2)
 
-class analyze:
+class examine:
     """ Based on two IMPUTE2 arrays, which contain the legend and haplotypes,
     and a dictionary with statisitcal models (models_dict), it allows to
     calculate the likelihoods of observed alleles under various statistical
@@ -217,26 +217,11 @@ class analyze:
         MONOSOMY = F[15] #The likelihood of monosomy.
         return MONOSOMY, DISOMY, SPH, BPH
         
-def wrapper_of_likelihoods(obs_tab,leg_tab,hap_tab,models_filename):
-    """ Wraps the attribute likelihoods. It receives an observations array,
-        legend array, haplotypes array and a dictionary of statistical models.
-        Based on the given data it creates an instances and returns the
-        attribute likelihoods."""
-
-    if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
-    load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
-    with load_model(models_filename, 'rb') as f:
-        models_dict = pickle.load(f)
-
-    likelihoods = analyze(obs_tab, leg_tab, hap_tab, models_dict).likelihoods
-
-    return likelihoods
-
-def wrapper_of_likelihoods_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
-    """ Wraps the attribute likelihoods. It receives an observations file, 
-        IMPUTE2 legend file, IMPUTE2 haplotypes file, and a file with four
-        statistical models. Based on the given data it creates an instances
-        and returns the attribute likelihoods."""
+def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
+    """ Wrapper function of the class examine. It receives an observations
+    file, IMPUTE2 legend file, IMPUTE2 haplotypes file, and a file with four
+    statistical models. Based on the given data it creates and returns an
+    instance of the class. """
 
     from MAKE_OBS_TAB import read_impute2
 
@@ -255,9 +240,7 @@ def wrapper_of_likelihoods_for_debugging(obs_filename,leg_filename,hap_filename,
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    likelihoods = analyze(obs_tab, leg_tab, hap_tab, models_dict).likelihoods
-
-    return likelihoods
+    return examine(obs_tab, leg_tab, hap_tab, models_dict)
 
 if __name__ != "__main__":
     print('The module LIKELIHOODS_CALCULATOR was imported.')
@@ -294,7 +277,7 @@ else:
     with open('MODELS/MODELS16.p', 'rb') as f:
         models_dict = pickle.load(f)
 
-    A = analyze(obs_tab, leg_tab, hap_tab, models_dict)
+    A = examine(obs_tab, leg_tab, hap_tab, models_dict)
 
     alleles = tuple(A.hap_dict.keys())
 

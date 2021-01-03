@@ -14,9 +14,9 @@ Daniel Ariad (daniel@ariad.org)
 Dec 22, 2020
 """
 
-import collections, time, pickle, argparse, re, sys, random, os
+import collections, time, pickle, argparse, re, sys, random, os, bz2
 from MAKE_OBS_TAB import read_impute2
-from LIKELIHOODS_CALCULATOR import wrapper_of_likelihoods 
+from LIKELIHOODS_CALCULATOR import examine 
 
 from itertools import product, starmap
 from functools import reduce
@@ -197,7 +197,8 @@ def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,
     score_dict = build_score_dict(reads_dict,obs_tab,hap_tab,min_HF)
     windows_dict = dict(iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score))       
     
-    get_likelihoods = wrapper_of_likelihoods(obs_tab, leg_tab, hap_tab, model_filename)
+    A = examine(obs_tab, leg_tab, hap_tab, model_filename)
+    get_likelihoods = {2: A.likelihoods2, 3: A.likelihoods3, 4: A.likelihoods4 }.get(max_reads, A.likelihoods)
     
     likelihoods = {}
     
@@ -264,6 +265,14 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
 
     time0 = time.time()
     
+    path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
+    models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
+    print(models_filename)
+    if not os.path.isfile(obs_filename): raise Exception('Error: OBS file does not exist.')
+    if not os.path.isfile(leg_filename): raise Exception('Error: LEGEND file does not exist.')
+    if not os.path.isfile(hap_filename): raise Exception('Error: HAP file does not exist.')
+    if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
+    
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
@@ -271,12 +280,13 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     leg_tab = read_impute2(leg_filename, filetype='leg')
     hap_tab = read_impute2(hap_filename, filetype='hap')
     
+    load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
+    with load_model(models_filename, 'rb') as f:
+        models_dict = pickle.load(f)
+    
     mismatched_alleles = mismatches(obs_tab,leg_tab)
-    
-    path = os.path.realpath(__file__).rpartition('/')[0]  + '/MODELS/'
-    model_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
-    
-    likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF)
+
+    likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, models_dict, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF)
 
     if not len(likelihoods): raise Exception('Error: likelihoods is empty.')
      

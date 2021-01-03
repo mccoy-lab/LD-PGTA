@@ -89,13 +89,14 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 if __name__ == "__main__":
     depth=0.01
     sp='EUR'
-    ###chr_id='chr21'
+    chr_id='chr21'
     read_length = 36
-    min_reads,max_reads = 3,5
-    for _ in range(100):
-        for n in [*range(1,23)]+['X']:
-            chr_id = 'chr' + str(n)
-            main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    min_reads,max_reads = 10,5
+    #for _ in range(100):
+    #    for n in [*range(1,23)]+['X']:
+    #        chr_id = 'chr' + str(n)
+    #        main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    main(depth,sp,chr_id,read_length,min_reads,max_reads)
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")
