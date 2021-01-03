@@ -267,12 +267,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
-    print(models_filename)
-    if not os.path.isfile(obs_filename): raise Exception('Error: OBS file does not exist.')
-    if not os.path.isfile(leg_filename): raise Exception('Error: LEGEND file does not exist.')
-    if not os.path.isfile(hap_filename): raise Exception('Error: HAP file does not exist.')
-    if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
-    
+
     with open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
