@@ -9,6 +9,7 @@ Nov 18, 2020
 
 """
 import time, re, pickle, os
+from multiprocessing import Process
 
 def make_obs_tab_demo(bam_filename,chr_id,sp):
     from MAKE_OBS_TAB import retrive_bases
@@ -34,15 +35,14 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp):
                 window_size = 0,
                 subsamples = 100,
                 offset = 0,
-                min_reads = 10,
-                max_reads = 5,
+                min_reads = 9,
+                max_reads = 6,
                 min_HF = 0.05,
                 minimal_score = 2,
                 output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/', 
                 output_filename = '')
     LLR_dict, info = aneuploidy_test(**args)
     return LLR_dict, info
-
 
 if __name__ == "__main__":
     db_BPH = [{'filename': '10469FA-A9DBT_4.bam', 'sp': 'EUR', 'chr_num': (19,) },
@@ -208,24 +208,28 @@ if __name__ == "__main__":
     DONE = []
     ERRORS = []
     output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/'
-    for case in db_TEST[::-1]:
+    for case in db_TEST:
         if case not in DONE:
             bam_filename = case['filename']
             print(case['filename'])
             sp = case['sp']
             try:
+                proc = []
                 for chr_num in case['chr_num']:
                     chr_id = 'chr'+str(chr_num)
                     obs_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.obs.p'
                     LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
                     
-                    if not os.path.isfile(output_dir+obs_filename): 
+                    if not os.path.isfile(output_dir+obs_filename):   
                         make_obs_tab_demo(case['filename'],chr_id, sp)
                     else:
                         print(f'{obs_filename:s} already exists.')
                     
                     if not os.path.isfile(output_dir+LLR_filename): 
-                        aneuploidy_test_demo(obs_filename, chr_id, sp)
+                        #aneuploidy_test_demo(obs_filename, chr_id, sp)
+                        p = Process(target=aneuploidy_test_demo,args=(obs_filename, chr_id, sp))
+                        p.start()
+                        proc.append(p)
                     else:
                         print(f'{LLR_filename:s} already exists.')
             except Exception as error: 
@@ -233,7 +237,13 @@ if __name__ == "__main__":
                 if os.path.isfile(output_dir+obs_filename): os.remove(output_dir+obs_filename)
                 if os.path.isfile(output_dir+LLR_filename): os.remove(output_dir+LLR_filename)
                 ERRORS.append((bam_filename.strip().split('/')[-1],error))
+                try: p.join()
+                except: None
                 continue
+            
+            for p in proc:
+                try: p.join()
+                except: None
         DONE.append(bam_filename.strip().split('/')[-1])
 
     print(ERRORS)                

@@ -12,6 +12,8 @@ from itertools import starmap
 from math import log
 from collections import Counter
 
+HOME = '/home' # '/Users'
+
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
     #The data of chromosome length was taken from https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh38
@@ -205,7 +207,9 @@ def panel_plot(DATA,N,**kwargs):
     
     save = kwargs.get('save', '')
     #pairs = {('BPH','DISOMY'):'saddlebrown', ('DISOMY','SPH'):'darkgreen', ('SPH','MONOSOMY'):'lightskyblue'}
-    pairs = {('DISOMY','MONOSOMY'):'lightskyblue',}
+    pairs = {('BPH','DISOMY'):'lightskyblue', ('BPH','SPH'):'darkorange'}
+
+    #pairs = {('DISOMY','MONOSOMY'):'lightskyblue',}
 
     fig,axs =plt.subplots(4,6)
     fig.set_size_inches(36, 24, forward=True)    
@@ -255,6 +259,58 @@ def panel_plot(DATA,N,**kwargs):
     else:
        plt.tight_layout()
        plt.show()    
+
+def detect_haploids_and_triploids(cases):
+    ERRORS = []
+    HAPLOIDS = []
+    TRIPLOIDS = []
+    pairs = (('MONOSOMY','DISOMY'),('BPH','DISOMY'))
+    _ = {};
+    for case in cases:
+        if case['sp']=='AFR' or case['sp']=='AMR':
+            continue
+        LLRs_per_genomic_window = {p:{} for p in pairs}
+        bam_filename = case['filename']
+        red_flag=False
+        #print(bam_filename)
+        for chr_num in case['chr_num']:
+            if chr_num=='X':
+                continue
+            try:
+                chr_id = 'chr'+ str(chr_num)
+                LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
+                #show_info(LLR_filename,info,('BPH','SPH'))
+                likelihoods, info = load_likelihoods(HOME+'/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/' + LLR_filename)
+                if info['statistics']['num_of_windows']<20:
+                    red_flag=True
+                    continue
+                for i,j in pairs:
+                    LLRs_per_genomic_window[(i,j)][chr_id] = {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
+                        for window,L in likelihoods.items()} 
+                
+            except Exception as error: 
+                print(f'ERROR: {LLR_filename:s}', error)
+                ERRORS.append((bam_filename.strip().rsplit('/',1).pop(),error))
+                continue
+        
+        if not red_flag:            
+            M = {pair: mean([m for c in C.values() for (m,v) in c.values()]) for pair,C in LLRs_per_genomic_window.items()}
+            SD = {pair: std_of_mean([v for c in C.values() for (m,v) in c.values()]) for pair,C in LLRs_per_genomic_window.items()}
+    
+            if M[('BPH','DISOMY')]/SD[('BPH','DISOMY')]>1:
+                A = {'mean': M[('BPH','DISOMY')], 'SD': SD[('BPH','DISOMY')] }
+                print('Trsiomy:',bam_filename, A)
+                case.update(A)
+                TRIPLOIDS.append(case)
+            elif M[('MONOSOMY','DISOMY')]/SD[('MONOSOMY','DISOMY')]>1:
+                A = {'mean': M[('MONOSOMY','DISOMY')], 'SD': SD[('MONOSOMY','DISOMY')] }
+                print('Monosomy:',bam_filename, A)
+                case.update(A)
+                HAPLOIDS.append(case)
+                
+         
+    print(Counter(i[0] for i in ERRORS))
+    return HAPLOIDS, TRIPLOIDS, ERRORS
 
 if __name__ == "__main__":
     db_HAPLOIDS = [{'filename': '12751FA-AWL31_14.bam', 'sp': 'EAS', 'chr_num': [*range(1,23)]+['X']},
@@ -438,41 +494,14 @@ if __name__ == "__main__":
     
     #bob = ['10523FA-AFFRU_3', '10523FA-AFFRU_4', '10560FA-AFFPH_3', '10675FA-BJNTV_2', '10675FA-BJNTV_3', '10675FA-BJNTV_4', '10675FA-BJNTV_5', '10686FA-AFFPE_9', '10846FA-AFPAB_3', '10871FA-AJ3U4_12', '10951FA-AJ3WW_3', '10969FA-AJ470_2', '11522FA-AP925_3', '11578FA-AR3WC_3', '11598FA-AP923_9', '12662FA-B5Y5R_1', '12662FA-B5Y5R_3', '12699FA-B8F4K_4', '12789FA-AWL1L_12', '12962FA-BK2G8_6', '14529FA-CM2GK_2', 'GP-CWFRM_8', 'MZ-AFFC4_1', '13068FA-BK2G5_23', '10675FA-BJNTV_3c', 'MZ-AFFC4_2', '10964FA-AJ470_1', '13121FA-BK23M_23', '13086FA-BK2G5_6', '10668FA-AFDL2_2', '11550FA-AP91V_5', '10722FA-AFFCT_3a', '12055FA-ANTJ1_15', '12454FA-AW7BB_2', '10967FA-AJ470_F10', '11946FA-AR452_9', '11550FA-AP91V_4', '13744FA-C4RPY_2', '13086FA-BK2G5_8', '10658FA-AFDL2_F10', '14220FA-CFP2Y_1', '12446FA-AU3UC_29', '14212FA-CFP2Y_5', '11946FA-AR452_1', '11944FA-AR452_13', '11511FA-AP91V_8']
     
-    """
-    with open('/home/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females.p', 'rb') as f:
+    
+    with open(HOME+'/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females.p', 'rb') as f:
         db_TEST = pickle.load(f)
         #db_TEST = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR']K = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR']
     
-    ERRORS = []
-    HAPLOIDS = []
-    TRIPLOIDS = []
+    result = detect_haploids_and_triploids(db_TEST)
     
-    for case in db_TRIPLOIDS_maybe:
-        buffer = []
-        bam_filename = case['filename']
-        for chr_num in case['chr_num']:
-            try:
-                chr_id = 'chr'+ str(chr_num)
-                LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
-                likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/' + LLR_filename)
-                show_info(LLR_filename,info,('SPH','MONOSOMY'))
-                if chr_id!='chrX' and info['statistics']['num_of_windows']<20: raise Exception('Number of genomic windows is below 20')
-                S = info['statistics']['LLRs_per_chromosome']
-                a =  S[('SPH','MONOSOMY')]['mean']<0 and S[('DISOMY','SPH')]['mean']<0 and S[('BPH','DISOMY')]['mean']<0
-                b =  S[('SPH','MONOSOMY')]['mean']>0 and S[('DISOMY','SPH')]['mean']>0 and S[('BPH','DISOMY')]['mean']>0
-                buffer.append(b-a)
-            except Exception as error: 
-                print(f'ERROR: {LLR_filename:s} ---', error)
-                ERRORS.append((bam_filename.strip().split('/')[-1],error))
-                continue
-        sb = sum(buffer)
-        if sb<-2:
-            HAPLOIDS.append(case)
-        elif sb>2:
-            TRIPLOIDS.append(case)
-    print(Counter(i[0] for i in ERRORS))
-    """
-    for case in db_TRIPLOIDS:
-        print(case)
-        DATA = [load_likelihoods(f"/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/{case['filename'][:-4]:s}.chr{i:s}.LLR.p") for i in [*map(str,range(1,23))]+['X']]
-        panel_plot(DATA,N=10,title=f"{case['filename'][:-4]:s}")
+    #for case in db_TRIPLOIDS:
+    #    print(case)
+    #    DATA = [load_likelihoods(f"/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/{case['filename'][:-4]:s}.chr{i:s}.LLR.p") for i in [*map(str,range(1,23))]+['X']]
+    #    panel_plot(DATA,N=10,title=f"{case['filename'][:-4]:s}")

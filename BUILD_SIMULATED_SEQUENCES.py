@@ -91,7 +91,7 @@ if __name__ == "__main__":
     sp='EUR'
     chr_id='chr21'
     read_length = 36
-    min_reads,max_reads = 10,5
+    min_reads,max_reads = 9,6
     #for _ in range(100):
     #    for n in [*range(1,23)]+['X']:
     #        chr_id = 'chr' + str(n)

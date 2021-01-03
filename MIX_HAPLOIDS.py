@@ -186,8 +186,8 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
         obs_dict = build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot)
         obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
         
-        sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rpartition('/')[-1][:-6])
-                          + info_dicts[i].get('haplotype','A')
+        sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rsplit('/',1).pop()[:-6])
+                          + info_dicts[i].get('haplotype','')
                                    for i in range(number_of_required_obs_files[scenario])] 
         
         info = {'chr_id': chr_id,
