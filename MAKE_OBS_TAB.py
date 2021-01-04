@@ -10,7 +10,7 @@ The observed alleles, together with their chromosome position and line number
 in the legend file, are organized in a table.
 
 Daniel Ariad (daniel@ariad.org)
-AUG 31, 2020
+Jan 3rd, 2021
 """
 import sys, os, time, random, warnings, argparse, re, pickle
 
@@ -22,27 +22,39 @@ except ModuleNotFoundError:
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
 def read_impute2(impute2_filename,**kwargs):
-    """ Reads an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE) and builds a list
+    """ Reads an IMPUTE2 file format (LEGEND/HAPLOTYPE/SAMPLE) and builds a list
         of lists, containing the dataset. """
     
     filetype = kwargs.get('filetype', None)
+    
+    def parse_leg(x): 
+        y = x.strip().split()
+        y[0] = 'chr'+y[0].split(':',1)[0]
+        y[1] = int(y[1])
+        return tuple(y)
+    
+    def parse_hap(x):
+        return int(x.replace(' ', ''), 2)  ####tuple(i=='1' for i in x.strip().split())
+    
+    def parse_other(x):
+        return tuple(x.strip().split()) # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
+   
+    parse = {'leg': parse_leg, 'hap': parse_hap}.get(filetype, parse_other)
+   
     with open(impute2_filename, 'r') as impute2_in:
-        if filetype == 'leg':
+        if filetype == 'leg': 
             impute2_in.readline()   # Bite off the header
-            def parse(x): 
-                y=x.strip().split()
-                y[0] = 'chr'+y[0].split(':')[0]
-                y[1]=int(y[1])
-                return tuple(y)
+            result = tuple(map(parse,impute2_in))
         elif filetype == 'hap':
-            def parse(x):
-                return tuple(i=='1' for i in x.strip().split())
+            firstline = impute2_in.readline()   # Get first line
+            hap_tab = (parse(firstline) ,*map(parse,impute2_in))
+            result = hap_tab, len(firstline.strip().split())
         else:
-            def parse(x):
-                return tuple(x.strip().split()) # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
-       
-        impute2_tab = tuple(parse(line) for line in impute2_in)
-    return impute2_tab
+            result = tuple(map(parse,impute2_in))
+    
+    return result 
+
+    
 
 def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,**kwargs):
     """ Retrives observed bases from known SNPs position. """

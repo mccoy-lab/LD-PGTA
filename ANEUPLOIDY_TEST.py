@@ -80,9 +80,9 @@ def LLR(y,x):
         result = None    
     return result
 
-def bools2int(x):
-        """ Transforms a tuple/list of bools to a int. """
-        return int(''.join('1' if i else '0' for i in x), 2) 
+def invert(x,n):
+    """ Inverts the bits of a positive integer. """
+    return  x ^ ((1 << n) - 1)
 
 def mismatches(obs_tab,leg_tab):
     """ Calculates the fraction of observed alleles at known SNP positions that
@@ -112,7 +112,7 @@ def build_reads_dict(obs_tab,leg_tab):
             
     return reads
 
-def build_score_dict(reads_dict,obs_tab,hap_tab,min_HF):
+def build_score_dict(reads_dict,obs_tab,hap_tab,number_of_haplotypes,min_HF):
     """ Returns a dicitonary lists read_IDs and gives their score. The scoring
     algorithm scores each read according to the number of differet haplotypes
     that the reference panel supports at the chromosomal region that overlaps
@@ -121,13 +121,15 @@ def build_score_dict(reads_dict,obs_tab,hap_tab,min_HF):
     the score. In addition, only haplotypes with a frequnecy between min_HF
     and 1-min_HF add to the score of a read. """
 
-    N = len(hap_tab[0])
+    N = number_of_haplotypes
+    b = (1 << number_of_haplotypes) - 1 #### equivalent to int('1'*number_of_haplotypes,2)
+
 
     hap_dict = dict()
     for (pos, ind, read_id, base) in obs_tab:
-        if pos not in hap_dict and (0.01 <= hap_tab[ind].count(1)/N <= 0.99): #Include only biallelic SNPs with MAF of at least 0.01. 
-            hap_dict[pos] = (bools2int(hap_tab[ind]), bools2int(map(not_,hap_tab[ind])))
- 
+        if pos not in hap_dict and (0.01 <= popcount(hap_tab[ind])/N <= 0.99): #Include only biallelic SNPs with MAF of at least 0.01. 
+            hap_dict[pos] = (hap_tab[ind], hap_tab[ind] ^ b) ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
+
     score_dict = dict()
     for read_id in reads_dict:
         haplotypes = (hap_dict[pos] for pos,base in reads_dict[read_id] if pos in hap_dict)
@@ -186,18 +188,18 @@ def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
         
     return eff_subsamples
 
-def bootstrap(obs_tab, leg_tab, hap_tab, model_filename, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF):
+def bootstrap(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF):
     """ Applies a bootstrap approach in which: (i) the resample size is smaller
     than the sample size and (ii) resampling is done without replacement. """
     
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
     min_reads == max(min_reads,3) # Due to the bootstrap approach, min_reads must be at least 3.    
 
-    reads_dict = build_reads_dict(obs_tab,leg_tab)
-    score_dict = build_score_dict(reads_dict,obs_tab,hap_tab,min_HF)
-    windows_dict = dict(iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score))       
+    reads_dict = build_reads_dict(obs_tab, leg_tab)
+    score_dict = build_score_dict(reads_dict, obs_tab, hap_tab, number_of_haplotypes, min_HF)
+    windows_dict = dict(iter_windows(obs_tab, leg_tab, score_dict, window_size, offset, min_reads, max_reads, minimal_score))       
     
-    A = examine(obs_tab, leg_tab, hap_tab, model_filename)
+    A = examine(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict)
     get_likelihoods = {2: A.likelihoods2, 3: A.likelihoods3, 4: A.likelihoods4 }.get(max_reads, A.likelihoods)
     
     likelihoods = {}
@@ -273,7 +275,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
         info = pickle.load(f)
         
     leg_tab = read_impute2(leg_filename, filetype='leg')
-    hap_tab = read_impute2(hap_filename, filetype='hap')
+    hap_tab, number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
     
     load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
     with load_model(models_filename, 'rb') as f:
@@ -281,7 +283,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     
     mismatched_alleles = mismatches(obs_tab,leg_tab)
 
-    likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, models_dict, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF)
+    likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict, window_size, subsamples,offset,min_reads,max_reads,minimal_score,min_HF)
 
     if not len(likelihoods): raise Exception('Error: likelihoods is empty.')
      

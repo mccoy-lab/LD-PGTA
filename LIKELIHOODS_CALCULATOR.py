@@ -18,7 +18,7 @@ Dec 21, 2020
 import pickle, os, sys, bz2
 
 from functools import reduce
-from operator import not_, and_, itemgetter
+from operator import and_, itemgetter
 from itertools import combinations
 
 try:
@@ -29,10 +29,6 @@ except:
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')
 
-def bools2int(x):
-        """ Transforms a tuple/list of bools to a int. """
-        return int(''.join('1' if i else '0' for i in x), 2)
-
 class examine:
     """ Based on two IMPUTE2 arrays, which contain the legend and haplotypes,
     and a dictionary with statisitcal models (models_dict), it allows to
@@ -40,15 +36,13 @@ class examine:
     models (monosomy, disomy, SPH and BPH). """
    
     
-    def __init__(self, obs_tab, leg_tab, hap_tab, models_dict):
-        self.obs_tab = obs_tab
-        self.leg_tab = leg_tab
-        self.hap_tab = hap_tab
+    def __init__(self, obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict):
+        """ Initialize the attributes of the class. """
         self.models_dict = models_dict
-        self.hap_dict = self.build_hap_dict()
-        self.number_of_reference_haplotypes = len(hap_tab[0])
+        self.hap_dict = self.build_hap_dict(obs_tab, leg_tab, hap_tab, number_of_haplotypes)
+        self.number_of_haplotypes_in_reference_panel = number_of_haplotypes
 
-    def build_hap_dict(self):
+    def build_hap_dict(self, obs_tab, leg_tab, hap_tab, number_of_haplotypes):
         """ Returns a dictionary that lists chromosome positions of SNPs and gives
             their relevent row from haplotypes table. The row is stored as a tuple
             of booleans, where True represents the observed allele. We denote
@@ -56,19 +50,21 @@ class examine:
     
         hap_dict = dict()
         mismatches = 0
-    
-        for (pos, ind, read_id, base) in self.obs_tab:
-            chr_id, pos2, ref, alt = self.leg_tab[ind]
+        
+        b = (1 << number_of_haplotypes) - 1 #### equivalent to int('1'*number_of_haplotypes,2)
+        
+        for (pos, ind, read_id, base) in obs_tab:
+            chr_id, pos2, ref, alt = leg_tab[ind]
             if pos!=pos2:
                 raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')
             if base==alt:
-                hap_dict[(pos,base)] = bools2int(self.hap_tab[ind])
+                hap_dict[(pos,base)] = hap_tab[ind]
             elif base==ref:
-                hap_dict[(pos,base)] = bools2int(map(not_,self.hap_tab[ind]))
+                hap_dict[(pos,base)] = hap_tab[ind] ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
             else:
                 mismatches += 1
     
-        print('%.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(self.obs_tab))))
+        print('%.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
     
         return hap_dict
 
@@ -131,7 +127,7 @@ class examine:
             result[sum(hap.keys())] = popcount(reduce(and_,hap.values()))
 
         if normalize:
-            result = {k: v/self.number_of_reference_haplotypes for k,v in result.items()}
+            result = {k: v/self.number_of_haplotypes_in_reference_panel for k,v in result.items()}
             
         return result
     
@@ -142,7 +138,7 @@ class examine:
         
         F = self.joint_frequencies_combo(*alleles, normalize=False) 
         N = len(alleles)
-        D = self.number_of_reference_haplotypes #Divide values by D to normalize the joint frequencies.
+        D = self.number_of_haplotypes_in_reference_panel #Divide values by D to normalize the joint frequencies.
 
         ### BPH ###
         (((A0, A1),((B0,),)),) = self.models_dict[N]['BPH'][1].items()
@@ -265,7 +261,7 @@ else:
     hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
     leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
 
-    hap_tab = read_impute2(hap_filename, filetype='hap')
+    hap_tab, number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')
 
 
@@ -277,7 +273,7 @@ else:
     with open('MODELS/MODELS16.p', 'rb') as f:
         models_dict = pickle.load(f)
 
-    A = examine(obs_tab, leg_tab, hap_tab, models_dict)
+    A = examine(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict)
 
     alleles = tuple(A.hap_dict.keys())
 
@@ -318,4 +314,5 @@ else:
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))
+
 """
