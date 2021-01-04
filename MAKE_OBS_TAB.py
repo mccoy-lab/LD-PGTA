@@ -27,30 +27,25 @@ def read_impute2(impute2_filename,**kwargs):
     
     filetype = kwargs.get('filetype', None)
     
-    def parse_leg(x): 
-        y = x.strip().split()
-        y[0] = 'chr'+y[0].split(':',1)[0]
-        y[1] = int(y[1])
-        return tuple(y)
-    
-    def parse_hap(x):
-        return int(x.replace(' ', ''), 2)  ####tuple(i=='1' for i in x.strip().split())
-    
-    def parse_other(x):
-        return tuple(x.strip().split()) # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
-   
-    parse = {'leg': parse_leg, 'hap': parse_hap}.get(filetype, parse_other)
-   
     with open(impute2_filename, 'r') as impute2_in:
         if filetype == 'leg': 
+            def leg_format(line):
+                rs_id, pos, ref, alt = line.strip().split()
+                return ('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)  
+            
             impute2_in.readline()   # Bite off the header
-            result = tuple(map(parse,impute2_in))
+            result = tuple(map(leg_format,impute2_in))
+            
         elif filetype == 'hap':
             firstline = impute2_in.readline()   # Get first line
-            hap_tab = (parse(firstline) ,*map(parse,impute2_in))
-            result = hap_tab, len(firstline.strip().split())
+            a0 = int(firstline.replace(' ', ''), 2)
+            a1 = (int(line.replace(' ', ''), 2) for line in impute2_in)
+            hap_tab = (a0, *a1)
+            number_of_haplotypes = len(firstline.strip().split())
+            result = hap_tab, number_of_haplotypes
+        
         else:
-            result = tuple(map(parse,impute2_in))
+            result = tuple(line.strip().split() for line in impute2_in)
     
     return result 
 
