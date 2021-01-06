@@ -147,6 +147,9 @@ def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_rea
     
     offset = int(offset)
     
+    max_dist = 100000 #maximal distance between consecutive observed alleles.
+    max_win_size = 350000 #maximal genomic window size
+    
     aux_dict = collections.defaultdict(list) ### aux_dict is a dictionary that lists chromosome positions of SNPs and gives a list of read IDs for all the reads that overlap with the SNP.  
     for (pos, ind, read_id, base) in obs_tab:
         if base in leg_tab[ind][2:]:
@@ -161,7 +164,7 @@ def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_rea
             if a<=pos<b:
                 readIDs_in_window.update(read_ID for read_ID in aux_dict[pos] if minimal_score<=score_dict[read_ID])
                 break
-            elif adaptive and 0<len(readIDs_in_window)<min_reads and b-a<350000:
+            elif adaptive and 0<len(readIDs_in_window)<min_reads and b-pos<=max_dist and b-a<=max_win_size:
                 b += 10000
             else:
                 yield ((a,b-1), readIDs_in_window)
@@ -217,37 +220,41 @@ def statistics(likelihoods,windows_dict,mismatched_alleles):
     """ Compares likelihoods of different aneuploidy scenarios and extracts
     useful information about the genmoic windows. """
     
-    window_size_mean, window_size_std = mean_and_std([j-i for (i,j) in likelihoods])    
-    reads_mean, reads_std = mean_and_std([len(read_IDs) for window,read_IDs in windows_dict.items() if window in likelihoods])
-    num_of_windows = len(likelihoods)
-    
-    
-    pairs = (('BPH','SPH'), ('BPH','DISOMY'), ('DISOMY','SPH'), ('SPH','MONOSOMY')); _ = {};
-    LLRs_per_genomic_window = {(i,j): {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
-                       for window,L in likelihoods.items()} for i,j in pairs}
-    
-    LLRs_per_chromosome = {pair: summarize(*zip(*stat.values())) for pair,stat in LLRs_per_genomic_window.items()}
-    
-    result = {'num_of_windows': num_of_windows,
-              'reads_mean': reads_mean, 
-              'reads_std': reads_std,
-              'window_size_mean': window_size_mean,
-              'window_size_std': window_size_std,
-              'LLRs_per_genomic_window': LLRs_per_genomic_window,
-              'LLRs_per_chromosome': LLRs_per_chromosome,
-              'mismatched_alleles': mismatched_alleles}
-    
+    if likelihoods:
+        window_size_mean, window_size_std = mean_and_std([j-i for (i,j) in likelihoods])    
+        reads_mean, reads_std = mean_and_std([len(read_IDs) for window,read_IDs in windows_dict.items() if window in likelihoods])
+        num_of_windows = len(likelihoods)
+        
+        
+        pairs = (('BPH','SPH'), ('BPH','DISOMY'), ('DISOMY','SPH'), ('SPH','MONOSOMY')); _ = {};
+        LLRs_per_genomic_window = {(i,j): {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
+                           for window,L in likelihoods.items()} for i,j in pairs}
+        
+        LLRs_per_chromosome = {pair: summarize(*zip(*stat.values())) for pair,stat in LLRs_per_genomic_window.items()}
+        
+        result = {'num_of_windows': num_of_windows,
+                  'reads_mean': reads_mean, 
+                  'reads_std': reads_std,
+                  'window_size_mean': window_size_mean,
+                  'window_size_std': window_size_std,
+                  'LLRs_per_genomic_window': LLRs_per_genomic_window,
+                  'LLRs_per_chromosome': LLRs_per_chromosome,
+                  'mismatched_alleles': mismatched_alleles}
+    else:
+        result = {'num_of_windows': 0,
+                  'mismatched_alleles': mismatched_alleles}
     return result
 
 def print_summary(obs_filename,info):
     S = info['statistics']
     print('\nFilename: %s' % obs_filename)
-    print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S['reads_mean'], S['reads_std']))
-    print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S['num_of_windows'],S['window_size_mean'],S['window_size_std']))
-    for (i,j), L in S['LLRs_per_chromosome'].items():
-        print(f"--- LLR between {i:s} and {j:s} ----")        
-        print(f"Mean LLR: {L['mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
-        print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
+    print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S.get('reads_mean',0), S.get('reads_std',0)))
+    print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
+    if S.get('LLRs_per_chromosome',None):
+        for (i,j), L in S['LLRs_per_chromosome'].items():
+            print(f"--- LLR between {i:s} and {j:s} ----")        
+            print(f"Mean LLR: {L['mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
+            print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
 
 def save_results(output_filename,output_dir,obs_filename,likelihoods,info):
     output_dir += '/' if output_dir[-1:]!='/' else ''
@@ -284,8 +291,6 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     mismatched_alleles = mismatches(obs_tab,leg_tab)
 
     likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict, window_size, subsamples,offset,min_reads,max_reads,minimal_score,min_HF)
-
-    if not len(likelihoods): raise Exception('Error: likelihoods is empty.')
      
     info.update({'window_size': window_size,
                  'subsamples': subsamples,
@@ -323,7 +328,7 @@ if __name__ == "__main__":
                         help='IMPUTE2 haplotype file')
     parser.add_argument('-b', '--window-size', type=int,
                         metavar='INT', default='100000',
-                        help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window according to the local depth coverage.')
+                        help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads.')
     parser.add_argument('-s', '--subsamples', type=int,
                         metavar='INT', default='32',
                         help='Sets the number of subsamples per genomic window. The default value is 32.')
