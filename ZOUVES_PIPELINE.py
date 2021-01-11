@@ -35,8 +35,8 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp):
                 window_size = 0,
                 subsamples = 100,
                 offset = 0,
-                min_reads = 9,
-                max_reads = 6,
+                min_reads = 6,
+                max_reads = 4,
                 min_HF = 0.05,
                 minimal_score = 2,
                 output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/', 
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     DONE = []
     ERRORS = []
     output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/'
-    for case in db_TEST:
+    for case in db_TEST[::-1]:
         if case not in DONE:
             bam_filename = case['filename']
             print(case['filename'])

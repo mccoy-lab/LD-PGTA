@@ -81,6 +81,10 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     runInParallel(*func)
     filenames = MixHaploids_wrapper(f'{work_dir:s}{C[0]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[1]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[2]:s}.{chr_id:s}.hg38.obs.p', read_length=read_length, depth=depth, scenarios=('monosomy','disomy','SPH','BPH'),output_dir=work_dir)
     remove(f'{work_dir:s}{C[0]:s}.{chr_id:s}.hg38.obs.p'); remove(f'{work_dir:s}{C[1]:s}.{chr_id:s}.hg38.obs.p'); remove(f'{work_dir:s}{C[2]:s}.{chr_id:s}.hg38.obs.p')
+    #filenames = ["/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.SPH.chr21.x0.010.NA20536B.NA20536A.obs.p",
+    #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.BPH.chr21.x0.010.NA20536B.NA20536A.NA20802B.rs0.00.obs.p",
+    #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.monosomy.chr21.x0.010.NA20536B.obs.p",
+    #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.disomy.chr21.x0.010.NA20536B.NA20536A.obs.p"]
     func2 = (eval(f"lambda: aneuploidy_test_demo('{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
     runInParallel(*func2)
     return 0
@@ -91,12 +95,11 @@ if __name__ == "__main__":
     sp='EUR'
     chr_id='chr21'
     read_length = 36
-    min_reads,max_reads = 9,6
-    #for _ in range(100):
-    #    for n in [*range(1,23)]+['X']:
-    #        chr_id = 'chr' + str(n)
-    #        main(depth,sp,chr_id,read_length,min_reads,max_reads)
-    main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    min_reads,max_reads = 6,4
+    for n in ([*range(1,23)]+['X'])*20:
+        chr_id = 'chr' + str(n)
+        runInParallel(*([main]*2),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
+    #main(depth,sp,chr_id,read_length,min_reads,max_reads)
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")
