@@ -13,13 +13,15 @@ transition between SPH to BPH along the chromosome.
 MIX_HAPLOIDS
 
 Daniel Ariad (daniel@ariad.org)
-Dec 29th, 2020
+Jan 14th, 2021
 
 """
-import pickle, time, random, operator, collections, warnings, argparse, sys, os
-from random import choices, randrange
+import argparse, sys, os
+from random import choices, randrange, seed
 from collections import defaultdict
-warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
+from operator import itemgetter
+from time import time
+from pickle import load, dump
 
 class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): 
     pass
@@ -45,36 +47,13 @@ def enumearate_positions(obs_tab):
     
     return defaultdict(None, {p[0]: i for i,p in enumerate(obs_tab)})
    
-def sort_obs_tab(obs_dict, handle_multiple_observations):
-    obs_tab = list()
-    
-    for rows in obs_dict.values():
-        if len(rows)==1:
-            obs_tab.extend(rows)
-        else:
-            warnings.warn('Multiple reads were found to overlap at one or more SNP positions.')
-            if handle_multiple_observations=='all':
-                obs_tab.extend(rows)
-            elif handle_multiple_observations=='first':
-                if len(rows)>0: obs_tab.append(rows[0])
-            elif handle_multiple_observations=='random':
-                if len(rows)>0: obs_tab.append(random.choice(rows))
-            elif handle_multiple_observations=='skip':
-                pass
-            else:
-                raise Exception('error: handle_multiple_observations only supports the options \"skip\", \"all\", \"first\" and \"random\".')
-  
-    obs_tab_sorted =  sorted(obs_tab, key=operator.itemgetter(0))
-    
-    return obs_tab_sorted
-
-def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot):
+def build_obs_tab(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot):
     """ Mixes simulated reads to DNA sequencing of various aneuploidy landscapes. """ 
     
     num_of_reads = number_of_reads(chr_id,read_length,depth)
     L = len(cache)
         
-    obs_dict = collections.defaultdict(list)
+    obs_tab = list()
     
     for i in range(num_of_reads):
         p = randrange(chr_length(chr_id))+1
@@ -96,9 +75,11 @@ def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recomb
         indices = (cache[rnd].get(pos) for pos in range(*read_boundaries))
         for i in filter(None,indices):
            pos, impute2_ind, _, obs_base =  obs_tabs[rnd][i]
-           obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
+           obs_tab.append((pos, impute2_ind, reads_id, obs_base))            
 
-    return obs_dict
+        obs_tab.sort(key=itemgetter(0))
+        
+    return obs_tab
 
 def senarios_iter(sc, rs):
     """ Iterates over the different scenarios, taking into account a possible
@@ -114,7 +95,7 @@ def senarios_iter(sc, rs):
         else:
             yield s, None
 
-def save_results(obs_tab_sorted,info,ind,recombination_spot,given_output_filename,**kwargs):
+def save_results(obs_tab,info,ind,recombination_spot,given_output_filename,**kwargs):
     """ Saves the simulated observation table togther with the 
         supplementary information. """
     
@@ -129,8 +110,8 @@ def save_results(obs_tab_sorted,info,ind,recombination_spot,given_output_filenam
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     
     with open(  output_dir + output_filename , 'wb' ) as f:
-            pickle.dump( obs_tab_sorted, f, protocol=4)
-            pickle.dump( info, f, protocol=4)    
+            dump(obs_tab, f, protocol=4)
+            dump(info, f, protocol=4)    
     
     return output_dir + output_filename
     
@@ -138,18 +119,17 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     """ Given N observation tables of haploid sequences, an observation
         table that depicts a chromosomal aneuploidy is created. """    
         
-    time0 = time.time()
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
+    time0 = time()
+    seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
     
-    handle_multiple_observations = kwargs.get('handle_multiple_observations','all')
     rs = kwargs.get('recombination_spots', 0)
     given_output_filename = kwargs.get('output_filename','')
         
     obs_tabs, info_dicts = [], []
     for filename in obs_filenames:
         with open(filename, 'rb') as f:
-            obs_tabs.append(pickle.load(f))
-            info_dicts.append(pickle.load(f))
+            obs_tabs.append(load(f))
+            info_dicts.append(load(f))
         
     chr_id = info_dicts[0]['chr_id'] 
 
@@ -169,8 +149,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
         if len(obs_filenames) < number_of_required_obs_files[scenario]:
             raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]:d} observation files.') 
             
-        obs_dict = build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot)
-        obs_tab_sorted = sort_obs_tab(obs_dict, handle_multiple_observations)
+        obs_tab = build_obs_tab(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot)
         
         sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rsplit('/',1).pop()[:-6])
                           + info_dicts[i].get('haplotype','')
@@ -182,15 +161,15 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
                 'scenario': scenario,
                 'recombination_spot': recombination_spot,
                 'sample_ids': sample_ids,
-                'handle_multiple_observations_when_mixing': handle_multiple_observations}
+                'handle-multiple-observations': 'all'}
         
         if given_output_filename!=None:
-            fn = save_results(obs_tab_sorted,info,ind,recombination_spot,given_output_filename,**kwargs)
+            fn = save_results(obs_tab,info,ind,recombination_spot,given_output_filename,**kwargs)
             output_filenames.append(fn)
         
         sys.stdout.write(f"\r[{'=' * int(ind):{len(cases)}s}] {int(100*ind/len(cases))}% "); sys.stdout.flush()
         
-    time1 = time.time()
+    time1 = time()
     print(f'\nDone simulating the observations table of a trisomic cell in {time1-time0:.2f} sec.')
     return output_filenames
 
@@ -211,8 +190,8 @@ if __name__ == "__main__":
                         metavar='FLOAT', default=0.1, 
                         help='The average coverage for the whole chromosome.  Default value 0.1')
     parser.add_argument('-l', '--read-length', type=int, 
-                        metavar='INT', default=150,
-                        help='The number of base pairs (bp) sequenced from a DNA fragment. Default value 150.')
+                        metavar='INT', default=36,
+                        help='The number of base pairs (bp) sequenced from a DNA fragment. Default value 36.')
     parser.add_argument('-s', '--scenarios', type=list,
                         metavar='monosomy/disomy/SPH/BPH', default='BPH',
                         help="The simulation supports four scenarios: monosomy/disomy/SPH/BPH."
@@ -223,13 +202,6 @@ if __name__ == "__main__":
                              'The location of the recombination spot is determined by a fraction, ranging between 0 to 1. '
                              'Giving 0 and 1 as arguemnts means having the SPH and BPH senarios along the entire chromosome, respectively. '
                              'In addition, giving a list of fractions, e.g. 0.2,0.4,0.6, would create a batch of simulations.')
-    parser.add_argument('-u', '--handle-multiple-observations', type=str, 
-                        metavar='all/first/random/skip', default='all', 
-                        help='We expect to observe at most a single base per SNP. When encountering '
-                             'an exception the default behavior is to keep all the alleles. However, a '
-                             'few alternative options to handle multiple observations are available: ' 
-                             '(a) take the first observed base, (b) pick randomly an observed base'
-                             'and (c) skip the SNP.')
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
                         help='Output filename. The default filename is a combination of both obs filenames.')    
     kwargs = vars(parser.parse_args())
