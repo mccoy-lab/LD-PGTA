@@ -11,8 +11,8 @@ Dec 30, 2020
 import time, pickle, re, sys
 from random import sample, choices, seed
 from multiprocessing import Process
-from MIX_HAPLOIDS2 import MixHaploids_wrapper
-from IMPUTE2OBSTAB import main as simulate
+from MIX_HAPLOIDS import MixHaploids_wrapper
+from IMPUTE2OBS import main as simulate
 from os import remove
 
 def read_ref(filename):
@@ -99,15 +99,15 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 
 
 if __name__ == "__main__":
-    depth=0.1
-    sp='EUR'
+    depth=0.01
+    sp='EAS'
     chr_id='chr21'
     read_length = 36
     min_reads,max_reads = 6,4
-    #for n in ([*range(1,23)]+['X'])*20:
-    #    chr_id = 'chr' + str(n)
-    #    runInParallel(*([main]*2),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
-    main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    for n in ([*range(1,23)]+['X'])*20:
+        chr_id = 'chr' + str(n)
+        runInParallel(*([main]*6),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
+    #main(depth,sp,chr_id,read_length,min_reads,max_reads)
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")
