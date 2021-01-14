@@ -18,8 +18,7 @@ Dec 29th, 2020
 """
 import pickle, time, random, operator, collections, warnings, argparse, sys, os
 from random import choices, randrange
-from itertools import islice
-
+from collections import defaultdict
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
 class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): 
@@ -40,25 +39,12 @@ def number_of_reads(chr_id,reads_length,depth):
     number_of_fragments = depth * chr_length(chr_id) // reads_length
     return int(number_of_fragments)
     
-def build_dictionary_of_reads(obs_tab,chr_id,read_length): 
-    """ Returns a dictionary that lists all the possible intervals of length
-        read_length in the chromosome chr_id. For each iterval it gives   
-        a range indices of obs_tab, which correspond to alleles that overlap
-        with the interval. """
+def enumearate_positions(obs_tab): 
+    """ Returns a dictionary that lists all the chromosomal positions gives 
+    their last entry is obs_tab. """
     
-    positions = next(zip(*obs_tab))        
-    obs_dict = {}
-    for offset in range(read_length):
-        reads_iterator = ((i,i+read_length) for i in range(positions[0]-offset,positions[-1]+read_length,read_length))
-        read = next(reads_iterator, None)
-        for i, pos in enumerate(positions):
-            while read:
-                if read[0]<=pos<read[1]:
-                    obs_dict.setdefault(read,[i,0])[1] = i+1
-                    break 
-                read = next(reads_iterator, None)
-    return obs_dict
-
+    return defaultdict(None, {p[0]: i for i,p in enumerate(obs_tab)})
+   
 def sort_obs_tab(obs_dict, handle_multiple_observations):
     obs_tab = list()
     
@@ -107,10 +93,10 @@ def build_obs_dict(cache, obs_tabs, chr_id, read_length, depth, scenario, recomb
            
         rnd = choices(range(len(W)), weights=W, k=1)[0]
         reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1]-1,chr(65+rnd),i) 
-        A,B = cache[rnd].get(read_boundaries, (None,None))
-        if A!=None:
-            for pos, impute2_ind, _, obs_base in islice(obs_tabs[rnd],A,B):
-                obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
+        indices = (cache[rnd].get(pos) for pos in range(*read_boundaries))
+        for i in filter(None,indices):
+           pos, impute2_ind, _, obs_base =  obs_tabs[rnd][i]
+           obs_dict[pos].append((pos, impute2_ind, reads_id, obs_base))            
 
     return obs_dict
 
@@ -170,7 +156,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     if not all(info['chr_id']==chr_id for info in info_dicts):
         raise Exception('Error: the chr_id differs from one OBS file to another.')   
     
-    cache = [build_dictionary_of_reads(obs_tab,chr_id,read_length) for i, obs_tab in enumerate(obs_tabs)]
+    cache = [enumearate_positions(obs_tab) for i, obs_tab in enumerate(obs_tabs)]
     
     number_of_required_obs_files = {'monosomy': 1, 'disomy': 2, 'SPH': 2, 'BPH': 3}
     

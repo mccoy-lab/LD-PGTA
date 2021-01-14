@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+IMPUTE2OBS
+
+Simulates an observation table, obs_tab of a haploid, using phased genotypes from IMPUTE2 files.
+
+Daniel Ariad (daniel@ariad.org)
+Jan 13, 2021
+"""
+import pickle, os, sys, time, argparse, random
+
+def read_legend(filename):
+    """ Reads an IMPUTE2 legend fileand builds a list
+        of lists, containing the dataset. """
+
+    def leg_format(line):
+        rs_id, pos, ref, alt = line.strip().split()
+        return ('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)
+
+    with open(filename, 'r') as impute2_in:
+        impute2_in.readline()   # Bite off the header
+        result = tuple(map(leg_format,impute2_in))
+
+    return result
+
+def read_haplotypes(sample_filename, hap_filename, sample_id):
+    """ Reads an IMPUTE2 samples file as well as an IMPUTE2 haplotypes file
+        and returns a list of haplotypes associated with the sample ID. """
+
+    with open(sample_filename, 'r') as impute2_in:
+         impute2_in.readline()   # Bite off the header
+         samples = [line.strip().split()[0] for line in impute2_in]
+
+    if sample_id in samples:
+        ind = samples.index(sample_id)
+    else:
+        raise Exception('Error: sample_id not found.')
+
+    a,b = 2*ind, 2*ind+2
+    with open(hap_filename, 'r') as impute2_in:
+        result = [[i=='1' for i in x.strip().split()[a:b]] for x in impute2_in ]
+
+    return result
+
+def main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,**kwargs):
+
+    a = time.time()
+    random.seed(None,version=2)
+
+    output_dir = kwargs.get('output_dir', '')
+    if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
+    output_dir += '/' if output_dir[-1:]!='/' else ''
+
+    haplotypes = read_haplotypes(samp_filename, hap_filename, sample_id)
+    legend = read_legend(leg_filename)
+
+    obs_tab1 = tuple((pos, impute2_index, 'XXX', alt if allele1 else ref)
+                         for impute2_index,((chrID,pos,ref,alt),(allele1,allele2)) in enumerate(zip(legend,haplotypes))
+                             if chr_id==chrID)
+
+    obs_tab2 = tuple((pos, impute2_index, 'XXX', alt if allele2 else ref)
+                         for impute2_index,((chrID,pos,ref,alt),(allele1,allele2)) in enumerate(zip(legend,haplotypes))
+                             if chr_id==chrID)
+
+    info = {'chr_id': chr_id,
+            'depth': 1,
+            'read_length': 1,
+            'sample_id': sample_id}
+
+    with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
+        info1 = {**info, 'haplotype': 'A'}
+        pickle.dump(obs_tab1, binfile, protocol=4)
+        pickle.dump(info1 , binfile, protocol=4)
+
+    with open(output_dir+sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
+        info2 = {**info, 'haplotype': 'B'}
+        pickle.dump(obs_tab2, binfile, protocol=4)
+        pickle.dump(info2, binfile, protocol=4)
+
+    b = time.time()
+    print('Done in %.3f sec.' % ((b-a)))
+
+    return 0
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(
+        description='Simulates two observation tables of a haploid, using phased genotypes from IMPUTE2 files.'
+                    'Each observation table includes SNP positions, alleles in a genotype of an individual'
+                    'and their corresponding line number within the IMPUTE2 legend file.')
+    parser.add_argument('leg_filename', metavar='legend_filename', type=str,
+                        help='IMPUTE2 legend file')
+    parser.add_argument('hap_filename', metavar='haplotypes_filename', type=str,
+                        help='IMPUTE2 haplotypes file')
+    parser.add_argument('samp_filename', metavar='samples_filename', type=str,
+                        help='IMPUTE2 samples file')
+    parser.add_argument('chr_id', metavar='chromosomeID', type=str,
+                        help='Chromosome ID')
+    parser.add_argument('sample_id', metavar='sampleID', type=str,
+                        help='Sample ID')
+
+
+    args = parser.parse_args()
+    sys.exit(main(**vars(args)))
+
+
+def test():
+    sample_id = 'HG00097'
+    chr_id = 'chr21'
+    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
+    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
+    samp_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.samples'
+
+    work_dir='results_TEMP'
+    return main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,output_dir=work_dir)

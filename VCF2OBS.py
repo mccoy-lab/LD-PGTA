@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SIMULATE_HAPLOIDS
+VCF2OBS
 
 Simulates an observation table, obs_tab of a haploid, using phased genotypes from VCF files.
 
@@ -17,7 +17,7 @@ def get_random_string(length):
 
 def get_alleles_from_bcftools(vcf_file,chr_id,sample_id,bcftools_dir):
     """ Runs bcftools as a subprocess and returns the output """
-    
+
     if not os.path.exists('tmp'): os.makedirs('tmp')
     tmp_filename = 'tmp/'+get_random_string(8)+'.tmp'
     ins_dir = bcftools_dir if bcftools_dir=='' or bcftools_dir[-1]=='/' else bcftools_dir+'/'
@@ -26,7 +26,7 @@ def get_alleles_from_bcftools(vcf_file,chr_id,sample_id,bcftools_dir):
     run = cmd1 + ' | ' + cmd2
     print('Calling bcftools:\n%s' % run)
     os.system(run)
-    return tmp_filename 
+    return tmp_filename
 
 
 def read_impute2(impute2_filename,**kwargs):
@@ -53,21 +53,21 @@ def read_impute2(impute2_filename,**kwargs):
     return impute2_tab
 
 def parse(x):
-    """ Parses the output of the bcftools query. """ 
-    
+    """ Parses the output of the bcftools query. """
+
     line = x.strip().split('\t')
     result = ['chr'+line[0],int(line[1])]+line[-1].strip().split('|')
     return result
 
 
 def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
-    
+
     a = time.time()
     random.seed(None,version=2)
     output_dir = kwargs.get('output_dir', '')
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     output_dir += '/' if len(output_dir)!=0 and output_dir[-1]!='/' else ''
-    
+
     tmp_filename = get_alleles_from_bcftools(vcf_filename,chr_id,sample_id,bcftools_dir)
 
     with open(tmp_filename, 'r') as txtfile:
@@ -91,31 +91,31 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
             'depth': 1,
             'read_length': 1,
             'sample_id': sample_id}
-    
+
     with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
-        info1 = {**info, 'haplotype': 'A'}  
+        info1 = {**info, 'haplotype': 'A'}
         pickle.dump(obs_tab1, binfile, protocol=4)
         pickle.dump(info1 , binfile, protocol=4)
 
     with open(output_dir+sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
-        info2 = {**info, 'haplotype': 'B'}  
+        info2 = {**info, 'haplotype': 'B'}
         pickle.dump(obs_tab2, binfile, protocol=4)
         pickle.dump(info2, binfile, protocol=4)
 
     b = time.time()
     print('Done in %.3f sec.' % ((b-a)))
-    
+
     return 0
 
-if __name__ == "__main__": 
-    
+if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(
         description='Simulates two observation tables of a haploid, using phased genotypes from VCF files.'
                     'Each observation table includes SNP positions, alleles in a genotype of an individual'
                     'and their corresponding line number within the IMPUTE2 legend file.')
-    parser.add_argument('vcf_filename', metavar='vcf_filename', type=str, 
+    parser.add_argument('vcf_filename', metavar='vcf_filename', type=str,
                         help='VCF file')
-    parser.add_argument('leg_filename', metavar='legend_filename', type=str, 
+    parser.add_argument('leg_filename', metavar='legend_filename', type=str,
                         help='IMPUTE2 legend file')
     parser.add_argument('chr_id', metavar='chromosomeID', type=str,
                         help='Chromosome ID')
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--bcftools-dir', type=str,
                         default='', metavar='BCFTOOLS_DIR',
                         help='The directory where bcftools are installed.')
-    
+
     args = parser.parse_args()
     sys.exit(main(**vars(args)))
 
