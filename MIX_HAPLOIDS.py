@@ -40,18 +40,12 @@ def number_of_reads(chr_id,reads_length,depth):
     """ Calculates the the number of reads for a given coverage depth and reads length."""
     number_of_fragments = depth * chr_length(chr_id) // reads_length
     return int(number_of_fragments)
-    
-def enumearate_positions(obs_tab): 
-    """ Returns a dictionary that lists all the chromosomal positions gives 
-    their last entry is obs_tab. """
-    
-    return defaultdict(None, {p[0]: i for i,p in enumerate(obs_tab)})
    
-def build_obs_tab(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot):
+def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, recombination_spot):
     """ Mixes simulated reads to DNA sequencing of various aneuploidy landscapes. """ 
     
     num_of_reads = number_of_reads(chr_id,read_length,depth)
-    L = len(cache)
+    L = len(obs_dicts)
         
     obs_tab = list()
     
@@ -72,12 +66,10 @@ def build_obs_tab(cache, obs_tabs, chr_id, read_length, depth, scenario, recombi
            
         rnd = choices(range(len(W)), weights=W, k=1)[0]
         reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1]-1,chr(65+rnd),i) 
-        indices = (cache[rnd].get(pos) for pos in range(*read_boundaries))
-        for i in filter(None,indices):
-           pos, impute2_ind, _, obs_base =  obs_tabs[rnd][i]
-           obs_tab.append((pos, impute2_ind, reads_id, obs_base))            
-
-        obs_tab.sort(key=itemgetter(0))
+        
+        obs_tab.extend((pos, e[0], reads_id, e[1]) for pos in range(*read_boundaries) if (e:=obs_dicts[rnd].get(pos)))  
+        #### e[0] and e[1] are impute2_ind, obs_base       
+    obs_tab.sort(key=itemgetter(0))
         
     return obs_tab
 
@@ -125,10 +117,11 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     rs = kwargs.get('recombination_spots', 0)
     given_output_filename = kwargs.get('output_filename','')
         
-    obs_tabs, info_dicts = [], []
+    obs_dicts, info_dicts = [], []
     for filename in obs_filenames:
         with open(filename, 'rb') as f:
-            obs_tabs.append(load(f))
+            obs_dict = {pos: (impute2_ind, obs_base) for (pos, impute2_ind, reads_id, obs_base) in load(f)}
+            obs_dicts.append(defaultdict(None, obs_dict))
             info_dicts.append(load(f))
         
     chr_id = info_dicts[0]['chr_id'] 
@@ -136,7 +129,6 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     if not all(info['chr_id']==chr_id for info in info_dicts):
         raise Exception('Error: the chr_id differs from one OBS file to another.')   
     
-    cache = [enumearate_positions(obs_tab) for i, obs_tab in enumerate(obs_tabs)]
     
     number_of_required_obs_files = {'monosomy': 1, 'disomy': 2, 'SPH': 2, 'BPH': 3}
     
@@ -149,7 +141,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
         if len(obs_filenames) < number_of_required_obs_files[scenario]:
             raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]:d} observation files.') 
             
-        obs_tab = build_obs_tab(cache, obs_tabs, chr_id, read_length, depth, scenario, recombination_spot)
+        obs_tab = build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, recombination_spot)
         
         sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rsplit('/',1).pop()[:-6])
                           + info_dicts[i].get('haplotype','')
