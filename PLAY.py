@@ -12,7 +12,7 @@ from itertools import starmap
 from math import log
 from collections import Counter
 
-HOME = '/Users' #'/home' # 
+HOME ='/home' #  '/Users' #
 
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
@@ -326,6 +326,8 @@ def detect_haploids_and_triploids2(cases):
     TRIPLOIDS = []
     
     for case in db_TRIPLOIDS_maybe:
+        if case['sp']=='AFR' or case['sp']=='AMR':
+            continue
         buffer = []
         bam_filename = case['filename']
         for chr_num in case['chr_num']:
@@ -335,19 +337,20 @@ def detect_haploids_and_triploids2(cases):
                 likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/' + LLR_filename)
                 #if chr_id!='chrX' and info['statistics']['num_of_windows']<20: raise Exception('Number of genomic windows is below 20')
                 if info['statistics']['num_of_windows'] and chr_id!='chrX':
-                    show_info(LLR_filename,info,('SPH','MONOSOMY'))
+                    #show_info(LLR_filename,info,('SPH','MONOSOMY'))
                     S = info['statistics']['LLRs_per_chromosome']
-                    a =  S[('SPH','MONOSOMY')]['mean']<0 and S[('DISOMY','SPH')]['mean']<0 and S[('BPH','DISOMY')]['mean']<0
-                    b =  S[('SPH','MONOSOMY')]['mean']>0 and S[('DISOMY','SPH')]['mean']>0 and S[('BPH','DISOMY')]['mean']>0
+                    a =  S[('SPH','MONOSOMY')]['mean']/S[('SPH','MONOSOMY')]['std_of_mean']<-1 and S[('BPH','DISOMY')]['mean']/S[('BPH','DISOMY')]['std_of_mean']<-1
+                    b =  S[('SPH','MONOSOMY')]['mean']/S[('SPH','MONOSOMY')]['std_of_mean']>1 and S[('BPH','DISOMY')]['mean']/S[('BPH','DISOMY')]['std_of_mean']>1
                     buffer.append(b-a)
             except Exception as error: 
                 print(f'ERROR: {LLR_filename:s} ---', error)
                 ERRORS.append((bam_filename.strip().split('/')[-1],error))
                 continue
-        sb = sum(buffer)
-        if sb<-2:
+        if sum(buffer)<-1:
+            print('haploid:',buffer)
             HAPLOIDS.append(case)
-        elif sb>2:
+        if sum(buffer)>+1:            
+            print('triploid:',buffer)
             TRIPLOIDS.append(case)
     print(Counter(i[0] for i in ERRORS))
     return HAPLOIDS, TRIPLOIDS, ERRORS
@@ -548,7 +551,7 @@ if __name__ == "__main__":
         db_TEST = pickle.load(f)
         #db_TEST = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR']K = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR']
     
-    #HAPLOIDS, TRIPLOIDS, ERRORS = detect_haploids_and_triploids(db_TEST)
+    HAPLOIDS, TRIPLOIDS, ERRORS = detect_haploids_and_triploids2(db_TEST)
     
     #for case in db_TRIPLOIDS:
     #    print(case)

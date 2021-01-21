@@ -51,12 +51,12 @@ def show_info(filename,info):
     print('Fraction of genomic windows with a negative LLR: %.3f' % (X['fraction_of_negative_LLRs']))
     print('The calculation was done in %.3f sec.' % info['runtime'])
 
-def confidence(info,N,z):
+def confidence(info,N,z,ratio):
     """ Binning is applied by aggregating the mean LLR of a window across N
         consecutive windows. The boundaries of the bins as well as the mean LLR
         and the standard-error per bin are returned. """
         
-    LLR_stat = info['statistics']['LLRs_per_genomic_window'][('BPH','SPH')]
+    LLR_stat = info['statistics']['LLRs_per_genomic_window'][ratio]
      
     K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
             
@@ -67,66 +67,82 @@ def confidence(info,N,z):
     y = lambda p,q: statistics.mean(M[p:q])
     e = lambda p,q: z * std_of_mean(V[p:q]) 
     
-    X,Y,E = ([func(i(j),f(j)) for j in range(N) if  if f(j)-i(j)>0] for func in (x,y,e))
+    X,Y,E = ([func(i(j),f(j)) for j in range(N)] for func in (x,y,e))
 
     return X,Y,E
 
-def build_confidence_dict(criterias, num_of_buckets, work_dir):
+def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
     """ Iterates over all the data files in the folder and creates a dictionary
     the list all the files that fit the criterias and gives their analysis 
     (via the confidence function). """
     
     import glob
     filenames = glob.glob(work_dir + '*.LLR.p')
-    result = {'SPH': {}, 'BPH': {}}
+    result = {r: {} for r in ratio}
     for filename in filenames:
         likelihoods, info = load_llr(filename)
         subinfo = {x: info.get(x,None) for x in criterias.keys()}
         ### print(subinfo)
-        if criterias==subinfo:
-            if (info.get('scenario',None)=='BPH' and info.get('recombination_spot',None)==1.00) or info.get('scenario',None)=='SPH':
-                scenario = 'SPH'
-            elif info.get('scenario',None)=='BPH' and info.get('recombination_spot',None)==0.00: 
-                scenario = 'BPH'
-            else:
-                continue
-            #print(scenario)
+        
+        S = info.get('scenario','').upper()
+        if S in ('SPH','DISOMY','MONOSOMY'):
+            scenario = S
+        elif S=='BPH' and info.get('recombination_spot',None)==1.00:
+            scenario = 'SPH'
+        elif S=='BPH' and info.get('recombination_spot',None)==0.00:
+            scenario = 'BPH'
+        else:
+            scenario = None
+        
+        if criterias==subinfo and scenario in ratio:
             show_info(filename,info)
             result[scenario][filename] = tuple({'mean': mean, 'std': std} 
-                                               for (pos,mean,std) in zip(*confidence(info,N=num_of_buckets,z=1)))
+                                               for (pos,mean,std) in zip(*confidence(info,N=num_of_buckets,z=1,ratio=ratio)))
     return result
 
-def build_ROC_curve(criterias, positive, thresholds, num_of_buckets, work_dir):
+def build_ROC_curve(criterias, positive, ratio, thresholds, num_of_buckets, work_dir):
     """ Creates a nested dictionary that lists bins and thresholds and gives 
         the false and true positive rates. """ 
     
-    SPH, BPH = build_confidence_dict(criterias, num_of_buckets, work_dir).values()
-    print(len(SPH),len(BPH))
+    DATA = build_confidence_dict(criterias, num_of_buckets, ratio, work_dir)
+    B,A = DATA[ratio[0]], DATA[ratio[1]]
+    
+    print(len(A),len(B))
     result = {}
     for bucket in range(num_of_buckets):
         result[bucket] = {}
         for z in thresholds:
-            true_BPH = [file[bucket]['mean'] > z * file[bucket]['std'] for file in BPH.values()]
-            false_BPH = [file[bucket]['mean'] > z * file[bucket]['std'] for file in SPH.values()]
+            true_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in B.values()]
+            false_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in A.values()]
             
-            false_SPH = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in BPH.values()]
-            true_SPH = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in SPH.values()]
+            false_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in B.values()]
+            true_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in A.values()]
             
             if positive == 'both':
-                TPR = 0.5 * (true_BPH.count(1)/len(true_BPH) + true_SPH.count(1)/len(true_SPH))
-                FPR = 0.5 * (false_BPH.count(1)/len(false_BPH) + false_SPH.count(1)/len(false_SPH))
-            elif positive == 'SPH':
-                TPR = true_SPH.count(1)/len(true_SPH)
-                FPR = false_SPH.count(1)/len(false_SPH)
-            elif positive == 'BPH':
-                TPR = true_BPH.count(1)/len(true_BPH)
-                FPR = false_BPH.count(1)/len(false_BPH)
+                TPR = 0.5 * (true_B.count(1)/len(true_B) + true_A.count(1)/len(true_A))
+                FPR = 0.5 * (false_B.count(1)/len(false_B) + false_A.count(1)/len(false_A))
+            elif positive == 'A':
+                TPR = true_A.count(1)/len(true_A)
+                FPR = false_A.count(1)/len(false_A)
+            elif positive == 'B':
+                TPR = true_B.count(1)/len(true_B)
+                FPR = false_B.count(1)/len(false_B)
             else:
                 break
             
             result[bucket][z] = (FPR,TPR)
             
     return result
+
+def plot_ROC_curve(x):
+    """ Plots the ROC curve. """
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    for i in range(len(x)):
+        ax.scatter(*zip(*x[i].values()), label=f'bin {i:d}', s=len(x)+1-i)        
+    ax.legend()
+    ax.grid(True)
+    plt.show()
 
 def plot_single_case(info,N,**kwargs):
     """ Plots the mean LLR vs. chromosomal position """
@@ -168,15 +184,7 @@ def plot_single_case(info,N,**kwargs):
     
     return 1
     
-def plot_ROC_curve(x,num_of_buckets):
-    """ Plots the ROC curve. """
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    for i in range(num_of_buckets):
-        ax.scatter(*zip(*x[i].values()), label=f'bin {i:d}', s=num_of_buckets-i)        
-    ax.legend()
-    ax.grid(True)
-    plt.show()
+
 
 def plot_ROC_curve_band(R,num_of_buckets):
     """ Plots the ROC curve of all the bins as band. """
@@ -213,321 +221,20 @@ def plot_ROC_curve_band(R,num_of_buckets):
 def configuration(C):
     C0 = {'chr_id': 'chr21',
          'depth': 0.01,
-         'read_length': 35,
+         'read_length': 36,
          'window_size': 0,
-         'min_reads': 4,
-         'max_reads': 14,
-         'minimal_score': 2,
-         'min_HF': 0.15}
-
-
-    C1 = {'chr_id': 'chr21',
-         'depth': 0.05,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 4,
-         'max_reads': 14,
-         'minimal_score': 2,
-         'min_HF': 0.15}
-
-    C2 = {'chr_id': 'chr21',
-          'depth': 0.1,
-          'read_length': 35,
-          'window_size': 0,
-          'min_reads': 4,
-          'max_reads': 14,
-          'minimal_score': 2,
-          'min_HF': 0.15}
-
-    C3 = {'chr_id': 'chr21',
-          'depth': 0.5,
-          'read_length': 35,
-          'window_size': 0,
-          'min_reads': 4,
-          'max_reads': 14,
-          'minimal_score': 2,
-          'min_HF': 0.15}
-
-    C4 = {'chr_id': 'chr21',
-         'depth': 0.01,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 4,
-         'max_reads': 14,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-
-    C5 = {'chr_id': 'chr21',
-         'depth': 0.01,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 4,
-         'max_reads': 16,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C6 = {'chr_id': 'chr21',
-         'depth': 0.05,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 8,
-         'max_reads': 16,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-
-    C7 = {'chr_id': 'chr21',
-         'depth': 0.05,
-         'read_length': 75,
-         'window_size': 0,
-         'min_reads': 4,
-         'max_reads': 16,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C8 = {'chr_id': 'chr21',
-         'depth': 0.1,
-         'read_length': 75,
-         'window_size': 0,
-         'min_reads': 4,
-         'max_reads': 16,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C9 = {'chr_id': 'chr21',
-         'depth': 0.1,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 4,
-         'max_reads': 16,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C10 = {'chr_id': 'chr21',
-         'depth': 0.02,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 8,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C11 = {'chr_id': 'chr21',
-         'depth': 0.02,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 4,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C12 = {'chr_id': 'chr21',
-          'depth': 0.5,
-          'read_length': 250,
-          'window_size': 0,
-          'min_reads': 4,
-          'max_reads': 16,
-          'minimal_score': 2,
-          'min_HF': 0.05}
-    
-    C13 = {'chr_id': 'chr21',
-          'depth': 0.1,
-          'read_length': 35,
-          'window_size': 0,
-          'min_reads': 3,
-          'max_reads': 8,
-          'minimal_score': 2,
-          'min_HF': 0.05}
-    
-    C14 = {'chr_id': 'chr21',
-         'depth': 0.01,
-         'read_length': 75,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 8,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C15 = {'chr_id': 'chr21',
-         'depth': 0.02,
-         'read_length': 75,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 8,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C16 = {'chr_id': 'chr21',
-         'depth': 0.05,
-         'read_length': 75,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 8,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-
-    C17 = {'chr_id': 'chr21',
-         'depth': 0.01,
-         'read_length': 250,
-         'window_size': 0,
-         'min_reads': 3,
+         'min_reads': 6,
          'max_reads': 4,
          'minimal_score': 2,
          'min_HF': 0.05}
 
-    C18 = {'chr_id': 'chr21',
-         'depth': 0.02,
-         'read_length': 250,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 6,
-         'minimal_score': 2,
-         'min_HF': 0.05}
 
-    C19 = {'chr_id': 'chr21',
-         'depth': 0.05,
-         'read_length': 250,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 8,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-        
-    C20 = {'chr_id': 'chr21',
-         'depth': 0.1,
-         'read_length': 250,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 12,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C21 = {'chr_id': 'chr21',
-         'depth': 0.5,
-         'read_length': 250,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 14,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    ##############################
-    # FOR MULTI_ETHNIC REF PANEL #
-    ##############################
-    
-    C22 = {'chr_id': 'chr21',
-         'depth': 0.05,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 8,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C23 = {'chr_id': 'chr21',
-         'depth': 0.05,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 6,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-        
-    C24 = {'chr_id': 'chr21',
-         'depth': 0.1,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 6,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-        
-    C25 = {'chr_id': 'chr21',
-         'depth': 0.1,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 8,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C26 = {'chr_id': 'chr21',
-         'depth': 0.1,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 12,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C27 = {'chr_id': 'chr21',
-         'depth': 0.25,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 8,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C28 = {'chr_id': 'chr21',
-         'depth': 0.25,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 6,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C29 = {'chr_id': 'chr21',
-         'depth': 0.02,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 4,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-        
-    C30 = {'chr_id': 'chr21',
-         'depth': 0.02,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 3,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C31 = {'chr_id': 'chr21',
-         'depth': 0.01,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 4,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-        
-    C32 = {'chr_id': 'chr21',
-         'depth': 0.01,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 3,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    C30 = {'chr_id': 'chr21',
-         'depth': 0.02,
-         'read_length': 35,
-         'window_size': 0,
-         'min_reads': 3,
-         'max_reads': 5,
-         'minimal_score': 2,
-         'min_HF': 0.05}
-    
-    return eval(C)
+    return locals()[f'{C:s}']
 
 if __name__ == "__main__":    
     Z = [i/300 for i in range(-1200,1200)]
-    R = build_ROC_curve(criterias = configuration('C29'), positive = 'both', thresholds = Z, num_of_buckets = 10, work_dir = 'results_COMMON/')
-    plot_ROC_curve(R, num_of_buckets = 10)
+    R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EAS/')
+    plot_ROC_curve(R)
 
 else:
     print("The module ROC_curve was imported.")
