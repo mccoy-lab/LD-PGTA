@@ -41,7 +41,12 @@ def number_of_reads(chr_id,reads_length,depth):
     number_of_fragments = depth * chr_length(chr_id) // reads_length
     return int(number_of_fragments)
    
-def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, recombination_spot):
+def inBPHregion(x,transitions):
+    """ Checks if x is in a BPH region. """
+    l = sorted(transitions[1:]+(x,1)).index(x) 
+    return (transitions[0]=='BPH') ^ (l%2)
+      
+def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
     """ Mixes simulated reads to DNA sequencing of various aneuploidy landscapes. """ 
     
     num_of_reads = number_of_reads(chr_id,read_length,depth)
@@ -59,8 +64,10 @@ def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, recombination
         elif scenario=='SPH':
             W = [2,1] + [0] * (L - 2)
         elif scenario=='BPH':
-            inequality = p > recombination_spot * chr_length(chr_id)
-            W = [1,1,1] + [0] * (L - 3) if inequality else [2,1,] + [0] * (L - 2)
+            W = [1,1,1] + [0] * (L - 3) 
+        elif scenario=='transitions':
+            ####(BPH,0.3,0.7)
+            W = [1,1,1] + [0] * (L - 3) if inBPHregion(p,transitions) else [2,1,] + [0] * (L - 2)
         else:
             raise Exception('error: undefined scenario.')   
            
@@ -73,28 +80,25 @@ def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, recombination
         
     return obs_tab
 
-def senarios_iter(sc, rs):
-    """ Iterates over the different scenarios, taking into account a possible
-    list of recombination spots. """
+def senarios_iter(scenarios, list_of_transitions):
+    """ Iterates over the different scenarios, taking into account a batch of
+        transitions. """
     
-    recombination_spots = {rs} if type(rs) in (float, int) else {*rs}
-    scenarios = {sc} if type(sc) is str else {*sc}
-
-    for s in {*scenarios}: 
-        if s=='BPH':
-            for b in recombination_spots:
+    for s in scenarios: 
+        if s=='transitions':
+            for b in list_of_transitions:
                 yield s,b
         else:
             yield s, None
 
-def save_results(obs_tab,info,ind,recombination_spot,given_output_filename,**kwargs):
+def save_results(obs_tab,info,ind,transitions,given_output_filename,**kwargs):
     """ Saves the simulated observation table togther with the 
         supplementary information. """
     
     suffix = f'.{ind:d}' if ind else ''
-    rs = f'.rs{recombination_spot:.2f}' if info['scenario']=='BPH' else ''
+    T = 'trans'+str(transitions) if info['scenario']=='transitions' else ''
     
-    default_output_filename = f"simulated.{info['scenario']:s}.{info['chr_id']:s}.x{info['depth']:.3f}.{'.'.join(info['sample_ids']):s}{rs:s}.obs.p"
+    default_output_filename = f"simulated.{info['scenario']:s}.{info['chr_id']:s}.x{info['depth']:.3f}.{'.'.join(info['sample_ids']):s}{T:s}.obs.p"
     output_filename = default_output_filename if given_output_filename=='' else given_output_filename.rsplit('/', 1).pop()+suffix
     
     output_dir = kwargs.get('output_dir', 'results')
@@ -114,7 +118,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     time0 = time()
     seed(a=None, version=2) #I should set a=None after finishing to debug the code.        
     
-    rs = kwargs.get('recombination_spots', 0)
+    list_of_transitions = kwargs.get('transitions', [])
     given_output_filename = kwargs.get('output_filename','')
         
     obs_dicts, info_dicts = [], []
@@ -134,14 +138,14 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     
     output_filenames = []
     
-    cases = tuple(senarios_iter(scenarios, rs))
+    cases = tuple(senarios_iter(scenarios, list_of_transitions))
 
-    for ind, (scenario, recombination_spot) in enumerate(cases, start=1): 
+    for ind, (scenario, transitions) in enumerate(cases, start=1): 
         
         if len(obs_filenames) < number_of_required_obs_files[scenario]:
             raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]:d} observation files.') 
             
-        obs_tab = build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, recombination_spot)
+        obs_tab = build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions)
         
         sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rsplit('/',1).pop()[:-6])
                           + info_dicts[i].get('haplotype','')
@@ -151,12 +155,12 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
                 'depth': depth,
                 'read_length': read_length,
                 'scenario': scenario,
-                'recombination_spot': recombination_spot,
+                'transitions': transitions,
                 'sample_ids': sample_ids,
                 'handle-multiple-observations': 'all'}
         
         if given_output_filename!=None:
-            fn = save_results(obs_tab,info,ind,recombination_spot,given_output_filename,**kwargs)
+            fn = save_results(obs_tab,info,ind,transitions,given_output_filename,**kwargs)
             output_filenames.append(fn)
         
         sys.stdout.write(f"\r[{'=' * int(ind):{len(cases)}s}] {int(100*ind/len(cases))}% "); sys.stdout.flush()
@@ -185,18 +189,25 @@ if __name__ == "__main__":
                         metavar='INT', default=36,
                         help='The number of base pairs (bp) sequenced from a DNA fragment. Default value 36.')
     parser.add_argument('-s', '--scenarios', type=list,
-                        metavar='monosomy/disomy/SPH/BPH', default='BPH',
-                        help="The simulation supports four scenarios: monosomy/disomy/SPH/BPH."
+                        metavar='monosomy/disomy/SPH/BPH/transitions', default='disomy',
+                        help="The simulation supports five scenarios: monosomy/disomy/SPH/BPH/transitions. Default scenario is disomy."
                              "Giving a list of scenarios, e.g. SPH,BPH would create a batch of simulations.")
-    parser.add_argument('-r', '--recombination-spots', type=list,
-                        metavar='FLOAT', default=0,
-                        help='Relevent only for the BPH scenario. Introduces a transion between SPH and BPH along the chromosome. '
-                             'The location of the recombination spot is determined by a fraction, ranging between 0 to 1. '
-                             'Giving 0 and 1 as arguemnts means having the SPH and BPH senarios along the entire chromosome, respectively. '
-                             'In addition, giving a list of fractions, e.g. 0.2,0.4,0.6, would create a batch of simulations.')
+    parser.add_argument('-t', '--transitions', type=list,
+                        metavar='TUPLE', default='',
+                        help='Relevant only for the transitions scenario. Introduces transitions between SPH and BPH along the chromosome. '
+                             'The locations of the transition is determined by a fraction of chromosome length, ranging between 0 to 1. '
+                             'For example a BPH-SPH-BPH transition that equally divides the chromosomes is exressed as BPH,0.333,0.666 and,'  
+                             'similarly, a SPH-BPH transition at the middle of the chromosome is expressed as SPH,0.5. '
+                             'In addition, giving a list of cases, e.g. \"SPH,0.2; SPH,0.4; SPH,0.6\"  would create a batch of three simulations. ')
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
                         help='Output filename. The default filename is a combination of both obs filenames.')    
+    
     kwargs = vars(parser.parse_args())
-    kwargs['recombination_spots'] = [float(i.strip()) for i in ''.join(kwargs['recombination_spots']).split(',')]
+    
+    kwargs['scenarios'] = [i.strip(' ') for i in ''.join(kwargs['scenarios']).strip(' ').split(',') if i!='']
+    
+    kwargs['transitions'] = [[(float(j) if j.strip(' ').replace('.','',1).isdigit() else j.strip(' ')) for j in i.split(',')]
+             for i in ''.join(kwargs['transitions']).strip(' ').strip(';').split(';') if i!='']
+    
     MixHaploids(**kwargs)    
     sys.exit(0)
