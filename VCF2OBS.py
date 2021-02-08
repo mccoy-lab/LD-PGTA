@@ -108,9 +108,9 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description='Simulates two observation tables of a haploid, using phased genotypes from VCF files.'
-                    'Each observation table includes SNP positions, alleles in a genotype of an individual'
-                    'and their corresponding line number within the IMPUTE2 legend file.')
+        description='Simulates two observation tables of a haploid, using phased genotypes from VCF files. '
+                    'Each observation table includes SNP positions, alleles from the same haplotype of a '
+                    'certain individual and their corresponding line number within the IMPUTE2 legend file.')
     parser.add_argument('vcf_filename', metavar='vcf_filename', type=str,
                         help='VCF file')
     parser.add_argument('leg_filename', metavar='legend_filename', type=str,
