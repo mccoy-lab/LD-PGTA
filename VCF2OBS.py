@@ -64,7 +64,10 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
 
     a = time.time()
     random.seed(None,version=2)
+
+    genotypes = kwargs.get('genotypes', 'AB')
     output_dir = kwargs.get('output_dir', '')
+
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     output_dir += '/' if len(output_dir)!=0 and output_dir[-1]!='/' else ''
 
@@ -79,29 +82,24 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
 
     impute2_tab = read_impute2(leg_filename,filetype='legend')
 
-    obs_tab1 = tuple((pos, impute2_index, 'XXX', REF[pos])
-                     for impute2_index,(chr_id,pos,ref,alt) in enumerate(impute2_tab)
-                     if pos in REF)
-
-    obs_tab2 = tuple((pos, impute2_index, 'XXX', ALT[pos])
-                     for impute2_index,(chr_id,pos,ref,alt) in enumerate(impute2_tab)
-                     if pos in ALT)
 
     info = {'chr_id': chr_id,
             'depth': 1,
             'read_length': 1,
             'sample_id': sample_id}
 
-    with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
-        info1 = {**info, 'haplotype': 'A'}
-        pickle.dump(obs_tab1, binfile, protocol=4)
-        pickle.dump(info1 , binfile, protocol=4)
+    for g in genotypes:
+        M = REF if g=='A' else ALT
 
-    with open(output_dir+sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
-        info2 = {**info, 'haplotype': 'B'}
-        pickle.dump(obs_tab2, binfile, protocol=4)
-        pickle.dump(info2, binfile, protocol=4)
+        obs_tab = tuple((pos, impute2_index, 'XXX', M[pos])
+                         for impute2_index,(chr_id,pos,ref,alt) in enumerate(impute2_tab)
+                         if pos in M)
 
+        with open(output_dir+sample_id+f'{g:s}.{chr_id:s}.hg38.obs.p', 'wb') as binfile:
+            pickle.dump(obs_tab, binfile, protocol=4)
+            pickle.dump({**info, 'haplotype': g}, binfile, protocol=4)
+            print(info)
+            
     b = time.time()
     print('Done in %.3f sec.' % ((b-a)))
 

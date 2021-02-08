@@ -48,6 +48,8 @@ def main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,**kwargs):
     a = time.time()
     random.seed(None,version=2)
 
+    genotypes = kwargs.get('genotypes', 'AB')
+
     output_dir = kwargs.get('output_dir', '')
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     output_dir += '/' if output_dir[-1:]!='/' else ''
@@ -55,28 +57,30 @@ def main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,**kwargs):
     haplotypes = read_haplotypes(samp_filename, hap_filename, sample_id)
     legend = read_legend(leg_filename)
 
-    obs_tab1 = tuple((pos, impute2_index, 'XXX', alt if allele1 else ref)
-                         for impute2_index,((chrID,pos,ref,alt),(allele1,allele2)) in enumerate(zip(legend,haplotypes))
-                             if chr_id==chrID)
-
-    obs_tab2 = tuple((pos, impute2_index, 'XXX', alt if allele2 else ref)
-                         for impute2_index,((chrID,pos,ref,alt),(allele1,allele2)) in enumerate(zip(legend,haplotypes))
-                             if chr_id==chrID)
-
     info = {'chr_id': chr_id,
             'depth': 1,
             'read_length': 1,
             'sample_id': sample_id}
 
-    with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
-        info1 = {**info, 'haplotype': 'A'}
-        pickle.dump(obs_tab1, binfile, protocol=4)
-        pickle.dump(info1 , binfile, protocol=4)
+    if genotypes in ('A','AB'):
+        obs_tab1 = tuple((pos, impute2_index, 'XXX', alt if allele1 else ref)
+                             for impute2_index,((chrID,pos,ref,alt),(allele1,allele2)) in enumerate(zip(legend,haplotypes))
+                                 if chr_id==chrID)
+    
+        with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
+            info1 = {**info, 'haplotype': 'A'}
+            pickle.dump(obs_tab1, binfile, protocol=4)
+            pickle.dump(info1 , binfile, protocol=4)
 
-    with open(output_dir+sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
-        info2 = {**info, 'haplotype': 'B'}
-        pickle.dump(obs_tab2, binfile, protocol=4)
-        pickle.dump(info2, binfile, protocol=4)
+    if genotypes in ('B','AB'):
+        obs_tab2 = tuple((pos, impute2_index, 'XXX', alt if allele2 else ref)
+                            for impute2_index,((chrID,pos,ref,alt),(allele1,allele2)) in enumerate(zip(legend,haplotypes))
+                                if chr_id==chrID)
+    
+        with open(output_dir+sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
+            info2 = {**info, 'haplotype': 'B'}
+            pickle.dump(obs_tab2, binfile, protocol=4)
+            pickle.dump(info2, binfile, protocol=4)
 
     b = time.time()
     print('Done in %.3f sec.' % ((b-a)))

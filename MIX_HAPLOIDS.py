@@ -67,7 +67,9 @@ def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
             W = [1,1,1] + [0] * (L - 3) 
         elif scenario=='transitions':
             ####(BPH,0.3,0.7)
-            W = [1,1,1] + [0] * (L - 3) if inBPHregion(p,transitions) else [2,1,] + [0] * (L - 2)
+            x = inBPHregion(p/chr_length(chr_id),transitions)
+            ####print(p/chr_length(chr_id),transitions,x)
+            W = [1,1,1] + [0] * (L - 3) if x else [2,1,] + [0] * (L - 2)
         else:
             raise Exception('error: undefined scenario.')   
            
@@ -91,17 +93,16 @@ def senarios_iter(scenarios, list_of_transitions):
         else:
             yield s, None
 
-def save_results(obs_tab,info,ind,transitions,given_output_filename,**kwargs):
+def save_results(obs_tab,info,ind,transitions,given_output_filename,output_dir):
     """ Saves the simulated observation table togther with the 
         supplementary information. """
     
     suffix = f'.{ind:d}' if ind else ''
-    T = 'trans'+str(transitions) if info['scenario']=='transitions' else ''
+    T = '.trans_'+transitions[0]+'_'+'_'.join(f'{i:.1f}' for i in transitions[1:]) if info['scenario']=='transitions' else ''
     
     default_output_filename = f"simulated.{info['scenario']:s}.{info['chr_id']:s}.x{info['depth']:.3f}.{'.'.join(info['sample_ids']):s}{T:s}.obs.p"
     output_filename = default_output_filename if given_output_filename=='' else given_output_filename.rsplit('/', 1).pop()+suffix
     
-    output_dir = kwargs.get('output_dir', 'results')
     output_dir += '/' if output_dir[-1:]!='/' else ''
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     
@@ -120,7 +121,8 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     
     list_of_transitions = kwargs.get('transitions', [])
     given_output_filename = kwargs.get('output_filename','')
-        
+    output_dir = kwargs.get('output_dir', 'results')
+    
     obs_dicts, info_dicts = [], []
     for filename in obs_filenames:
         with open(filename, 'rb') as f:
@@ -134,7 +136,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
         raise Exception('Error: the chr_id differs from one OBS file to another.')   
     
     
-    number_of_required_obs_files = {'monosomy': 1, 'disomy': 2, 'SPH': 2, 'BPH': 3}
+    number_of_required_obs_files = {'monosomy': 1, 'disomy': 2, 'SPH': 2, 'BPH': 3, 'transitions': 3}
     
     output_filenames = []
     
@@ -160,7 +162,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
                 'handle-multiple-observations': 'all'}
         
         if given_output_filename!=None:
-            fn = save_results(obs_tab,info,ind,transitions,given_output_filename,**kwargs)
+            fn = save_results(obs_tab,info,ind,transitions,given_output_filename,output_dir)
             output_filenames.append(fn)
         
         sys.stdout.write(f"\r[{'=' * int(ind):{len(cases)}s}] {int(100*ind/len(cases))}% "); sys.stdout.flush()
