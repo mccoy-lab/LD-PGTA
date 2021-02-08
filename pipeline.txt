@@ -190,34 +190,45 @@ where the first argument is the filename of a pickle file created by MAKE_OBS_TA
 
 ## Creating mixtures of haploid sequences ##
 
-
-The script MIX_HAPLOIDS.py simulates observed bases at known SNP positions from an aneuploid cell, based on mixtures of haploid sequences. The simulation supports three scenarios:
-1. Trisomy with two matched haplotypes (‘single parental homolog’; SPH).
-2. Three unmatched haplotypes (‘both parental homologs’; BPH).
-3. Trisomy with recombination that is charecterized by a transition between SPH to BPH along the chromosome.
+The script MIX_HAPLOIDS.py simulates observed bases at known SNP positions from an aneuploid cell, based on mixtures of haploid sequences. The simulation supports various aneuploidy landscapes:
+1. Monosomy - a single copy of a chromosome pair.
+2. Disomy - two unmatched haplotypes.
+3. SPH (`single parental homolog') - trisomy with two matched haplotypes.
+4. BPH (`both parental homologs') - trisomy with three unmatched haplotypes.
+5. Meiotic trisomy - trisomy with recombination, charecterized by a transition between SPH to BPH.
 
 We run the script with the following arguments and flags:
 
-`python3 MIX_HAPLOIDS.py HAPLOID1.obs.p HAPLOID2.obs.p HAPLOID3.obs.p --depth 0.1 --read-length 150 --recombination-spots 0,0.2,0.4,0.6,0.8,1 --handle-multiple-observations all`,
+`python3 MIX_HAPLOIDS.py HAPLOID1.obs.p HAPLOID2.obs.p HAPLOID3.obs.p --depth 0.01 --read-length 36 --scenarios monosomy,SPH,disomy,BPH`,
 
 where the three first arguments are the filenames of observation tables created by MAKE_OBS_TAB for each haploid sequence. In addition, some of the following optional flags were used:
 
-`--depth <FLOAT>` _The average coverage for the whole chromosome.  Default value 0.1_
+`--depth <FLOAT>` _The average coverage for the whole chromosome.  Default value 0.01_
 
 `--read-length <INT>` _The number of base pairs (bp) sequenced from a DNA fragment. Default value 150._
 
-`--recombination-spots <FLOAT/LIST>` _Introduces a transion between SPH and BPH along the chromosome. The location of the recombination spot is determined by a fraction, ranging between 0 to 1. Giving 0 and 1 as arguemnts means having the SPH and BPH senarios along the entire chromosome, respectively. In addition, giving a list of fractions, e.g. 0.2,0.4,0.6, would create a batch of simulations._
+`--recombination-spots <LIST OF FLOATS>` _Relevant only for the BPH scenario. Introduces a transition between SPH and BPH along the chromosome. The location of the recombination spot is determined by a fraction, ranging between 0 to 1. Giving 0 and 1 as arguments means having the SPH and BPH senarios along the entire chromosome, respectively. In addition, giving a list of fractions, e.g. 0.2,0.4,0.6, would create a batch of simulations._
 
-`--handle-multiple-observations <all/first/random/skip>` _We expect to observe at most a single base per SNP. When encountering an exception the default behavior is to keep all the alleles. However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) skip the SNP._
+`--scenarios <LIST OF STRINGS>` _The simulation supports four scenarios: monosomy/disomy/SPH/BPH. Giving a list of scenarios, e.g. SPH,BPH would create a batch of simulations._
 
 `--output-filename <FILENAME>` _The output filename. The default filename is a combination of three obs filenames._
 
 ## Create haploid-like observation table using phased genotypes from VCF files.
 
-The script SIMULATE_OBS_TAB.py simulates two observation tables of a haploid, using phased genotypes from VCF files. Each observation table includes SNP positions, alleles in a genotype of an individual and their corresponding line number within the IMPUTE2 legend file.
+The script VCF2OBS.py simulates two observation tables of a haploid, using phased genotypes from VCF files. Each observation table includes SNP positions, "alleles from the same haplotype of a certain individual and their corresponding line number within the IMPUTE2 legend file.
 
 We run the script with the following arguments and flags:
 
-`python SIMULATE_OBS_TAB.py ALL.chr21.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz chr21_EUR_panel.legend chr21 HG00097`
+`python VCF2OBS.py ALL.chr21.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz chr21_EUR_panel.legend chr21 HG00097`
 
-where the first argument is the filename of a VCF file, containning phased genotypes. The second required argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. The thirds and forth arguemnts are the chromosome ID and sample ID, respectively. 
+where the first argument is the filename of a VCF file, containning phased genotypes. The second required argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. The thirds and forth arguemnts are the chromosome ID and sample ID, respectively.
+
+## Create haploid-like observation table using phased genotypes from IMPUTE2 files.
+
+The script IMPUTE2OBS.py simulates two observation tables of a haploid, using phased genotypes from IMPUTE2 files. Each observation table includes SNP positions, alleles from the same haplotype of a certain individual and their corresponding line number within the IMPUTE2 legend file.
+
+We run the script with the following arguments and flags:
+
+`python IMPUTE2OBS.py chr21_EUR_panel.legend chr21_EUR_panel.hap chr21_EUR_panel.samples chr21 HG00097`
+
+where the first argument is the filename of a legend file, describing the SNPs. The second argument is the filename of the IMPUTE2 haplotypes file, which contains a table of haplotypes. The thirds argument is the filename of the IMPUTE2 samples file, which lists the individuals. The forth and fifth arguments are the chromosome ID and sample ID, respectively. 
