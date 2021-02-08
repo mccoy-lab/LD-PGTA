@@ -39,13 +39,13 @@ def runInParallel(*fns,**kwargs):
 
 def transitions(chr_id):
     x = int(chr_id[3:]) if chr_id[3:].isnumeric() else chr_id[3:]
-    if 1<=x<=6:
+    if type(x) is int and 1<=x<=6:
         #BPH-SPH-BPH-SPH
         result = ('BPH',random.uniform(0,.25),random.uniform(.5,.75),random.uniform(.75,1))
-    elif 7<=x<=12:
+    elif type(x) is int and 7<=x<=12:
         #BPH-SPH-BPH
         result = ('BPH',random.uniform(0,.333),random.uniform(.666,1))
-    elif 13<=x<=22 or x=='X':
+    elif x=='X' or (type(x) is int and 13<=x<=22):
         #SPH-BPH
         result = ('SPH',random.uniform(.5,1))
     else:
@@ -121,13 +121,13 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 if __name__ == "__main__":
     depth=0.01
     sp='EUR'
-    chr_id='chr1'
+    chr_id='chr21'
     read_length = 36
     min_reads,max_reads = 6,4
-    #for n in ([*range(1,23)]+['X'])*20:
-    #    chr_id = 'chr' + str(n)
-    #    runInParallel(*([main]*6),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
-    main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    for n in ([*range(1,23)]+['X'])*20:
+        chr_id = 'chr' + str(n)
+        runInParallel(*([main]*6),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
+    #main(depth,sp,chr_id,read_length,min_reads,max_reads)
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")
