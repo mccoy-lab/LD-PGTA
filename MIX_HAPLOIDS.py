@@ -43,7 +43,7 @@ def number_of_reads(chr_id,reads_length,depth):
    
 def inBPHregion(x,transitions):
     """ Checks if x is in a BPH region. """
-    l = sorted(transitions[1:]+(x,1)).index(x) 
+    l = sorted(transitions[1:]+(x,)).index(x) 
     return (transitions[0]=='BPH') ^ (l%2)
       
 def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):

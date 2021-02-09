@@ -58,19 +58,11 @@ def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
         subinfo = {x: info.get(x,None) for x in criterias.keys()}
         ### print(subinfo)
         
-        S = info.get('scenario','').upper()
-        if S in ('SPH','DISOMY','MONOSOMY'):
-            scenario = S
-        elif S=='BPH' and info.get('recombination_spot',None)==1.00:
-            scenario = 'SPH'
-        elif S=='BPH' and info.get('recombination_spot',None)==0.00:
-            scenario = 'BPH'
-        else:
-            scenario = None
-        
+        scenario = info.get('scenario','')
         if criterias==subinfo and scenario in ratio:
             show_info(filename,info)  
-            buffer[scenario][info['chr_id']][filename] = [*info['statistics']['LLRs_per_genomic_window'][ratio].values()]
+            effective_ratio = tuple('BPH' if i=='transitions' else i for i in ratio)
+            buffer[scenario][info['chr_id']][filename] = [*info['statistics']['LLRs_per_genomic_window'][effective_ratio].values()]
     
      ### buffer ---> result     
     
@@ -99,6 +91,8 @@ def build_ROC_curve(criterias, positive, ratio, thresholds, num_of_buckets, work
     num_of_buckets = 1
     DATA = build_confidence_dict(criterias, num_of_buckets, ratio, work_dir)
     B,A = DATA[ratio[0]], DATA[ratio[1]]
+    
+    print(len(B),len(A))
     
     result = {}
 
@@ -149,11 +143,14 @@ def configuration(C):
     return locals()[f'{C:s}']
 
 if __name__ == "__main__":    
-    Z = [i/20 for i in range(-1000,1000)]
+    Z = [i/300 for i in range(-10000,10000)]
     A = {}
-    for SP in ('EUR','EAS','SAS','AFR','AMR'):
-        R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 1, work_dir = f'results_{SP:s}/')
-        A[SP] = R
+    #for SP in ('EUR','EAS','SAS','AFR','AMR'):
+    #    R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 1, work_dir = f'results_{SP:s}/')
+    #    A[SP] = R
+        
+    A = {'EUR': build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('transitions','disomy'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')}
+
     plot_ROC_curve(A)
 
 else:

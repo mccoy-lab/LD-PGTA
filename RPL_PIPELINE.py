@@ -72,24 +72,24 @@ if __name__ == "__main__":
                     obs_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.obs.p'
                     LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
                     
-                    #if not os.path.isfile(output_dir+obs_filename):   
-                    #    make_obs_tab_demo(bam_filename,chr_id, sp)
-                    #else:
-                    #    print(f'{obs_filename:s} already exists.')
+                    if not os.path.isfile(output_dir+obs_filename):   
+                        make_obs_tab_demo(bam_filename,chr_id, sp)
+                    else:
+                        print(f'{obs_filename:s} already exists.')
                     
-                    #if not os.path.isfile(output_dir+LLR_filename): 
-                    #    #aneuploidy_test_demo(obs_filename, chr_id, sp)
-                    #    p = Process(target=aneuploidy_test_demo,args=(obs_filename, chr_id, sp))
-                    #    p.start()
-                    #    proc.append(p)
-                    #else:
-                    #    print(f'{LLR_filename:s} already exists.')
+                    if not os.path.isfile(output_dir+LLR_filename): 
+                        #aneuploidy_test_demo(obs_filename, chr_id, sp)
+                        p = Process(target=aneuploidy_test_demo,args=(obs_filename, chr_id, sp))
+                        p.start()
+                        proc.append(p)
+                    else:
+                        print(f'{LLR_filename:s} already exists.')
                         
-                    make_obs_tab_demo(bam_filename,chr_id, sp)
-                    #aneuploidy_test_demo(obs_filename, chr_id, sp)
-                    p = Process(target=aneuploidy_test_demo,args=(obs_filename, chr_id, sp))
-                    p.start()
-                    proc.append(p)
+                    ###make_obs_tab_demo(bam_filename,chr_id, sp)
+                    ####aneuploidy_test_demo(obs_filename, chr_id, sp)
+                    ###p = Process(target=aneuploidy_test_demo,args=(obs_filename, chr_id, sp))
+                    ###p.start()
+                    ###proc.append(p)
             except Exception as error: 
                 print('ERROR: ', error)
                 if os.path.isfile(output_dir+obs_filename): os.remove(output_dir+obs_filename)
