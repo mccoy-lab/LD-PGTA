@@ -8,7 +8,7 @@ Dec 20, 2020
 """
 
 import pickle, statistics
-import ROC_CURVE_PLOTS
+from ROC_CURVE_PLOTS import plot_ROC_curve
 
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
@@ -136,13 +136,22 @@ def configuration(C):
          'max_reads': 4,
          'minimal_score': 2,
          'min_HF': 0.05}
+    
+    C1 = {'chr_id': 'chr21',
+         'depth': 0.1,
+         'read_length': 36,
+         'window_size': 0,
+         'min_reads': 24,
+         'max_reads': 12,
+         'minimal_score': 2,
+         'min_HF': 0.05}
 
 
     return locals()[f'{C:s}']
 
 if __name__ == "__main__":    
     Z = [i/300 for i in range(-1200,1200)]
-    R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EAS/')
+    R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')
     plot_ROC_curve(R)
 
 else:

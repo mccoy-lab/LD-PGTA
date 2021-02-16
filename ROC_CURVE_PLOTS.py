@@ -7,6 +7,43 @@ Daniel Ariad (daniel@ariad.org)
 Dec 20, 2020
 """
 
+import statistics
+
+def chr_length(chr_id):
+    """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
+    #The data of chromosome length was taken from https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh38
+    length_dict = {'chr1': 248956422, 'chr2': 242193529, 'chr3': 198295559, 'chr4': 190214555, 'chr5': 181538259,
+                  'chr6': 170805979, 'chr7': 159345973, 'chr8': 145138636, 'chr9': 138394717, 'chr10': 133797422,
+                  'chr11': 135086622, 'chr12': 133275309, 'chr13': 114364328, 'chr14': 107043718, 'chr15': 101991189,
+                  'chr16': 90338345, 'chr17':  83257441, 'chr18': 80373285, 'chr19': 58617616, 'chr20': 64444167,
+                  'chr21': 46709983, 'chr22': 50818468, 'chrX': 156040895, 'chrY': 57227415}
+    return length_dict[chr_id]
+
+def std_of_mean(variances):
+    """ Standard error of the mean of uncorrelated variables, based on the
+        Bienaymé formula. """
+    return sum(variances)**.5/len(variances)
+
+def confidence(info,N,z,ratio):
+    """ Binning is applied by aggregating the mean LLR of a window across N
+        consecutive windows. The boundaries of the bins as well as the mean LLR
+        and the standard-error per bin are returned. """
+        
+    LLR_stat = info['statistics']['LLRs_per_genomic_window'][ratio]
+     
+    K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
+            
+    i = lambda j: j*(len(V)//N)
+    f = lambda j: (j+1)*(len(V)//N) if j!=N-1 else len(K)
+    
+    x = lambda p,q: (K[p][0],K[q-1][-1])
+    y = lambda p,q: statistics.mean(M[p:q])
+    e = lambda p,q: z * std_of_mean(V[p:q]) 
+    
+    X,Y,E = ([func(i(j),f(j)) for j in range(N)] for func in (x,y,e))
+
+    return X,Y,E
+    
 def plot_ROC_curve(x):
     """ Plots the ROC curve. """
     import matplotlib.pyplot as plt

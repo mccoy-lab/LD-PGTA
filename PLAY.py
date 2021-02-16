@@ -315,14 +315,14 @@ def detect_haploids_and_triploids(cases):
             M = {pair: mean([m for (m,v) in C]) for pair,C in LLRs_per_genomic_window.items()}
             SD = {pair: std_of_mean([v for (m,v) in C]) for pair,C in LLRs_per_genomic_window.items()}
     
-            if not M[('BPH','DISOMY')]/SD[('BPH','DISOMY')]<-1:
+            if not M[('BPH','DISOMY')]/SD[('BPH','DISOMY')]<-2:
                 A = {'mean': M[('BPH','DISOMY')], 'SD': SD[('BPH','DISOMY')] }
-                print('Triploids:',bam_filename, A)
+                print('Triploid:',bam_filename, A)
                 case.update(A)
                 TRIPLOIDS.append(case)
-            elif not M[('MONOSOMY','DISOMY')]/SD[('MONOSOMY','DISOMY')]<-1:
+            elif M[('MONOSOMY','DISOMY')]/SD[('MONOSOMY','DISOMY')]>1:
                 A = {'mean': M[('MONOSOMY','DISOMY')], 'SD': SD[('MONOSOMY','DISOMY')] }
-                print('Haploids:',bam_filename, A)
+                print('Haploid:',bam_filename, A)
                 case.update(A)
                 HAPLOIDS.append(case)
             
@@ -388,17 +388,21 @@ if __name__ == "__main__":
     #bob = ['10523FA-AFFRU_3', '10523FA-AFFRU_4', '10560FA-AFFPH_3', '10675FA-BJNTV_2', '10675FA-BJNTV_3', '10675FA-BJNTV_4', '10675FA-BJNTV_5', '10686FA-AFFPE_9', '10846FA-AFPAB_3', '10871FA-AJ3U4_12', '10951FA-AJ3WW_3', '10969FA-AJ470_2', '11522FA-AP925_3', '11578FA-AR3WC_3', '11598FA-AP923_9', '12662FA-B5Y5R_1', '12662FA-B5Y5R_3', '12699FA-B8F4K_4', '12789FA-AWL1L_12', '12962FA-BK2G8_6', '14529FA-CM2GK_2', 'GP-CWFRM_8', 'MZ-AFFC4_1', '13068FA-BK2G5_23', '10675FA-BJNTV_3c', 'MZ-AFFC4_2', '10964FA-AJ470_1', '13121FA-BK23M_23', '13086FA-BK2G5_6', '10668FA-AFDL2_2', '11550FA-AP91V_5', '10722FA-AFFCT_3a', '12055FA-ANTJ1_15', '12454FA-AW7BB_2', '10967FA-AJ470_F10', '11946FA-AR452_9', '11550FA-AP91V_4', '13744FA-C4RPY_2', '13086FA-BK2G5_8', '10658FA-AFDL2_F10', '14220FA-CFP2Y_1', '12446FA-AU3UC_29', '14212FA-CFP2Y_5', '11946FA-AR452_1', '11944FA-AR452_13', '11511FA-AP91V_8']
     
     
-    #with open(HOME+'/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females_new.p', 'rb') as f:
-    #    db_TEST = pickle.load(f)
-        #db_TEST = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR']K = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR']
+    with open(HOME+'/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females_new.p', 'rb') as f:
+        db_TEST = pickle.load(f)
+        db_TEST = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR'] 
     
-    #HAPLOIDS, TRIPLOIDS, ERRORS = detect_haploids_and_triploids(db_TEST)
+    HAPLOIDS, TRIPLOIDS, ERRORS = detect_haploids_and_triploids(db_TEST)
     
     #for case in db_TRIPLOIDS:
     #    print(case)
     #    DATA = [load_likelihoods(f"/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/{case['filename'][:-4]:s}.chr{i:s}.LLR.p") for i in [*map(str,range(1,23))]+['X']]
     #    panel_plot(DATA,N=10,title=f"{case['filename'][:-4]:s}")
     
+    
+    #####
+    #RPL#
+    #####
     
     RPL = ['2019-12-23_RIG003-2_S11.bam', '2020-05-22_RPL005-4_S8.bam',
            '2019-12-23_RIG003-3_S4.bam',   '2020-05-22_RPL006-1_S9.bam',
@@ -414,5 +418,5 @@ if __name__ == "__main__":
     #for R in RPL:
     #    DATA = [load_likelihoods(f"{HOME:s}/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_RPL/{R[:-4]:s}.chr{i:s}.LLR.p") for i in [*map(str,range(1,23))]]
     #    panel_plot(DATA,N=10,title=f"{R[:-4]:s}",save=f"{R[:-4]:s}.png")
-    cases = [{'filename': i ,'sp': 'EUR' , 'chr_num': [*map(str,range(1,23)),'X'] } for i in RPL]
-    detect_haploids_and_triploids(cases)    
+    #cases = [{'filename': i ,'sp': 'EUR' , 'chr_num': [*map(str,range(1,23)),'X'] } for i in RPL]
+    #detect_haploids_and_triploids(cases)    

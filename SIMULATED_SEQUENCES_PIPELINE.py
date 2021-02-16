@@ -72,6 +72,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output
     return LLR_dict, info
 
 #def make_simulated_obs_tab(sample_id,sp,chr_id,genotypes,output_dir):
+#    """ Based on VCF2OBS """    
 #    bcftools_dir = '' #'../bcftools-1.10.2/bin'
 #    #sample_id = 'HG00096'
 #    #chr_id = 'chr21'
@@ -81,6 +82,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output
 #    return simulate(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,genotypes=genotypes,output_dir=output_dir)
 
 def make_simulated_obs_tab(sample_id,sp,chr_id,genotypes,output_dir):
+    """ Based on IMPUTE2OBS """
     path = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/'
     #path = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/'
     leg_filename = path + f'{chr_id:s}_{sp:s}_panel.legend'
@@ -119,11 +121,11 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 
 
 if __name__ == "__main__":
-    depth=0.01
-    sp='EUR'
+    depth=0.1
+    sp='SAS'
     chr_id='chr21'
     read_length = 36
-    min_reads,max_reads = 6,4
+    min_reads,max_reads = 24,12
     for n in ([*range(1,23)]+['X'])*20:
         chr_id = 'chr' + str(n)
         runInParallel(*([main]*6),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
