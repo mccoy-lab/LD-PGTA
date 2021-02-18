@@ -53,10 +53,10 @@ def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
     L = len(obs_dicts)
         
     obs_tab = list()
-    
+    dx, odd = divmod(read_length, 2)
     for i in range(num_of_reads):
         p = randrange(chr_length(chr_id))+1
-        read_boundaries = (p,p+read_length)
+        read_boundaries = (p-dx,p+dx+odd)
         if scenario=='monosomy':
             W = [1,] + [0] * (L - 1)
         elif scenario=='disomy':
