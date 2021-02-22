@@ -120,8 +120,8 @@ def BUILD(x):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Makes the statistical models for BPH, SPH, disomy and monosomy.')
-    parser.add_argument('maximal_number_of_reads', metavar='n', type=int, 
-                        help='Maximal number of supported reads.')
+    parser.add_argument('maximal_number_of_reads', metavar='n', type=int, default=16, 
+                        help='Maximal number of supported reads. The default is 16 reads.')
     
     n = vars(parser.parse_args())['maximal_number_of_reads']    
     models = BUILD(n)

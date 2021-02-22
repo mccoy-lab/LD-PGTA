@@ -90,7 +90,7 @@ def main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,**kwargs):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description='Simulates two observation tables of a haploid, using phased genotypes from IMPUTE2 files. '
+        description='Simulates two observation tables of haploids, using phased genotypes from IMPUTE2 files. '
                     'Each observation table includes SNP positions, from the same haplotype of a certain ' 
                     'individual and their corresponding line number within the IMPUTE2 legend file.')
     parser.add_argument('leg_filename', metavar='legend_filename', type=str,
@@ -103,6 +103,8 @@ if __name__ == "__main__":
                         help='Chromosome ID')
     parser.add_argument('sample_id', metavar='sampleID', type=str,
                         help='Sample ID')
+    parser.add_argument('-g', '--genotypes', metavar='A/B/AB', type=str, default='AB',
+                        help='Which of the individual\'s haplotypes should be used. For each specified haplotype, one haploid would be genereated. Default is both (AB).')
 
 
     args = parser.parse_args()

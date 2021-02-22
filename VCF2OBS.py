@@ -122,6 +122,9 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--bcftools-dir', type=str,
                         default='', metavar='BCFTOOLS_DIR',
                         help='The directory where bcftools are installed.')
+    parser.add_argument('-g', '--genotypes', metavar='A/B/AB', type=str, default='AB',
+                        help='Which of the individual\'s haplotypes should be used. For each specified haplotype, one haploid would be genereated. Default is both (AB).')
+
 
     args = parser.parse_args()
     sys.exit(main(**vars(args)))
