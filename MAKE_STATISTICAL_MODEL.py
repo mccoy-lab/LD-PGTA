@@ -19,6 +19,7 @@ from math import gcd as greatest_common_divisor
 from pickle import dump
 from time import time
 from bz2 import BZ2File
+import argparse, sys
 
 def ENGINE(number_of_reads,degeneracies):
     """ Generates polysomy statistical models for n-reads, based of a list of
@@ -101,12 +102,11 @@ def MONOSOMY(number_of_reads):
     return COMPACT(model,number_of_reads,degeneracies)
 
 def BUILD(x):
-    """ Build and store a dictionary with BPH and SPH statistical models for
-    2-16 reads. """
+    """ Build and store a dictionary with statistical models for BPH, SPH, disomy and monosomy. """
     
     models = dict()
     for i in range(2,x+1):
-        print('Building the statistical model for %d reads.' % i)
+        print('Makes the statistical model for %d reads.' % i)
         a = time()
         models[i]= {'MONOSOMY': MONOSOMY(i), 'DISOMY': DISOMY(i), 'SPH': SPH(i), 'BPH': BPH(i)}
         b = time()
@@ -118,7 +118,14 @@ def BUILD(x):
     return models
 
 if __name__ == "__main__":
-    print('The module MAKE_STATISTICAL_MODEL was invoked directly.')
-    models = BUILD(18)
+    parser = argparse.ArgumentParser(
+        description='Makes the statistical models for BPH, SPH, disomy and monosomy.')
+    parser.add_argument('maximal_number_of_reads', metavar='n', type=int, 
+                        help='Maximal number of supported reads.')
+    
+    n = vars(parser.parse_args())['maximal_number_of_reads']    
+    models = BUILD(n)
+    sys.exit(0)
+
 else:
     print('The module MAKE_STATISTICAL_MODEL was imported.')
