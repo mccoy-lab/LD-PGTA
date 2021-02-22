@@ -122,7 +122,7 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 
 if __name__ == "__main__":
     depth=0.1
-    sp='SAS'
+    sp='EUR'
     chr_id='chr21'
     read_length = 36
     min_reads,max_reads = 24,12

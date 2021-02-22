@@ -13,8 +13,8 @@ from multiprocessing import Process
 
 def make_obs_tab_demo(bam_filename,chr_id,sp):
     from MAKE_OBS_TAB import retrive_bases
-    args = {'bam_filename': '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/'+bam_filename,
-            'output_dir': '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/',
+    args = {'bam_filename': '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/'+bam_filename,
+            'output_dir': '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/',
             'legend_filename': f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
             'max_depth': 0,
             'min_bq': 30,
@@ -29,7 +29,7 @@ def make_obs_tab_demo(bam_filename,chr_id,sp):
     
 def aneuploidy_test_demo(obs_filename,chr_id,sp):
     from ANEUPLOIDY_TEST import aneuploidy_test
-    args = dict(obs_filename = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/' + obs_filename,
+    args = dict(obs_filename = '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/' + obs_filename,
                 hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap',
                 leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
                 window_size = 0,
@@ -39,18 +39,18 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp):
                 max_reads = 4,
                 min_HF = 0.05,
                 minimal_score = 2,
-                output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/', 
+                output_dir = '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/', 
                 output_filename = '')
     LLR_dict, info = aneuploidy_test(**args)
     return LLR_dict, info
 
 if __name__ == "__main__":
-    with open('/home/ariad/Dropbox/postdoc_JHU/BlueFuse/Play/diploid_females_new.p', 'rb') as f:
+    with open('/home/ariad/Dropbox/postdoc_JHU/Zouves-BlueFuse/Play/diploids.p', 'rb') as f:
         db_TEST = pickle.load(f)
    
     DONE = []
     ERRORS = []
-    output_dir = '/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/'
+    output_dir = '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/'
     for case in db_TEST[::-1]:
         if case not in DONE:
             bam_filename = case['filename']

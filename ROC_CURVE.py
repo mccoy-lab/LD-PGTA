@@ -150,7 +150,7 @@ def configuration(C):
     return locals()[f'{C:s}']
 
 if __name__ == "__main__":    
-    Z = [i/300 for i in range(-1200,1200)]
+    Z = [i/600 for i in range(-3600,3600)]
     R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')
     plot_ROC_curve(R)
 
