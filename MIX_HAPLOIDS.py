@@ -76,8 +76,9 @@ def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
         rnd = choices(range(len(W)), weights=W, k=1)[0]
         reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1]-1,chr(65+rnd),i) 
         
-        obs_tab.extend((pos, e[0], reads_id, e[1]) for pos in range(*read_boundaries) if (e:=obs_dicts[rnd].get(pos)))  
-        #### e[0] and e[1] are impute2_ind, obs_base       
+        ####obs_tab.extend((pos, e[0], reads_id, e[1]) for pos in range(*read_boundaries) if (e:=obs_dicts[rnd].get(pos)))  # Compatible only with Python 3.8 and above.
+        obs_tab.extend((pos, obs_dicts[rnd][pos][0], reads_id, obs_dicts[rnd][pos][1]) for pos in range(*read_boundaries) if obs_dicts[rnd].get(pos))
+        #### obs_dicts[rnd][pos][0] and obs_dicts[rnd][pos][1] are impute2_ind, obs_base       
     obs_tab.sort(key=itemgetter(0))
         
     return obs_tab
