@@ -23,8 +23,8 @@ from itertools import combinations
 
 try:
     from gmpy2 import popcount
-except:
-    print('caution: cound not import the gmpy2 module.')
+except ModuleNotFoundError:
+    print('caution: the module gmpy2 is missing.')
     def popcount(x):
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')

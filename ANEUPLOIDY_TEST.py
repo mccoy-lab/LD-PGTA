@@ -26,15 +26,15 @@ from math import log
 
 try:
     from gmpy2 import popcount
-except:
-    print('caution: cound not import the gmpy2 module.')
+except ModuleNotFoundError:
+    print('caution: the module gmpy2 is missing.')
     def popcount(x):
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')
 
 try:
     from math import comb
-except:
+except ImportError:
     print('caution: cound not import comb from the math module.')
     def comb(n, k):
         """ Return the number of ways to choose k items from n items without repetition and without order. """
