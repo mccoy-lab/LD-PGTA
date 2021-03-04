@@ -8,7 +8,6 @@ Dec 20, 2020
 """
 
 import pickle, statistics
-from ROC_CURVE_PLOTS import plot_ROC_curve
 
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
@@ -52,7 +51,25 @@ def show_info(filename,info):
     print('Fraction of genomic windows with a negative LLR: %.3f' % (X['fraction_of_negative_LLRs']))
     print('The calculation was done in %.3f sec.' % info['runtime'])
 
-def confidence(info,N,z,ratio):
+def coordinates(windows,chr_id,num_of_buckets):
+    bin_size = chr_length(chr_id) / num_of_buckets
+    result = {}
+    j = 0
+    for i in range(num_of_buckets):
+        if sum(windows[0])/2 < (i+1)*bin_size:
+            break
+        result[i/num_of_buckets,(i+1)/num_of_buckets] = None
+    for k,(a,b) in enumerate(windows):
+        if not bin_size*i <= (a+b)/2 < bin_size*(i+1):
+            result[i/num_of_buckets,(i+1)/num_of_buckets] = (j,k)
+            j = k
+            i += 1
+    for l in range(i,num_of_buckets):
+        result[l/num_of_buckets,(l+1)/num_of_buckets] = (j,k) if j != k else None
+        j = k 
+    return result
+
+def confidence(info,num_of_buckets,z,ratio):
     """ Binning is applied by aggregating the mean LLR of a window across N
         consecutive windows. The boundaries of the bins as well as the mean LLR
         and the standard-error per bin are returned. """
@@ -60,16 +77,13 @@ def confidence(info,N,z,ratio):
     LLR_stat = info['statistics']['LLRs_per_genomic_window'][ratio]
      
     K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
-            
-    i = lambda j: j*(len(V)//N)
-    f = lambda j: (j+1)*(len(V)//N) if j!=N-1 else len(K)
-    
-    x = lambda p,q: (K[p][0],K[q-1][-1])
-    y = lambda p,q: statistics.mean(M[p:q])
-    e = lambda p,q: z * std_of_mean(V[p:q]) 
-    
-    X,Y,E = ([func(i(j),f(j)) for j in range(N)] for func in (x,y,e))
 
+    buckets = coordinates(windows=K,chr_id=info['chr_id'],num_of_buckets=num_of_buckets)
+    
+    X = [*buckets]
+    Y = [statistics.mean(M[P[0]:P[1]]) if P else None for P in buckets.values()]
+    E = [std_of_mean(V[P[0]:P[1]]) if P else None for P in buckets.values()] 
+    
     return X,Y,E
 
 def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
@@ -79,7 +93,7 @@ def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
     
     import glob
     effective_ratio = tuple('BPH' if i=='transitions' else i for i in ratio)
-    filenames = glob.glob(work_dir + '*.LLR.p')
+    filenames = glob.glob(work_dir + f"simulated.*.{criterias['chr_id']:s}.x{criterias['depth']:.3f}*.LLR.p")
     result = {r: {} for r in ratio}
     for filename in filenames:
         likelihoods, info = load_llr(filename)
@@ -89,8 +103,8 @@ def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
         scenario = info.get('scenario','') 
         if criterias==subinfo and scenario in ratio:
             show_info(filename,info)
-            result[scenario][filename] = tuple({'mean': mean, 'std': std} 
-                                               for (pos,mean,std) in zip(*confidence(info,N=num_of_buckets,z=1,ratio=effective_ratio)))
+            result[scenario][filename] = {bucket: {'mean': mean, 'std': std} 
+                                               for (bucket,mean,std) in zip(*confidence(info,num_of_buckets=num_of_buckets,z=1,ratio=effective_ratio))}
     return result
 
 def build_ROC_curve(criterias, positive, ratio, thresholds, num_of_buckets, work_dir):
@@ -100,18 +114,23 @@ def build_ROC_curve(criterias, positive, ratio, thresholds, num_of_buckets, work
     DATA = build_confidence_dict(criterias, num_of_buckets, ratio, work_dir)
     B,A = DATA[ratio[0]], DATA[ratio[1]]
     
+    buckets = [*next(iter(B.values()))]
+    ###print(buckets)
+    
     print(len(A),len(B))
     result = {}
-    for bucket in range(num_of_buckets):
+    for bucket in buckets:
         result[bucket] = {}
         for z in thresholds:
-            true_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in B.values()]
-            false_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in A.values()]
+            true_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in B.values() if file[bucket]['mean']!=None]
+            false_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in A.values() if file[bucket]['mean']!=None]
             
-            false_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in B.values()]
-            true_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in A.values()]
+            false_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in B.values() if file[bucket]['mean']!=None]
+            true_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in A.values() if file[bucket]['mean']!=None]
             
-            if positive == 'both':
+            if true_B==[] or false_B==[]:
+                break
+            elif positive == 'both':
                 TPR = 0.5 * (true_B.count(1)/len(true_B) + true_A.count(1)/len(true_A))
                 FPR = 0.5 * (false_B.count(1)/len(false_B) + false_A.count(1)/len(false_A))
             elif positive == 'A':
@@ -127,7 +146,21 @@ def build_ROC_curve(criterias, positive, ratio, thresholds, num_of_buckets, work
             
     return result
 
+def plot_ROC_curve(x):
+    """ Plots the ROC curve. """
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    for i,j in enumerate(x):
+        if x[j]!={}:
+            ax.scatter(*zip(*x[j].values()), label=f'bin {str(j):s}', s=len(x)+1-i)        
+    ax.legend()
+    ax.grid(True)
+    plt.show()
+
 def configuration(C):
+    
+    result = dict(
+        
     C0 = {'chr_id': 'chr21',
          'depth': 0.01,
          'read_length': 36,
@@ -135,7 +168,7 @@ def configuration(C):
          'min_reads': 6,
          'max_reads': 4,
          'minimal_score': 2,
-         'min_HF': 0.05}
+         'min_HF': 0.05},
     
     C1 = {'chr_id': 'chr21',
          'depth': 0.1,
@@ -144,14 +177,24 @@ def configuration(C):
          'min_reads': 24,
          'max_reads': 12,
          'minimal_score': 2,
+         'min_HF': 0.05},
+    
+    C2 = {'chr_id': 'chr21',
+         'depth': 0.05,
+         'read_length': 36,
+         'window_size': 0,
+         'min_reads': 18,
+         'max_reads': 8,
+         'minimal_score': 2,
          'min_HF': 0.05}
+    )
 
 
-    return locals()[f'{C:s}']
+    return result[C]
 
 if __name__ == "__main__":    
     Z = [i/600 for i in range(-3600,3600)]
-    R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')
+    R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 10, work_dir = 'results_EUR/')
     plot_ROC_curve(R)
 
 else:
