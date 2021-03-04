@@ -55,16 +55,17 @@ def coordinates(windows,chr_id,num_of_buckets):
     bin_size = chr_length(chr_id) / num_of_buckets
     result = {}
     j = 0
-    for i in range(num_of_buckets):
+    for i in range(num_of_buckets): ### Fill all the bins before the first genomic window with Nones
         if sum(windows[0])/2 < (i+1)*bin_size:
             break
         result[i/num_of_buckets,(i+1)/num_of_buckets] = None
+    
     for k,(a,b) in enumerate(windows):
         if not bin_size*i <= (a+b)/2 < bin_size*(i+1):
             result[i/num_of_buckets,(i+1)/num_of_buckets] = (j,k)
             j = k
             i += 1
-    for l in range(i,num_of_buckets):
+    for l in range(i,num_of_buckets): 
         result[l/num_of_buckets,(l+1)/num_of_buckets] = (j,k) if j != k else None
         j = k 
     return result
