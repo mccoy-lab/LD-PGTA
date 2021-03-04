@@ -52,10 +52,12 @@ def show_info(filename,info):
     print('The calculation was done in %.3f sec.' % info['runtime'])
 
 def coordinates(windows,chr_id,num_of_buckets):
+    """ Lists the buckets and gives the genomic windows that they contain. """
     bin_size = chr_length(chr_id) / num_of_buckets
     result = {}
     j = 0
-    for i in range(num_of_buckets): ### Fill all the bins before the first genomic window with Nones
+    
+    for i in range(num_of_buckets): ### All buckets before the first the genomic window are filled with Nones.
         if sum(windows[0])/2 < (i+1)*bin_size:
             break
         result[i/num_of_buckets,(i+1)/num_of_buckets] = None
@@ -64,14 +66,19 @@ def coordinates(windows,chr_id,num_of_buckets):
         if not bin_size*i <= (a+b)/2 < bin_size*(i+1):
             result[i/num_of_buckets,(i+1)/num_of_buckets] = (j,k)
             j = k
-            i += 1
-    for l in range(i,num_of_buckets): 
-        result[l/num_of_buckets,(l+1)/num_of_buckets] = (j,k) if j != k else None
+            for i in range(i+1,num_of_buckets): #Proceed to the next non-empty bucket; Empty buckets are filled with Nones.
+                if (a+b)/2 < (i+1)*bin_size:
+                    break
+                result[i/num_of_buckets,(i+1)/num_of_buckets] = None
+    
+    for i in range(i,num_of_buckets): ### All buckets after the last the genomic window are filled with Nones.
+        result[i/num_of_buckets,(i+1)/num_of_buckets] = (j,k) if j != k else None
         j = k 
     return result
 
+
 def confidence(info,num_of_buckets,z,ratio):
-    """ Binning is applied by aggregating the mean LLR of a window across N
+    """ Binning is applied by aggregating the mean LLR per window across 
         consecutive windows. The boundaries of the bins as well as the mean LLR
         and the standard-error per bin are returned. """
         
