@@ -4,10 +4,26 @@
 ROC_CURVE
 
 Daniel Ariad (daniel@ariad.org)
-Dec 20, 2020
+March 20, 2021
 """
 
 import pickle, statistics
+from math import log
+from itertools import starmap
+
+def LLR(y,x):
+    """ Calculates the logarithm of y over x and deals with edge cases. """
+    if x and y:
+        result = log(y/x)
+    elif x and not y:
+        result = -1.23456789 
+    elif not x and y:
+        result = +1.23456789 
+    elif not x and not y:
+        result = 0 
+    else:
+        result = None    
+    return result
 
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
@@ -77,13 +93,18 @@ def coordinates(windows,chr_id,num_of_buckets):
     return result
 
 
-def confidence(info,num_of_buckets,z,ratio):
-    """ Binning is applied by aggregating the mean LLR per window across 
+def bucketing(likelihoods,info,num_of_buckets,z,ratio):
+    """ Bucketing is applied by aggregating the mean LLR per window across 
         consecutive windows. The boundaries of the bins as well as the mean LLR
         and the standard-error per bin are returned. """
-        
-    LLR_stat = info['statistics']['LLRs_per_genomic_window'][ratio]
-     
+    
+    if ratio in info['statistics']['LLRs_per_genomic_window']:    
+        LLR_stat = info['statistics']['LLRs_per_genomic_window'][ratio]
+    else:
+        _ = {}
+        LLR_stat = {window:  mean_and_var([*starmap(LLR, ((_[ratio[0]], _[ratio[1]]) for _['monosomy'], _['disomy'], _['SPH'], _['BPH'] in L))])
+                           for window,L in likelihoods.items()}
+    
     K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
 
     buckets = coordinates(windows=K,chr_id=info['chr_id'],num_of_buckets=num_of_buckets)
@@ -94,15 +115,15 @@ def confidence(info,num_of_buckets,z,ratio):
     
     return X,Y,E
 
-def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
+def collect_data(criterias, num_of_buckets, ratio, work_dir):
     """ Iterates over all the data files in the folder and creates a dictionary
     the list all the files that fit the criterias and gives their analysis 
-    (via the confidence function). """
+    (via the bucketing function). """
     
     import glob
     effective_ratio = tuple('BPH' if i=='transitions' else i for i in ratio)
-    filenames = glob.glob(work_dir + f"simulated.*.{criterias['chr_id']:s}.x{criterias['depth']:.3f}*.LLR.p")
-    result = {r: {} for r in ratio}
+    filenames = glob.glob(work_dir + f"simulated*{criterias['depth']:.3f}*LLR.p")
+    result = {r: {'chr'+str(i): {} for i in [*range(1,23)]+['X','Y'] } for r in ratio}
     for filename in filenames:
         likelihoods, info = load_llr(filename)
         subinfo = {x: info.get(x,None) for x in criterias.keys()}
@@ -111,47 +132,51 @@ def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
         scenario = info.get('scenario','') 
         if criterias==subinfo and scenario in ratio:
             show_info(filename,info)
-            result[scenario][filename] = {bucket: {'mean': mean, 'std': std} 
-                                               for (bucket,mean,std) in zip(*confidence(info,num_of_buckets=num_of_buckets,z=1,ratio=effective_ratio))}
+            chr_id = info['chr_id']
+            result[scenario][chr_id][filename] = {bucket: {'mean': mean, 'std': std} 
+                                               for (bucket,mean,std) in zip(*bucketing(likelihoods,info,num_of_buckets=num_of_buckets,z=1,ratio=effective_ratio))}
     return result
 
 def build_ROC_curve(criterias, positive, ratio, thresholds, num_of_buckets, work_dir):
     """ Creates a nested dictionary that lists bins and thresholds and gives 
         the false and true positive rates. """ 
     
-    DATA = build_confidence_dict(criterias, num_of_buckets, ratio, work_dir)
+    DATA = collect_data(criterias, num_of_buckets, ratio, work_dir)
     B,A = DATA[ratio[0]], DATA[ratio[1]]
+
+    #result = {chr_id: {} for chr_id,files in B.items() if files!={}}
     
-    buckets = [*next(iter(B.values()))]
-    ###print(buckets)
     
-    print(len(A),len(B))
-    result = {}
-    for bucket in buckets:
-        result[bucket] = {}
-        for z in thresholds:
-            true_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in B.values() if file[bucket]['mean']!=None]
-            false_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in A.values() if file[bucket]['mean']!=None]
-            
-            false_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in B.values() if file[bucket]['mean']!=None]
-            true_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in A.values() if file[bucket]['mean']!=None]
-            
-            if true_B==[] or false_B==[]:
-                break
-            elif positive == 'both':
-                TPR = 0.5 * (true_B.count(1)/len(true_B) + true_A.count(1)/len(true_A))
-                FPR = 0.5 * (false_B.count(1)/len(false_B) + false_A.count(1)/len(false_A))
-            elif positive == 'A':
-                TPR = true_A.count(1)/len(true_A)
-                FPR = false_A.count(1)/len(false_A)
-            elif positive == 'B':
-                TPR = true_B.count(1)/len(true_B)
-                FPR = false_B.count(1)/len(false_B)
-            else:
-                break
-            
-            result[bucket][z] = (FPR,TPR)
-            
+    result = {'chr'+str(i): {} for i in [*range(1,23)]+['X','Y'] }
+    
+    for chr_id in result:        
+        print(len(A[chr_id]),len(B[chr_id]))
+        for i in range(num_of_buckets):
+            bucket = (i/num_of_buckets,(i+1)/num_of_buckets)
+            result[chr_id][bucket] = {}
+            for z in thresholds:
+                true_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in B[chr_id].values() if file[bucket]['mean']!=None]
+                false_B = [file[bucket]['mean'] > z * file[bucket]['std'] for file in A[chr_id].values() if file[bucket]['mean']!=None]
+                
+                false_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in B[chr_id].values() if file[bucket]['mean']!=None]
+                true_A = [file[bucket]['mean'] < -z * file[bucket]['std'] for file in A[chr_id].values() if file[bucket]['mean']!=None]
+                
+                if true_B==[] or false_B==[]:
+                    break
+                elif positive == 'both':
+                    TPR = 0.5 * (true_B.count(1)/len(true_B) + true_A.count(1)/len(true_A))
+                    FPR = 0.5 * (false_B.count(1)/len(false_B) + false_A.count(1)/len(false_A))
+                elif positive == 'A':
+                    TPR = true_A.count(1)/len(true_A)
+                    FPR = false_A.count(1)/len(false_A)
+                elif positive == 'B':
+                    TPR = true_B.count(1)/len(true_B)
+                    FPR = false_B.count(1)/len(false_B)
+                else:
+                    break
+                
+                result[chr_id][bucket][z] = (FPR,TPR)
+                
     return result
 
 def plot_ROC_curve(x):
@@ -169,8 +194,7 @@ def configuration(C):
     
     result = dict(
         
-    C0 = {'chr_id': 'chr21',
-         'depth': 0.01,
+    C0 = {'depth': 0.01,
          'read_length': 36,
          'window_size': 0,
          'min_reads': 6,
@@ -178,8 +202,7 @@ def configuration(C):
          'minimal_score': 2,
          'min_HF': 0.05},
     
-    C1 = {'chr_id': 'chr21',
-         'depth': 0.1,
+    C1 = {'depth': 0.1,
          'read_length': 36,
          'window_size': 0,
          'min_reads': 24,
@@ -187,8 +210,7 @@ def configuration(C):
          'minimal_score': 2,
          'min_HF': 0.05},
     
-    C2 = {'chr_id': 'chr21',
-         'depth': 0.05,
+    C2 = {'depth': 0.05,
          'read_length': 36,
          'window_size': 0,
          'min_reads': 18,
@@ -197,13 +219,12 @@ def configuration(C):
          'min_HF': 0.05}
     )
 
-
     return result[C]
 
 if __name__ == "__main__":    
     Z = [i/600 for i in range(-3600,3600)]
     R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 10, work_dir = 'results_EUR/')
-    plot_ROC_curve(R)
+    plot_ROC_curve(R['chr21'])
 
 else:
     print("The module ROC_curve was imported.")
