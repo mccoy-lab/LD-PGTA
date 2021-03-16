@@ -45,7 +45,8 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp):
     return LLR_dict, info
 
 if __name__ == "__main__":
-    with open('/home/ariad/Dropbox/postdoc_JHU/Zouves-BlueFuse/Play/diploids.p', 'rb') as f:
+    CHECK = True
+    with open('/home/ariad/Dropbox/postdoc_JHU/Zouves-BlueFuse/Play/all.p', 'rb') as f:
         db_TEST = pickle.load(f)
    
     DONE = []
@@ -63,12 +64,12 @@ if __name__ == "__main__":
                     obs_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.obs.p'
                     LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
                     
-                    if not os.path.isfile(output_dir+obs_filename):   
+                    if not os.path.isfile(output_dir+obs_filename) or not CHECK:   
                         make_obs_tab_demo(case['filename'],chr_id, sp)
                     else:
                         print(f'{obs_filename:s} already exists.')
                     
-                    if not os.path.isfile(output_dir+LLR_filename): 
+                    if not os.path.isfile(output_dir+LLR_filename) or not CHECK: 
                         #aneuploidy_test_demo(obs_filename, chr_id, sp)
                         p = Process(target=aneuploidy_test_demo,args=(obs_filename, chr_id, sp))
                         p.start()

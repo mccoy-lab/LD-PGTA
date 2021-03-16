@@ -11,7 +11,8 @@ import pickle, statistics, collections
 from itertools import starmap
 from operator import or_
 from ANEUPLOIDY_TEST import LLR 
-    
+from multiprocessing import Process
+
 def mean_and_var(sample):
     """ Calculates the mean and the sample standard deviation. """
     mean = statistics.mean(sample)
@@ -28,11 +29,14 @@ def load_llr(filename):
     """ Loads from a file a dictionary that lists genomic windows that contain
     at least two reads and gives the bootstrap distribution of the 
     log-likelihood BPH/SPH ratios (LLRs). """
-    
-    with open(filename, 'rb') as f:
-        likelihoods = pickle.load(f)
-        info = pickle.load(f)
+    try:
+        with open(filename, 'rb') as f:
+            likelihoods = pickle.load(f)
+            info = pickle.load(f)
+    except:
+        likelihoods = info = None
     return likelihoods, info
+
 
 def show_info(filename,info):
     S = info['statistics']
@@ -45,25 +49,29 @@ def show_info(filename,info):
     print('The calculation was done in %.3f sec.' % info['runtime'])
 
 
-def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
+def build_confidence_dict(criterias, ratio, work_dir):
     """ Iterates over all the data files in the folder and creates a dictionary
     the list all the files that fit the criterias and gives their analysis 
     (via the confidence function). """
     
     import glob
     effective_ratio = tuple('BPH' if i=='transitions' else i for i in ratio)
-    filenames = glob.glob(work_dir + '*.LLR.p')
+    ###filenames = glob.glob(work_dir + '*.LLR.p')
+    ###filenames = glob.glob(work_dir + f"simulated*{criterias['depth']:.3f}*LLR.p")
+    filenamesB = glob.glob(work_dir + f"simulated.{ratio[0]:s}*{criterias['depth']:.3f}*LLR.p")
+    filenamesA = glob.glob(work_dir + f"simulated.{ratio[1]:s}*{criterias['depth']:.3f}*LLR.p")
     result = {r: {} for r in ratio}
 
     buffer = {r: collections.defaultdict(dict) for r in ratio}
-    for filename in filenames:
+    for filename in filenamesA+filenamesB:
         likelihoods, info = load_llr(filename)
+        if likelihoods==None: continue
         subinfo = {x: info.get(x,None) for x in criterias.keys()}
         ### print(subinfo)
         
         scenario = info.get('scenario','')
         if criterias==subinfo and scenario in ratio:
-            show_info(filename,info)  
+            #show_info(filename,info)  
         
             if effective_ratio in info['statistics']['LLRs_per_genomic_window']:
                 LLRs_per_genomic_window = [*info['statistics']['LLRs_per_genomic_window'][effective_ratio].values()]
@@ -72,6 +80,7 @@ def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
                 _ = {}
                 LLRs_per_genomic_window = [mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['monosomy'], _['disomy'], _['SPH'], _['BPH'] in L))])
                                for window,L in likelihoods.items()]
+                
             buffer[scenario][info['chr_id']][filename] = LLRs_per_genomic_window    
     
     count = {scenario: min(len(buffer[scenario][f'chr{i:d}']) for i in range(1,23)) for scenario in ratio}
@@ -92,13 +101,9 @@ def build_confidence_dict(criterias, num_of_buckets, ratio, work_dir):
     
     return result
 
-def build_ROC_curve(criterias, positive, ratio, thresholds, num_of_buckets, work_dir):
+def build_ROC_curve(B, A, positive, thresholds):
     """ Creates a nested dictionary that lists bins and thresholds and gives 
         the false and true positive rates. """ 
-    
-    num_of_buckets = 1
-    DATA = build_confidence_dict(criterias, num_of_buckets, ratio, work_dir)
-    B,A = DATA[ratio[0]], DATA[ratio[1]]
     
     print(len(B),len(A))
     
@@ -143,182 +148,76 @@ def plot_ROC_curve(x):
     ax.grid(True)
     plt.show()
     
-def plot_ROC_curve_fig7a(x):
-    """ Plots the ROC curve. """
-    import matplotlib.pyplot as plt
-    colors = {'cyan': (104/256,162/256,183/256),
-              'peach': (239/256,106/256,92/256),
-              'purple': (177/256,122/256,162/256),
-              'orange': (242/256,142/256,44/256)}
-    fig = plt.figure(figsize=(10, 10))
-    ax1 = fig.add_subplot(111)
-    #fig, ax1 = plt.subplots()
-    fs = 24
-    ax1.set_title('ROC curve of a triploid classfier',fontsize=fs)
-    ax2 = ax1.twinx()
-    ax1.tick_params(axis='y', labelsize=fs )
-    ax2.tick_params(axis='y', labelsize=fs )
-    ax1.tick_params(axis='x', labelsize=fs )
-    ax1.set_xlabel('False Positive Rate',fontsize=fs)
-    ax1.set_ylabel('True Positive Rate',fontsize=fs)
-    ax2.set_ylabel('$z$-score', color=colors['peach'], fontsize=fs)
 
-    ax1.set_ylim(-0.02,1.02)
-    ax1.set_xlim(-0.02,1.02)
-    #ax1.plot([0,1],[0.77,0.77],color='gray',linestyle='--')
-    for k,v in x.items():
-        #ax1.scatter(*zip(*v.values()), label=f'{k:s}', s=10, color='black', marker='s')    
-        X, Y, Z = zip(*v.values())
-        ax1.plot(X, Y, label=f'{k:s}', color='black',linewidth=6)   
-        #ax2.scatter([*v],[*zip(*v.values())][1], label=f'{k:s}', s=10, color='red')        
-        X,Y = zip(*((k,-i) for i,(k,l,m) in v.items() if -11.5<i<-2))
-        #ax2.scatter(X,Y, label=f'{k:s}', s=1, color=peach)
-        ax2.plot(X,Y, label=f'{k:s}', color=colors['peach'], linewidth=2)         
-    #ax1.legend()
-    #ax1.grid(True)
-    ax2.spines['right'].set_color(colors['peach'])
-    ax2.tick_params(axis='y', colors=colors['peach'])
-    fig.savefig('fig7a.pdf',bbox_inches='tight', format='pdf')
-    #plt.tight_layout()
-    plt.show()
-
-def plot_ROC_curve_fig7b(x):
-    """ Plots the ROC curve. """
-    import matplotlib.pyplot as plt
-    colors = {'cyan': (104/256,162/256,183/256),
-              'peach': (239/256,106/256,92/256),
-              'purple': (177/256,122/256,162/256),
-              'orange': (242/256,142/256,44/256)}
-    
-    fig = plt.figure(figsize=(10, 10))
-    fs = 24
-    ax = fig.add_subplot(111)
-    ax.set_title('Balanced ROC curve',fontsize=fs-1)
-
-    #fig, ax1 = plt.subplots()
-    ax.set_xlabel('False Positive Rate',fontsize=fs)
-    ax.set_ylabel('True Positive Rate',fontsize=fs)
-    ax.tick_params(axis='y', labelsize=fs )
-    ax.tick_params(axis='x', labelsize=fs )
-    ax.set_ylim(-0.02,1.02)
-    ax.set_xlim(-0.02,1.02)
-    style = {0: {'color': 'black', 'linewidth':6, 'linestyle':'solid'},
-             1: {'color': colors['orange'], 'linewidth':6, 'linestyle':'dashed'}}
-    for i, (k,v) in enumerate(x.items()):
-        #if i==1: continue
-        #ax.scatter(*zip(*v.values()), label=f'{k:s}', marker='s', **style[i])
-        X, Y, Z = zip(*v.values())
-        ax.plot(X,Y, label=f'{k:s}',  **style[i])        
-        
-    ax.legend(prop={'size': fs-4})
-    #ax.grid(True)
-    fig.savefig('fig7b.pdf',bbox_inches='tight', format='pdf')
-    plt.tight_layout()
-    plt.show()
-
-def plot_ROC_curve_zscore(x):
-    """ Plots the ROC curve. """
-    import matplotlib.pyplot as plt
-    fig = plt.figure(figsize=(10, 10))
-    ax1 = fig.add_subplot(111)
-    #fig, ax1 = plt.subplots()
-    fs = 24
-    ax1.set_title('ROC curve of a diploid classfier', fontsize=fs)
-    ax2 = ax1.twinx()
-    ax1.tick_params(axis='y', labelsize=fs )
-    ax2.tick_params(axis='y', labelsize=fs )
-    ax1.tick_params(axis='x', labelsize=fs )
-    ax1.set_xlabel('False Positive Rate', fontsize=fs)
-    ax1.set_ylabel('True Positive Rate', fontsize=fs)
-    ax2.set_ylabel('$z$-score', color='red', fontsize=fs)
-    ax1.set_ylim(-0.02,1.02)
-    ax1.set_xlim(-0.02,1.02)
-    ax1.plot([0.23,0.23],[-0.1,1.1],color='gray',linestyle='--')
-    for k,v in x.items():
-        ax1.scatter(*zip(*v.values()), label=f'{k:s}', s=10, color='black')        
-        #ax2.scatter([*v],[*zip(*v.values())][1], label=f'{k:s}', s=10, color='red')        
-        X,Y = zip(*((k,i) for i,(k,l) in v.items() if 2.2<i<8.4))
-        ax2.scatter(X,Y, label=f'{k:s}', s=1, color='red')        
-    #ax1.legend()
-    #ax1.grid(True)
-    ax2.spines['right'].set_color('red')
-    ax2.tick_params(axis='y', colors='red')
-    plt.tight_layout()
-    plt.show()    
-    
-def plot_ROC_curve_undetermined(x):
-    """ Plots the ROC curve. """
-    import matplotlib.pyplot as plt
-    colors = {'cyan': (104/256,162/256,183/256),
-              'peach': (239/256,106/256,92/256),
-              'purple': (177/256,122/256,162/256),
-              'orange': (242/256,142/256,44/256)}
-    fig = plt.figure(figsize=(10, 10))
-    ax1 = fig.add_subplot(111)
-    #fig, ax1 = plt.subplots()
-    fs = 24
-    ax1.set_title('ROC curve of a triploid classfier',fontsize=fs)
-    ax2 = ax1.twinx()
-    ax1.tick_params(axis='y', labelsize=fs )
-    ax2.tick_params(axis='y', labelsize=fs )
-    ax1.tick_params(axis='x', labelsize=fs )
-    ax1.set_xlabel('False Positive Rate',fontsize=fs)
-    ax1.set_ylabel('True Positive Rate',fontsize=fs)
-    ax2.set_ylabel('Undetermined Rate', color=colors['peach'], fontsize=fs)
-    ax1.set_ylim(-0.02,1.02)
-    ax1.set_xlim(-0.02,1.02)
-    #ax1.plot([0,1],[0.77,0.77],color='gray',linestyle='--')
-    for k,v in x.items():
-        #ax1.scatter(*zip(*v.values()), label=f'{k:s}', s=10, color='black', marker='s')        
-        X, Y, Z = zip(*v.values())
-        ax1.plot(X,Y, label=f'{k:s}', color='black',linewidth=6)   
-        #ax2.scatter([*v],[*zip(*v.values())][1], label=f'{k:s}', s=10, color='red')        
-        #ax2.scatter(X,Y, label=f'{k:s}', s=1, color=peach)
-        ax2.plot(X,Z, label=f'{k:s}', color=colors['peach'], linewidth=2)         
-    #ax1.legend()
-    #ax1.grid(True)
-    ax2.spines['right'].set_color(colors['peach'])
-    ax2.tick_params(axis='y', colors=colors['peach'])
-    #fig.savefig('fig7a.pdf',bbox_inches='tight', format='pdf')
-    #plt.tight_layout()
-    plt.show()
-    
 def configuration(C):
-    C0 = {
-         'depth': 0.01,
+    
+    result = dict(
+        
+    C0 = {'depth': 0.01,
          'read_length': 36,
          'window_size': 0,
          'min_reads': 6,
          'max_reads': 4,
          'minimal_score': 2,
-         'min_HF': 0.05}
+         'min_HF': 0.05},
     
-    C1 = {
-         'depth': 0.1,
+    C1 = {'depth': 0.1,
          'read_length': 36,
          'window_size': 0,
-         'min_reads': 32,
-         'max_reads': 16,
+         'min_reads': 24,
+         'max_reads': 12,
+         'minimal_score': 2,
+         'min_HF': 0.05},
+    
+    C2 = {'depth': 0.05,
+         'read_length': 36,
+         'window_size': 0,
+         'min_reads': 18,
+         'max_reads': 8,
          'minimal_score': 2,
          'min_HF': 0.05}
+    )
 
+    return result[C]
 
-    return locals()[f'{C:s}']
+def main(RATIO,SP,matched,mixed,C,depth):
+    DATA = build_confidence_dict(criterias = configuration(C), ratio=RATIO, work_dir = f'/mybox/simulations/results{mixed:s}_{SP:s}/')
+    B,A = DATA['transitions'], DATA['disomy']
+    R = build_ROC_curve(B, A, positive = 'A', thresholds = Z)
+    with open(f'PREDICTED_RATES_FOR_{RATIO[0]:s}_vs_{RATIO[1]:s}_{matched:s}_{SP:s}_{depth:s}x.p' , "wb") as f:
+        pickle.dump(R, f, protocol=4)
+        pickle.dump(configuration(C), f, protocol=4)
+        pickle.dump({'transitions':len(B), 'disomy':len(A)}, f, protocol=4)
+                
 
-if __name__ == "__main__":    
-    Z = [i/500 for i in range(-10000,10000)]
-    A = {}
-    #for SP in ('EUR','EAS','SAS','AFR','AMR'):
-    #    R = build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','SPH'), thresholds = Z, num_of_buckets = 1, work_dir = f'results_{SP:s}/')
-    #    A[SP] = R
-        
-    A = {'EUR': build_ROC_curve(criterias = configuration('C0'), positive = 'A', ratio=('transitions','disomy'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')}
-    B = {'EUR': build_ROC_curve(criterias = configuration('C0'), positive = 'B', ratio=('transitions','disomy'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')}
-    C = {'Multinomial classifier of haploids and diploids': build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('monosomy','disomy'), thresholds =  [i/50 for i in range(-10000,10000)], num_of_buckets = 1, work_dir = 'results_EUR/'),
-         'Multinomial classifier of triploids and diploids': build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','disomy'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')}
+if __name__ == "__main__":
+    proc = []
+    RATIO = ('transitions','disomy')    
+    Z = [i/10 for i in range(-100000,300)] + [i/50 for i in range(-300,300)] + [i/10 for i in range(300,100000)]# Z = [i/500 for i in range(-10000,10000)]
+    for C,depth in (('C0','0.01'),('C2','0.05'),('C1','0.1')):
+        for matched,mixed in (('MISMATCHED','_mixed'),('MATCHED','')):
+            for SP in ('EUR','EAS','SAS','AFR','AMR'):
+                print(RATIO,SP,matched,mixed,C,depth)
+                ###main(RATIO,SP,matched,mixed,C,depth)
+                try:
+                    p = Process(target=main,args=(RATIO,SP,matched,mixed,C,depth))
+                    p.start()
+                    proc.append(p)
+                except:
+                    print('caution: a process failed!')
+    for p in proc:
+        try:
+            p.join()
+        except:
+            None  
+                
+    #A = {'EUR': build_ROC_curve(criterias = configuration('C0'), positive = 'A', ratio=('transitions','disomy'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')}
+    #B = {'EUR': build_ROC_curve(criterias = configuration('C0'), positive = 'B', ratio=('transitions','disomy'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')}
+    #C = {'Multinomial classifier of haploids and diploids': build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('monosomy','disomy'), thresholds =  [i/50 for i in range(-10000,10000)], num_of_buckets = 1, work_dir = 'results_EUR/'),
+    #     'Multinomial classifier of triploids and diploids': build_ROC_curve(criterias = configuration('C0'), positive = 'both', ratio=('BPH','disomy'), thresholds = Z, num_of_buckets = 1, work_dir = 'results_EUR/')}
 
-    plot_ROC_curve_fig7b(C)
-    plot_ROC_curve_fig7a(B)
+    #plot_ROC_curve_fig7b(C)
+    #plot_ROC_curve_fig7a(B)
     #plot_ROC_curve(C)
 
 else:
