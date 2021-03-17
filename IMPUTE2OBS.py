@@ -8,7 +8,7 @@ Simulates an observation table, obs_tab of a haploid, using phased genotypes fro
 Daniel Ariad (daniel@ariad.org)
 Jan 13, 2021
 """
-import pickle, os, sys, time, argparse, random
+import pickle, os, sys, time, argparse, random, gzip
 
 def read_legend(filename):
     """ Reads an IMPUTE2 legend fileand builds a list
@@ -18,7 +18,8 @@ def read_legend(filename):
         rs_id, pos, ref, alt = line.strip().split()
         return ('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)
 
-    with open(filename, 'r') as impute2_in:
+    ###with open(filename, 'r') as impute2_in:
+    with (gzip.open(filename,'rt') if filename[-3:]=='.gz' else open(filename, 'r')) as impute2_in:
         impute2_in.readline()   # Bite off the header
         result = tuple(map(leg_format,impute2_in))
 
@@ -38,7 +39,8 @@ def read_haplotypes(sample_filename, hap_filename, sample_id):
         raise Exception('Error: sample_id not found.')
 
     a,b = 2*ind, 2*ind+2
-    with open(hap_filename, 'r') as impute2_in:
+    ###with open(hap_filename, 'r') as impute2_in:
+    with (gzip.open(hap_filename,'rt') if hap_filename[-3:]=='.gz' else open(hap_filename, 'r')) as impute2_in:
         result = [[i=='1' for i in x.strip().split()[a:b]] for x in impute2_in ]
 
     return result

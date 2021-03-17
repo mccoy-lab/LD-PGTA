@@ -45,14 +45,14 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp):
     return LLR_dict, info
 
 if __name__ == "__main__":
-    CHECK = True
+    CHECK = False
     with open('/home/ariad/Dropbox/postdoc_JHU/Zouves-BlueFuse/Play/all.p', 'rb') as f:
         db_TEST = pickle.load(f)
    
     DONE = []
     ERRORS = []
     output_dir = '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/'
-    for case in db_TEST[::-1]:
+    for case in db_TEST:
         if case not in DONE:
             bam_filename = case['filename']
             print(case['filename'])

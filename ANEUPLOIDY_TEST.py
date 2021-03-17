@@ -20,7 +20,7 @@ from LIKELIHOODS_CALCULATOR import examine
 
 from itertools import product, starmap
 from functools import reduce
-from operator import not_, and_
+from operator import and_
 from statistics import mean, variance, pstdev
 from math import log
 
@@ -143,12 +143,13 @@ def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_rea
         the reads that overlap with SNPs in the genomic window. Only reads with
         a score larger than one are considered. """
 
-    adaptive, window_size = (False, int(window_size)) if window_size else (True, 50000)
-    
-    offset = int(offset)
-    
     max_dist = 100000 #maximal distance between consecutive observed alleles.
     max_win_size = 350000 #maximal genomic window size
+    initial_win_size = 50000 #initial genomic window size
+    
+    adaptive, window_size = (False, int(window_size)) if window_size else (True, initial_win_size)
+    
+    offset = int(offset)
     
     aux_dict = collections.defaultdict(list) ### aux_dict is a dictionary that lists chromosome positions of SNPs and gives a list of read IDs for all the reads that overlap with the SNP.  
     for (pos, ind, read_id, base) in obs_tab:
@@ -179,12 +180,12 @@ def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
     return haplotypes
 
 def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
-    """ Ensures that the number of subsamples is not larger than the number
-    of unique subsamples. """ 
+    """ Ensures that the number of requested subsamples is not larger than the
+    number of unique subsamples. """ 
     
-    if  min_reads <= num_of_reads > max_reads :
+    if  2 < min_reads <= num_of_reads > max_reads :
         eff_subsamples = min(comb(num_of_reads,max_reads),subsamples)
-    elif min_reads <= num_of_reads <= max_reads:
+    elif 2 < min_reads <= num_of_reads <= max_reads:
         eff_subsamples = min(num_of_reads,subsamples)
     else:
         eff_subsamples = 0
@@ -335,10 +336,10 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--offset', type=int,
                         metavar='INT', default=0,
                         help='Shifts all the genomic windows by the requested base pairs. The default value is 0.')
-    parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=3,
-                        help='Takes into account only genomic windows with at least INT reads, admitting non-zero score. The default value is 3.')
-    parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=16,
-                        help='Selects up to INT reads from each genomic windows. The default value is 16.')
+    parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=6,
+                        help='Takes into account only genomic windows with at least INT reads, admitting non-zero score. Minimal value is 3, while the default is 6.')
+    parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=4,
+                        help='Selects up to INT reads from each genomic windows in each bootstrap sampling. The default value is 4.')
     parser.add_argument('-l', '--min-HF', type=int, metavar='FLOAT', default=0.05,
                         help='Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05.')
     parser.add_argument('-c', '--min-score', type=int, metavar='INT', default=16,

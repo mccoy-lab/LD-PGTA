@@ -9,6 +9,7 @@ Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
 """
 import pickle, sys, os, time, argparse, random, string
+from MAKE_OBS_TAB import read_impute2
 
 def get_random_string(length):
     letters = string.ascii_lowercase
@@ -27,30 +28,6 @@ def get_alleles_from_bcftools(vcf_file,chr_id,sample_id,bcftools_dir):
     print('Calling bcftools:\n%s' % run)
     os.system(run)
     return tmp_filename
-
-
-def read_impute2(impute2_filename,**kwargs):
-    """ Reads an IMPUTE2 file format (SAMPLE/LEGEND/HAPLOTYPE) and builds a list
-        of lists, containing the dataset. """
-
-    filetype = kwargs.get('filetype', None)
-    with open(impute2_filename, 'r') as impute2_in:
-        if filetype == 'legend':
-            impute2_in.readline()   # Bite off the header
-            def parse(x):
-                y=x.strip().split()
-                y[0] = 'chr'+y[0].split(':')[0]
-                y[1]=int(y[1])
-                return y
-        elif filetype == 'hap':
-            def parse(x):
-                return [i=='1' for i in x.strip().split()]
-        else:
-            def parse(x):
-                return x.strip().split() # Trailing whitespaces stripped from the ends of the string. Then it splits the string into a list of words.
-
-        impute2_tab = [parse(line) for line in impute2_in]
-    return impute2_tab
 
 def parse(x):
     """ Parses the output of the bcftools query. """

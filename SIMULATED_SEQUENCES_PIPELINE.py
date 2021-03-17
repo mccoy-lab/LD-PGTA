@@ -55,8 +55,8 @@ def transitions(chr_id):
 def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output_dir):
     from ANEUPLOIDY_TEST import aneuploidy_test
     args = dict(obs_filename = f'results_{sp:s}/ABC.obs.p',
-                hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap',
-                leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
+                hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap.gz',
+                leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend.gz',
                 window_size = 0,
                 subsamples = 100,
                 offset = 0,
@@ -85,8 +85,8 @@ def make_simulated_obs_tab(sample_id,sp,chr_id,genotypes,output_dir):
     """ Based on IMPUTE2OBS """
     path = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/'
     #path = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/'
-    leg_filename = path + f'{chr_id:s}_{sp:s}_panel.legend'
-    hap_filename = path + f'{chr_id:s}_{sp:s}_panel.hap'
+    leg_filename = path + f'{chr_id:s}_{sp:s}_panel.legend.gz'
+    hap_filename = path + f'{chr_id:s}_{sp:s}_panel.hap.gz'
     samp_filename = path + f'{chr_id:s}_{sp:s}_panel.samples'
     return simulate(leg_filename,hap_filename,samp_filename,chr_id,sample_id,genotypes=genotypes,output_dir=output_dir)
 
@@ -122,14 +122,14 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 
 if __name__ == "__main__":
     depth=0.01
-    sp='AFR'
+    sp='EUR'
     chr_id='chr21'
     read_length = 36
     min_reads,max_reads = 6,4
-    for n in ([*range(1,23)]+['X'])*20:
-        chr_id = 'chr' + str(n)
-        runInParallel(*([main]*6),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
-    #main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    #for n in ([*range(1,23)]+['X'])*20:
+    #    chr_id = 'chr' + str(n)
+    #    runInParallel(*([main]*6),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
+    main(depth,sp,chr_id,read_length,min_reads,max_reads)
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")

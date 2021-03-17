@@ -6,13 +6,13 @@ MAKE_OBS_TAB
 This script extracts single base observations at SNP positions from a given
 sequence. It requires an aligned and sorted BAM file with the sequence, as well
 as an IMPUTE2 legend format, which contains the SNPs positions.
-The observed alleles, together with their chromosome position and line number
-in the legend file, are organized in a table.
+The observed alleles, together with their associated read ID, chromosome
+position and line number in the legend file, are organized in a table.
 
 Daniel Ariad (daniel@ariad.org)
 Jan 3rd, 2021
 """
-import sys, os, time, random, warnings, argparse, re, pickle
+import sys, os, time, random, warnings, argparse, re, pickle, gzip
 
 try:
     import pysam
@@ -21,13 +21,13 @@ except ModuleNotFoundError:
   
 warnings.formatwarning = lambda message, category, filename, lineno, file=None, line=None: 'Caution: %s\n' % message
 
-def read_impute2(impute2_filename,**kwargs):
+def read_impute2(filename,**kwargs):
     """ Reads an IMPUTE2 file format (LEGEND/HAPLOTYPE/SAMPLE) and builds a list
         of lists, containing the dataset. """
     
     filetype = kwargs.get('filetype', None)
     
-    with open(impute2_filename, 'r') as impute2_in:
+    with (gzip.open(filename,'rt') if filename[-3:]=='.gz' else open(filename, 'r')) as impute2_in:
         if filetype == 'leg': 
             def leg_format(line):
                 rs_id, pos, ref, alt = line.strip().split()
@@ -89,7 +89,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         pos = 0         
         for pileupcolumn in samfile.pileup(**arg):
             
-            while pileupcolumn.pos > pos-1: 
+            while pileupcolumn.pos > pos-1:  ### Chromosomal position starts from 1 in bam files, while it starts from 0 in obs files.
                 impute2_index, (chr_id,pos,ref,alt) = next(leg_tab_iterator)  
             
             if pileupcolumn.pos == pos-1:
@@ -98,7 +98,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                         for pileupread in pileupcolumn.pileups if pileupread.query_position!=None] # query_position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment). 
                 
                 if pileupcolumn.get_num_aligned()==1:
-                    obs_tab.extend(rows)
+                    obs_tab.extend(rows) #Each tuple in the list has the form (chromosomal posistion, associated line number in the legend file, reads id, observed allele)
                 else:
                     warnings.warn('Multiple reads were found to overlap at one or more SNP positions.')
                     if handle_multiple_observations=='all':
