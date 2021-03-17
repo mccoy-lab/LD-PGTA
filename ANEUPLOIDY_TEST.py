@@ -183,9 +183,9 @@ def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
     """ Ensures that the number of requested subsamples is not larger than the
     number of unique subsamples. """ 
     
-    if  2 < min_reads <= num_of_reads > max_reads :
+    if  min_reads <= num_of_reads > max_reads:
         eff_subsamples = min(comb(num_of_reads,max_reads),subsamples)
-    elif 2 < min_reads <= num_of_reads <= max_reads:
+    elif min_reads <= num_of_reads <= max_reads:
         eff_subsamples = min(num_of_reads,subsamples)
     else:
         eff_subsamples = 0
@@ -197,7 +197,9 @@ def bootstrap(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict, wind
     than the sample size and (ii) resampling is done without replacement. """
     
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
-    min_reads == max(min_reads,3) # Due to the bootstrap approach, min_reads must be at least 3.    
+    min_reads == max(min_reads,3) # Due to the bootstrap approach, min_reads must be at least 3.
+    max_reads == max(max_reads,2) # Our statistical models require at least 2 reads.    
+    
 
     reads_dict = build_reads_dict(obs_tab, leg_tab)
     score_dict = build_score_dict(reads_dict, obs_tab, hap_tab, number_of_haplotypes, min_HF)
@@ -337,9 +339,9 @@ if __name__ == "__main__":
                         metavar='INT', default=0,
                         help='Shifts all the genomic windows by the requested base pairs. The default value is 0.')
     parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=6,
-                        help='Takes into account only genomic windows with at least INT reads, admitting non-zero score. Minimal value is 3, while the default is 6.')
+                        help='Takes into account only genomic windows with at least INT reads, admitting non-zero score. The minimal value is 3, while the default is 6.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=4,
-                        help='Selects up to INT reads from each genomic windows in each bootstrap sampling. The default value is 4.')
+                        help='Selects up to INT reads from each genomic windows in each bootstrap sampling. The minimal value is 2, while the default value is 4.')
     parser.add_argument('-l', '--min-HF', type=int, metavar='FLOAT', default=0.05,
                         help='Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05.')
     parser.add_argument('-c', '--min-score', type=int, metavar='INT', default=16,
