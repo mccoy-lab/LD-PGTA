@@ -27,12 +27,16 @@ def read_impute2(filename,**kwargs):
     
     filetype = kwargs.get('filetype', None)
     
+    def leg_format(line):
+        rs_id, pos, ref, alt = line.strip().split()
+        return ('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)  
+    
+    def sam_format(line):
+          sample_id, group1, group2, sex = line.strip().split(' ')
+          return (sample_id, group1, group2, int(sex))  
+      
     with (gzip.open(filename,'rt') if filename[-3:]=='.gz' else open(filename, 'r')) as impute2_in:
         if filetype == 'leg': 
-            def leg_format(line):
-                rs_id, pos, ref, alt = line.strip().split()
-                return ('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)  
-            
             impute2_in.readline()   # Bite off the header
             result = tuple(map(leg_format,impute2_in))
             
@@ -43,6 +47,10 @@ def read_impute2(filename,**kwargs):
             hap_tab = (a0, *a1)
             number_of_haplotypes = len(firstline.strip().split())
             result = hap_tab, number_of_haplotypes
+            
+        elif filetype == 'sam': 
+            impute2_in.readline()   # Bite off the header
+            result = tuple(map(sam_format,impute2_in))
         
         else:
             result = tuple(line.strip().split() for line in impute2_in)
