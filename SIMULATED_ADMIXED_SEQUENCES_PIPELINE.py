@@ -57,6 +57,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output
     args = dict(obs_filename = f'results_{sp:s}/ABC.obs.p',
                 hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap.gz',
                 leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend.gz',
+                sam_filename = f'../build_reference_panel/samples_per_panel/{sp:s}_panel.samples',
                 window_size = 0,
                 subsamples = 100,
                 offset = 0,
@@ -87,8 +88,8 @@ def make_simulated_obs_tab(sample_id,sp,chr_id,genotypes,output_dir):
     #path = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/'
     leg_filename = path + f'{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend.gz'
     hap_filename = path + f'{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap.gz'
-    samp_filename = path + f'samples_per_panel/{sp:s}_panel.samples'
-    return simulate(leg_filename,hap_filename,samp_filename,chr_id,sample_id,genotypes=genotypes,output_dir=output_dir)
+    sam_filename = path + f'samples_per_panel/{sp:s}_panel.samples'
+    return simulate(leg_filename,hap_filename,sam_filename,chr_id,sample_id,genotypes=genotypes,output_dir=output_dir)
 
 def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     ###depth = 0.5

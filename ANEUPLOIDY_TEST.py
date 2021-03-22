@@ -57,7 +57,7 @@ class examine:
         g = examine_homogeneous if all(row[2] == sam_tab[0][2] for row in sam_tab) else examine_admixed
         self.E = g(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
         
-    def get_likelihoods(self, x):
+    def get_likelihoods(self, *x):
         F = {2: self.E.likelihoods2, 3: self.E.likelihoods3, 4: self.E.likelihoods4 }.get(len(x), self.E.likelihoods)
         return F(x)
 
