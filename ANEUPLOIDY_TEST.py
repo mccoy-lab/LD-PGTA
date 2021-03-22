@@ -301,6 +301,9 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,window_s
     hap_tab, number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
     sam_tab = read_impute2(sam_filename, filetype='sam')
     
+    ancestry = {row[2] for row in sam_tab}
+    if len(ancestry)>2: print('warning: individuals in the sample file are associated with more than two populations.')
+    
     load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
@@ -309,7 +312,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,window_s
 
     likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF)
      
-    info.update({'window_size': window_size,
+    info.update({'ancestry': ancestry,
+                 'window_size': window_size,
                  'subsamples': subsamples,
                  'offset': offset,
                  'min_reads': min_reads,

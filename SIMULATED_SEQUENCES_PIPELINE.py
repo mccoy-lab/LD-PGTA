@@ -57,6 +57,7 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output
     args = dict(obs_filename = f'results_{sp:s}/ABC.obs.p',
                 hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap.gz',
                 leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend.gz',
+                sam_filename = f'../build_reference_panel/samples_per_panel/{sp:s}_panel.samples',
                 window_size = 0,
                 subsamples = 100,
                 offset = 0,
@@ -83,26 +84,26 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output
 
 def make_simulated_obs_tab(sample_id,sp,chr_id,genotypes,output_dir):
     """ Based on IMPUTE2OBS """
-    path = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/'
+    path = '../build_reference_panel/'
     #path = f'../build_reference_panel/ref_panel.{sp:s}.hg38.BCFtools/'
-    leg_filename = path + f'{chr_id:s}_{sp:s}_panel.legend.gz'
-    hap_filename = path + f'{chr_id:s}_{sp:s}_panel.hap.gz'
-    samp_filename = path + f'{chr_id:s}_{sp:s}_panel.samples'
-    return simulate(leg_filename,hap_filename,samp_filename,chr_id,sample_id,genotypes=genotypes,output_dir=output_dir)
+    leg_filename = path + f'{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend.gz'
+    hap_filename = path + f'{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap.gz'
+    sam_filename = path + f'samples_per_panel/{sp:s}_panel.samples'
+    return simulate(leg_filename,hap_filename,sam_filename,chr_id,sample_id,genotypes=genotypes,output_dir=output_dir)
 
 def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     ###depth = 0.5
     ###sp = 'EUR'
     ###chr_id = 'chr21'
-    work_dir = f'results_{sp:s}/' #'results_EAS' #
+    work_dir = f"results_{sp:s}" #'results_EAS' #
     #####################
     seed(None, version=2)
     work_dir = work_dir.rstrip('/') + '/' if len(work_dir)!=0 else ''
-    INDIVIDUALS = read_ref(f'../build_reference_panel/{sp:s}_panel.txt') #EAS_panel.txt') 
+    INDIVIDUALS = read_ref(f"../build_reference_panel/samples_per_panel/{sp:s}_panel.txt") #EAS_panel.txt') 
     A = sample(INDIVIDUALS,k=3)
     B = choices(['A','B'],k=3)
     C = [i+j for i,j in zip(A,B)]
-    #for a,b in zip(A,B): make_simulated_obs_tab(a,sp,chr_id,b,work_dir)
+    ####for a,b in zip(A,B): make_simulated_obs_tab(a,sp,chr_id,b,work_dir)
     func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{b:s}', '{work_dir:s}')") for a,b in zip(A,B))
     runInParallel(*func)
     filenames = MixHaploids_wrapper(f'{work_dir:s}{C[0]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[1]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[2]:s}.{chr_id:s}.hg38.obs.p', read_length=read_length, depth=depth, scenarios=('monosomy','disomy','SPH','BPH','transitions'), transitions=transitions(chr_id),output_dir=work_dir)
@@ -122,7 +123,7 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 
 if __name__ == "__main__":
     depth=0.01
-    sp='EUR'
+    sp='EAS_EUR'
     chr_id='chr21'
     read_length = 36
     min_reads,max_reads = 6,4
