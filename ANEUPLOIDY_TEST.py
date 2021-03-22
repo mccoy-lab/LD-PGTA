@@ -16,7 +16,9 @@ Dec 22, 2020
 
 import collections, time, pickle, argparse, re, sys, random, os, bz2
 from MAKE_OBS_TAB import read_impute2
-from LIKELIHOODS_CALCULATOR import examine 
+from LIKELIHOODS_CALCULATOR_HOMOGENOUES import examine_homogeneous
+from LIKELIHOODS_CALCULATOR_ADMIXED import examine_admixed
+
 
 from itertools import product, starmap
 from functools import reduce
@@ -46,6 +48,18 @@ except ImportError:
             b //= t+1
             n -= 1    
         return b
+
+class examine:
+    """ Chooses the set of the statistical models to calculate the LLR based on
+        the reference panel and the number of haplotypes to subsample. """
+   
+    def __init__(self, obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes):
+        g = examine_homogeneous if all(row[2] == sam_tab[0][2] for row in sam_tab) else examine_admixed
+        self.E = g(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
+        
+    def get_likelihoods(self, x):
+        F = {2: self.E.likelihoods2, 3: self.E.likelihoods3, 4: self.E.likelihoods4 }.get(len(x), self.E.likelihoods)
+        return F(x)
 
 def mean_and_var(data):
     """ Calculates the mean and variance. """
@@ -191,8 +205,8 @@ def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
         eff_subsamples = 0
         
     return eff_subsamples
-
-def bootstrap(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict, window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF):
+        
+def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF):
     """ Applies a bootstrap approach in which: (i) the resample size is smaller
     than the sample size and (ii) resampling is done without replacement. """
     
@@ -205,8 +219,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict, wind
     score_dict = build_score_dict(reads_dict, obs_tab, hap_tab, number_of_haplotypes, min_HF)
     windows_dict = dict(iter_windows(obs_tab, leg_tab, score_dict, window_size, offset, min_reads, max_reads, minimal_score))       
     
-    A = examine(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict)
-    get_likelihoods = {2: A.likelihoods2, 3: A.likelihoods3, 4: A.likelihoods4 }.get(max_reads, A.likelihoods)
+    E = examine(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
     
     likelihoods = {}
     
@@ -215,7 +228,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict, wind
         
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
         if effN>0:
-            likelihoods[window] = tuple(get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
+            likelihoods[window] = tuple(E.get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
     
     return likelihoods, windows_dict
         
@@ -269,7 +282,7 @@ def save_results(output_filename,output_dir,obs_filename,likelihoods,info):
         pickle.dump(info, f, protocol=4)
     return 0
             
-def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF,output_filename,**kwargs):
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF,output_filename,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
     independent genomic windows. For each genomic window it gives the
     likelihood of four scenarios, namely, monosomy, disomy, SPH and BPH.
@@ -286,6 +299,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
         
     leg_tab = read_impute2(leg_filename, filetype='leg')
     hap_tab, number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
+    sam_tab = read_impute2(sam_filename, filetype='sam')
     
     load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
     with load_model(models_filename, 'rb') as f:
@@ -293,7 +307,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,window_size,subsample
     
     mismatched_alleles = mismatches(obs_tab,leg_tab)
 
-    likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, number_of_haplotypes, models_dict, window_size, subsamples,offset,min_reads,max_reads,minimal_score,min_HF)
+    likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF)
      
     info.update({'window_size': window_size,
                  'subsamples': subsamples,
@@ -329,6 +343,8 @@ if __name__ == "__main__":
                         help='IMPUTE2 legend file')
     parser.add_argument('hap_filename', metavar='HAP_FILENAME', type=str,
                         help='IMPUTE2 haplotype file')
+    parser.add_argument('sam_filename', metavar='SAM_FILENAME', type=str,
+                        help='IMPUTE2 samples file')
     parser.add_argument('-b', '--window-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads.')
