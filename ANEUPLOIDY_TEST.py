@@ -59,7 +59,7 @@ class examine:
         
     def get_likelihoods(self, *x):
         F = {2: self.E.likelihoods2, 3: self.E.likelihoods3, 4: self.E.likelihoods4 }.get(len(x), self.E.likelihoods)
-        return F(x)
+        return F(*x)
 
 def mean_and_var(data):
     """ Calculates the mean and variance. """
