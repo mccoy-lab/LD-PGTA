@@ -65,7 +65,7 @@ class examine_homogeneous:
             else:
                 mismatches += 1
     
-        print('%.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
+        print('Homogenoues algorithm: %.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
     
         return hap_dict
 
