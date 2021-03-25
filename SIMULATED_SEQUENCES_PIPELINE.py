@@ -29,8 +29,9 @@ def runInParallel(*fns,**kwargs):
             p.start()
             proc.append(p)
             time.sleep(5)
-        except:
+        except Exception as error: 
             print('caution: a process failed!')
+            print(error)
     for p in proc:
         try:
           p.join()
@@ -66,7 +67,8 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp,model,min_reads,max_reads,output
                 min_HF = 0.05,
                 minimal_score = 2,
                 output_dir = output_dir, #f'results_{sp:s}/',
-                output_filename = '')
+                output_filename = '',
+                compress = 'bz2')
                 #model = model)
     args['obs_filename'] = obs_filename #f'results_{sp:s}/' + obs_filename
     LLR_dict, info = aneuploidy_test(**args)
@@ -103,9 +105,9 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     A = sample(INDIVIDUALS,k=3)
     B = choices(['A','B'],k=3)
     C = [i+j for i,j in zip(A,B)]
-    ####for a,b in zip(A,B): make_simulated_obs_tab(a,sp,chr_id,b,work_dir)
-    func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{b:s}', '{work_dir:s}')") for a,b in zip(A,B))
-    runInParallel(*func)
+    for a,b in zip(A,B): make_simulated_obs_tab(a,sp,chr_id,b,work_dir)
+    #func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{b:s}', '{work_dir:s}')") for a,b in zip(A,B))
+    #runInParallel(*func)
     filenames = MixHaploids_wrapper(f'{work_dir:s}{C[0]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[1]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[2]:s}.{chr_id:s}.hg38.obs.p', read_length=read_length, depth=depth, scenarios=('monosomy','disomy','SPH','BPH','transitions'), transitions=transitions(chr_id),output_dir=work_dir)
     
     for c in C: os.remove(f'./{work_dir:s}{c:s}.{chr_id:s}.hg38.obs.p')
@@ -115,9 +117,9 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.monosomy.chr21.x0.010.NA20536B.obs.p",
     #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.disomy.chr21.x0.010.NA20536B.NA20536A.obs.p"]
     print(filenames)
-    func2 = (eval(f"lambda: aneuploidy_test_demo('{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
-    runInParallel(*func2)
-
+    #func2 = (eval(f"lambda: aneuploidy_test_demo('{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
+    #runInParallel(*func2)
+    for f in filenames: aneuploidy_test_demo(f,chr_id,sp,'MODELS/MODELS16.p',min_reads,max_reads,work_dir)
     return 0
 
 

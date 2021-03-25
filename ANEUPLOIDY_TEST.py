@@ -14,7 +14,7 @@ Daniel Ariad (daniel@ariad.org)
 Dec 22, 2020
 """
 
-import collections, time, pickle, argparse, re, sys, random, os, bz2
+import collections, time, pickle, argparse, re, sys, random, os, bz2, gzip
 from MAKE_OBS_TAB import read_impute2
 from LIKELIHOODS_CALCULATOR_HOMOGENOUES import examine_homogeneous
 from LIKELIHOODS_CALCULATOR_ADMIXED import examine_admixed
@@ -152,7 +152,8 @@ def build_score_dict(reads_dict,obs_tab,hap_tab,number_of_haplotypes,min_HF):
 
     return score_dict
 
-def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,max_reads,minimal_score):
+def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,
+                 max_reads,minimal_score):
     """ Returns an iterator over the genomic windows together with read IDs of
         the reads that overlap with SNPs in the genomic window. Only reads with
         a score larger than one are considered. """
@@ -206,7 +207,9 @@ def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
         
     return eff_subsamples
         
-def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF):
+def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
+              models_dict, window_size, subsamples, offset, min_reads,
+              max_reads, minimal_score, min_HF):
     """ Applies a bootstrap approach in which: (i) the resample size is smaller
     than the sample size and (ii) resampling is done without replacement. """
     
@@ -273,17 +276,27 @@ def print_summary(obs_filename,info):
             print(f"Mean LLR: {L['mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
             print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
 
-def save_results(output_filename,output_dir,obs_filename,likelihoods,info):
-    output_dir += '/' if output_dir[-1:]!='/' else ''
+def save_results(likelihoods,info,compress,obs_filename,output_filename,output_dir):
+    """ Saves the likelihoods together with information about the chromosome
+        number, depth of coverage, ancestry, statistics of the genomic windows 
+        and flags that were used. Also, data compression is supported in gzip
+        and bzip2 formats. """
+        
+    Open = {'bz2': bz2.open, 'gz': gzip.open}.get(compress, open)
+    ext = ('.'+compress) * (compress in ('bz2','gz'))
+    obs_filename_stripped =  obs_filename.rsplit('/', 1).pop()
+    default_output_filename = re.sub('(.*)obs.p(.*)',f'\\1LLR.p{ext:s}', obs_filename_stripped, 1)
+    output_filename = default_output_filename * (output_filename=='')
+    output_dir = re.sub('/$','',output_dir)+'/' #undocumented option
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
-    default_filename = re.sub('(.*)obs','\\1LLR', obs_filename.rsplit('/', 1).pop(),1)
-    output_filename = default_filename if output_filename=='' else output_filename
-    with open( output_dir + output_filename, "wb") as f:
+    with Open(output_dir + output_filename, "wb") as f:
         pickle.dump(likelihoods, f, protocol=4)
-        pickle.dump(info, f, protocol=4)
-    return 0
+        pickle.dump(info, f, protocol=4)       
+    return output_dir + output_filename
             
-def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,window_size,subsamples,offset,min_reads,max_reads,minimal_score,min_HF,output_filename,**kwargs):
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
+                    window_size,subsamples,offset,min_reads,max_reads,
+                    minimal_score,min_HF,output_filename,compress,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
     independent genomic windows. For each genomic window it gives the
     likelihood of four scenarios, namely, monosomy, disomy, SPH and BPH.
@@ -294,7 +307,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,window_s
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
 
-    with open(obs_filename, 'rb') as f:
+    Open = {'bz2': bz2.open, 'gzip': gzip.open}.get(obs_filename.rpartition('.')[-1], open)    
+    with Open(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         info = pickle.load(f)
         
@@ -325,8 +339,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,window_s
                  'runtime': time.time()-time0})
     
     if output_filename!=None:
-        save_results(output_filename,kwargs.get('output_dir', 'results'),obs_filename,likelihoods,info)
-
+        save_results(likelihoods,info,compress,obs_filename,output_filename,kwargs.get('output_dir', 'results'))
     print_summary(obs_filename,info)
     
     time1 = time.time()
@@ -350,7 +363,7 @@ if __name__ == "__main__":
                         help='IMPUTE2 haplotype file')
     parser.add_argument('sam_filename', metavar='SAM_FILENAME', type=str,
                         help='IMPUTE2 samples file')
-    parser.add_argument('-b', '--window-size', type=int,
+    parser.add_argument('-w', '--window-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads.')
     parser.add_argument('-s', '--subsamples', type=int,
@@ -363,12 +376,14 @@ if __name__ == "__main__":
                         help='Takes into account only genomic windows with at least INT reads, admitting non-zero score. The minimal value is 3, while the default is 6.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT', default=4,
                         help='Selects up to INT reads from each genomic windows in each bootstrap sampling. The minimal value is 2, while the default value is 4.')
-    parser.add_argument('-l', '--min-HF', type=int, metavar='FLOAT', default=0.05,
+    parser.add_argument('-F', '--min-HF', type=int, metavar='FLOAT', default=0.05,
                         help='Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05.')
-    parser.add_argument('-c', '--min-score', type=int, metavar='INT', default=16,
+    parser.add_argument('-S', '--min-score', type=int, metavar='INT', default=16,
                         help='Consider only reads that reach the minimal score. The default value is 2.')
     parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
                         help='The output filename. The default is the input filename with the extension \".obs.p\" replaced by \".LLR.p\".')
+    parser.add_argument('-C', '--compress', metavar='gz/bz2/unc', type=str, default='unc',
+                        help='Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed.')
     args = parser.parse_args()
 
 

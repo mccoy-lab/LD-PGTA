@@ -5,7 +5,7 @@ Created on Thu Jun  4 18:51:19 2020
 
 @author: ariad
 """
-import collections, operator, os, pickle, itertools
+import collections, operator, os, pickle, itertools, time
 #def find_overlaps(obs_filename, leg_filename):
 #    """ Given an observation table, the fraction of overlapping reads
 #        is calculated; Altough the reads overlap in position, they do not
@@ -255,6 +255,25 @@ def check_var(hap_tab):
     b = np.sum(B)/len(B)/len(A)
     c = np.sum(C)/len(C)/len(A)
     return (b0,b,c)
+
+def compare_haploids(obs_filename1, obs_filename2):
+    """ Given observation tables of twp haploid sequences with a depth coverage
+        of at least 1X, the fraction of exclusive alleles is calculated. """
+        
+    time0 = time.time()
+    obs_tab1 = pickle.load(open(obs_filename1, 'rb'))
+    obs_tab2 = pickle.load(open(obs_filename2, 'rb'))
+    alleles = collections.defaultdict(list)
+    for pos, impute2_ind, reads_id, obs_base in obs_tab1:
+        alleles[pos].append(obs_base)
+    for pos, impute2_ind, reads_id, obs_base in obs_tab2:
+        alleles[pos].append(obs_base)
+    sample = tuple(x[0]!=x[1] for x in alleles.values() if len(x)>1)
+    result = sum(sample)/len(sample)
+    time1 = time.time()
+    print('Done in %.2f sec.' % (time1-time0))
+    return result
+
     
 if __name__=='__main__':
     obs_filename = 'results_EUR/HG00097A.chr21.hg38.obs.p'

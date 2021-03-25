@@ -12,7 +12,7 @@ position and line number in the legend file, are organized in a table.
 Daniel Ariad (daniel@ariad.org)
 Jan 3rd, 2021
 """
-import sys, os, time, random, warnings, argparse, re, pickle, gzip
+import sys, os, time, random, warnings, argparse, re, pickle, gzip, bz2
 
 try:
     import pysam
@@ -57,9 +57,23 @@ def read_impute2(filename,**kwargs):
     
     return result 
 
-    
+def save_obs(obs_tab,info,compress,bam_filename,output_filename,output_dir):
+    """ Saves the observations table together with information about
+        the chromosome number, depth of coverage, and flags that were used.
+        Also, data compression is supported in gzip and bzip2 formats. """
+        
+    Open = {'bz2': bz2.open, 'gz': gzip.open}.get(compress, open)
+    ext = ('.'+compress) * (compress in ('bz2','gz'))
+    default_output_filename = re.sub('.bam$',f".{info['chr_id']:s}.obs.p{ext:s}",bam_filename.strip().split('/')[-1])
+    output_filename = default_output_filename * (output_filename=='')
+    output_dir = re.sub('/$','',output_dir)+'/' #undocumented option
+    if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
+    with Open(output_dir + output_filename, "wb") as f:
+        pickle.dump(obs_tab, f, protocol=4)
+        pickle.dump(info, f, protocol=4)       
+    return output_dir + output_filename
 
-def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,**kwargs):
+def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,compress,**kwargs):
     """ Retrives observed bases from known SNPs position. """
     time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
@@ -127,15 +141,9 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                 'max-depth' :  max_depth,
                 'chr_id': chr_id,
                 'depth': len(obs_tab)/len(leg_tab)} 
-
+        
         if output_filename!=None:
-            default_output_filename = re.sub('.bam$','',bam_filename.strip().split('/')[-1]) + f'.{chr_id:s}.obs.p'
-            output_filename = default_output_filename if output_filename=='' else output_filename 
-            output_dir = kwargs.get('output_dir','./').rstrip('/')+'/'
-            if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
-            with open(output_dir + output_filename, "wb") as f:
-                pickle.dump(obs_tab, f, protocol=4)
-                pickle.dump(info, f, protocol=4)    
+            save_obs(obs_tab,info,compress,bam_filename,output_filename,kwargs.get('output_dir', 'results'))
     
     finally:
         if genome_reference!=None: genome_reference.close()
@@ -171,6 +179,8 @@ if __name__ == "__main__":
                         help='Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit.')
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
                         help='Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p')
+    parser.add_argument('-c', '--compress', metavar='gz/bz2/unc', type=str, default='unc',
+                        help='Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed.')
     
     retrive_bases(**vars(parser.parse_args()))
     sys.exit(0)

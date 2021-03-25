@@ -13,15 +13,16 @@ from multiprocessing import Process
 
 def make_obs_tab_demo(bam_filename,chr_id,sp):
     from MAKE_OBS_TAB import retrive_bases
-    args = {'bam_filename': '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/'+bam_filename,
-            'output_dir': '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/',
-            'legend_filename': f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
-            'max_depth': 0,
-            'min_bq': 30,
-            'min_mq': 30 if 'chrX'!=chr_id!='chrY' else 0,
-            'handle_multiple_observations': 'all',
-            'fasta_filename': '',#'../genome_ref_hg38/hg38.fa', 
-            'output_filename': ''}
+    args = dict(bam_filename =  '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/'+bam_filename,
+                output_dir = '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/',
+                legend_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend.gz',
+                max_depth = 0,
+                min_bq = 30,
+                min_mq = 30 if 'chrX'!=chr_id!='chrY' else 0,
+                handle_multiple_observations = 'all',
+                fasta_filename = '',#'../genome_ref_hg38/hg38.fa', 
+                output_filename = '',
+                compress = 'bz2')
     
     result = retrive_bases(**args)
     
@@ -30,8 +31,9 @@ def make_obs_tab_demo(bam_filename,chr_id,sp):
 def aneuploidy_test_demo(obs_filename,chr_id,sp):
     from ANEUPLOIDY_TEST import aneuploidy_test
     args = dict(obs_filename = '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/' + obs_filename,
-                hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap',
-                leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend',
+                hap_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.hap.gz',
+                leg_filename = f'../build_reference_panel/{sp:s}_panel.hg38.BCFtools/{chr_id:s}_{sp:s}_panel.legend.gz',
+                sam_filename = f'../build_reference_panel/samples_per_panel/{sp:s}_panel.samples',
                 window_size = 0,
                 subsamples = 100,
                 offset = 0,
@@ -40,12 +42,13 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp):
                 min_HF = 0.05,
                 minimal_score = 2,
                 output_dir = '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/', 
-                output_filename = '')
+                output_filename = '',
+                compress = 'bz2')
     LLR_dict, info = aneuploidy_test(**args)
     return LLR_dict, info
 
 if __name__ == "__main__":
-    CHECK = False
+    CHECK = True
     with open('/home/ariad/Dropbox/postdoc_JHU/Zouves-BlueFuse/Play/all.p', 'rb') as f:
         db_TEST = pickle.load(f)
    
@@ -61,9 +64,8 @@ if __name__ == "__main__":
             try:
                 for chr_num in case['chr_num']:
                     chr_id = 'chr'+str(chr_num)
-                    obs_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.obs.p'
-                    LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
-                    
+                    obs_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.obs.p.bz2'
+                    LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p.bz2'
                     if not os.path.isfile(output_dir+obs_filename) or not CHECK:   
                         make_obs_tab_demo(case['filename'],chr_id, sp)
                     else:

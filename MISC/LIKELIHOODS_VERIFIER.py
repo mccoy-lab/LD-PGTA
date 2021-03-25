@@ -101,9 +101,9 @@ if __name__ != "__main__":
 else:
     print("Executed when invoked directly")
     a = time()
-    obs_filename = 'results_EAS/mixed3haploids.X0.50.HG02035B.HG00451A.HG02513A.chr21.recomb.1.00.obs.p'
-    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
-    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
+    obs_filename = '../results_EAS/mixed3haploids.X0.50.HG02035B.HG00451A.HG02513A.chr21.recomb.1.00.obs.p'
+    hap_filename = '../../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
+    leg_filename = '../../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
 
     hap_tab = read_impute2(hap_filename, filetype='hap')
     leg_tab = read_impute2(leg_filename, filetype='leg')
