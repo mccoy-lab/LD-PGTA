@@ -269,7 +269,7 @@ def print_summary(obs_filename,info):
     print('\nFilename: %s' % obs_filename)
     print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S.get('reads_mean',0), S.get('reads_std',0)))
     print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
-    print('Ancestry: %s.' % (', '.join({'EUR','EAS'})))
+    print('Ancestry: %s.' % info['ancestry'])
     if S.get('LLRs_per_chromosome',None):
         for (i,j), L in S['LLRs_per_chromosome'].items():
             print(f"--- LLR between {i:s} and {j:s} ----")        
