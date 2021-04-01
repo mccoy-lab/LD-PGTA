@@ -48,10 +48,10 @@ def aneuploidy_test_demo(obs_filename,chr_id,sp):
     return LLR_dict, info
 
 if __name__ == "__main__":
-    CHECK = True
-    with open('/home/ariad/Dropbox/postdoc_JHU/Zouves-BlueFuse/Play/all.p', 'rb') as f:
-        db_TEST = pickle.load(f)
-   
+    CHECK = False
+    #with open('/home/ariad/Dropbox/postdoc_JHU/Zouves-BlueFuse/Play/all.p', 'rb') as f:
+    #    db_TEST = pickle.load(f)
+    db_TEST = [{'filename': '13515FA-BRCJ2_5.bam', 'sp': 'SAS', 'chr_num': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 'X']}]
     DONE = []
     ERRORS = []
     output_dir = '/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/'

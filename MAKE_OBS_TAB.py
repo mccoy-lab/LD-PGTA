@@ -77,6 +77,8 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
     """ Retrives observed bases from known SNPs position. """
     time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
+    
+    UNMAP, SECONDARY, QCFAIL, DUP = 0x4,0x100,0x200,0x400 #From http://www.htslib.org/doc/samtools-flags.html
 
     if not os.path.isfile(bam_filename): raise Exception('Error: BAM file does not exist.')
     if not os.path.isfile(legend_filename): raise Exception('Error: LEGEND file does not exist.')
@@ -94,18 +96,19 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         else:
             chr_id = leg_tab[0][0]
         
-        arg = {'contig': chr_id,              # The chr_id of the considered chromosome.
-               'start': leg_tab[0][1]-1,      # The first snp in chr_id.
-               'end': leg_tab[-1][1],         # The last snp in chr_id.
-               'truncate': True,              # By default, the samtools pileup engine outputs all reads overlapping a region. If truncate is True and a region is given, only columns in the exact region specificied are returned.
-               'max_depth': max_depth,        # Maximum read depth permitted. The default limit is ‘8000’.
-               'stepper': 'samtools',         # The following arguments all pertain to the samtools stepper:
-               'min_base_quality': min_bq,    # Minimum base quality. Bases below the minimum quality will not be output.
-               'min_mapping_quality': min_mq, # Only use reads above a minimum mapping quality. The default is 0.
-               'ignore_overlaps': True,       # If set to True, detect if read pairs overlap and only take the higher quality base.
-               'ignore_orphans': True,        # Ignore orphans (paired reads that are not in a proper pair).
-               'fastafile': genome_reference, # FastaFile object of a reference sequence.    
-               'compute_baq': True}           # By default, performs re-alignment computing per-Base Alignment Qualities (BAQ), if a reference sequence is given.'
+        arg = {'contig': chr_id,                                # The chr_id of the considered chromosome.
+               'start': leg_tab[0][1]-1,                        # The first snp in chr_id (start is inclusive).
+               'end': leg_tab[-1][1],                           # The last snp in chr_id (end is exclusive).
+               'truncate': True,                                # By default, the samtools pileup engine outputs all reads overlapping a region. If truncate is True and a region is given, only columns in the exact region specificied are returned.
+               'max_depth': max_depth,                          # Maximum read depth permitted. The samtools default limit is 8000.
+               'stepper': 'samtools',                           # The following arguments all pertain to the samtools stepper:
+               'min_base_quality': min_bq,                      # Minimum base quality. Bases below the minimum quality will not be output.
+               'min_mapping_quality': min_mq,                   # Only use reads above a minimum mapping quality. The default is 0.
+               'ignore_overlaps': True,                         # If set to True, detect if read pairs overlap and only take the higher quality base.
+               'flag_filter': UNMAP | SECONDARY | QCFAIL | DUP, # Ignore reads where any of the bits in the flag are set. The default of samtools is UNMAP, SECONDARY, QCFAIL and DUP.
+               'ignore_orphans': True,                          # Ignore orphans (paired reads that are not in a proper pair).
+               'fastafile': genome_reference,                   # FastaFile object of a reference sequence.    
+               'compute_baq': True}                             # By default, performs re-alignment computing per-Base Alignment Qualities (BAQ), if a reference sequence is given.'
                                  
         leg_tab_iterator = enumerate(leg_tab)        
         pos = 0         

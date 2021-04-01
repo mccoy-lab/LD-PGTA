@@ -97,7 +97,7 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     ###depth = 0.5
     ###sp = 'EUR'
     ###chr_id = 'chr21'
-    work_dir = f"results_{sp:s}" #'results_EAS' #
+    work_dir = f"/mybox/simulations/results_{sp:s}" #'results_EAS' #
     #####################
     seed(None, version=2)
     work_dir = work_dir.rstrip('/') + '/' if len(work_dir)!=0 else ''
@@ -105,34 +105,34 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     A = sample(INDIVIDUALS,k=3)
     B = choices(['A','B'],k=3)
     C = [i+j for i,j in zip(A,B)]
-    for a,b in zip(A,B): make_simulated_obs_tab(a,sp,chr_id,b,work_dir)
-    #func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{b:s}', '{work_dir:s}')") for a,b in zip(A,B))
-    #runInParallel(*func)
+    #for a,b in zip(A,B): make_simulated_obs_tab(a,sp,chr_id,b,work_dir)
+    func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{b:s}', '{work_dir:s}')") for a,b in zip(A,B))
+    runInParallel(*func)
     filenames = MixHaploids_wrapper(f'{work_dir:s}{C[0]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[1]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[2]:s}.{chr_id:s}.hg38.obs.p', read_length=read_length, depth=depth, scenarios=('monosomy','disomy','SPH','BPH','transitions'), transitions=transitions(chr_id),output_dir=work_dir)
     
-    for c in C: os.remove(f'./{work_dir:s}{c:s}.{chr_id:s}.hg38.obs.p')
+    for c in C: os.remove(f'{work_dir:s}{c:s}.{chr_id:s}.hg38.obs.p')
     
     #filenames = ["/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.SPH.chr21.x0.010.NA20536B.NA20536A.obs.p",
     #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.BPH.chr21.x0.010.NA20536B.NA20536A.NA20802B.rs0.00.obs.p",
     #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.monosomy.chr21.x0.010.NA20536B.obs.p",
     #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.disomy.chr21.x0.010.NA20536B.NA20536A.obs.p"]
     print(filenames)
-    #func2 = (eval(f"lambda: aneuploidy_test_demo('{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
-    #runInParallel(*func2)
-    for f in filenames: aneuploidy_test_demo(f,chr_id,sp,'MODELS/MODELS16.p',min_reads,max_reads,work_dir)
+    func2 = (eval(f"lambda: aneuploidy_test_demo('{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
+    runInParallel(*func2)
+    #for f in filenames: aneuploidy_test_demo(f,chr_id,sp,'MODELS/MODELS16.p',min_reads,max_reads,work_dir)
     return 0
 
 
 if __name__ == "__main__":
-    depth=0.01
-    sp='EAS_EUR'
+    depth=0.1
+    sp='EAS_SAS'
     chr_id='chr21'
     read_length = 36
-    min_reads,max_reads = 6,4
-    #for n in ([*range(1,23)]+['X'])*20:
-    #    chr_id = 'chr' + str(n)
-    #    runInParallel(*([main]*6),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
-    main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    min_reads,max_reads = 24,12
+    for n in ([*range(1,23)]+['X'])*20:
+        chr_id = 'chr' + str(n)
+        runInParallel(*([main]*3),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
+    #main(depth,sp,chr_id,read_length,min_reads,max_reads)
     pass
 else:
     print("The module BUILD_SIMULATED_SEQUENCES was imported.")

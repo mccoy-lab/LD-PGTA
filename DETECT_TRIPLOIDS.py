@@ -6,7 +6,7 @@ Created on Sat Dec 19 14:18:44 2020
 @author: ariad
 """
 
-import pickle, statistics, re
+import pickle, statistics, re, bz2, gzip
 from statistics import mean, variance
 from itertools import starmap
 from math import log
@@ -52,9 +52,11 @@ def LLR(y,x):
 def load_likelihoods(filename):
     """ Loads from a file a dictionary that lists genomic windows that contain
     at least two reads and gives the bootstrap distribution of the 
-    log-likelihood BPH/SPH ratios (LLRs). """
+    log-likelihood ratios (LLRs). """
     
-    with open(filename, 'rb') as f:
+    Open = {'bz2': bz2.open, 'gzip': gzip.open}.get(filename.rpartition('.')[-1], open)
+    
+    with Open(filename, 'rb') as f:
         likelihoods = pickle.load(f)
         info = pickle.load(f)
     return likelihoods, info
@@ -218,14 +220,14 @@ def panel_plot(DATA,N,**kwargs):
     
     AX = [i for j in axs for i in j]
     
-    classification = {(True,True,True): (('BPH','SPH'),),
-                      (False,True,True): (('DISOMY','BPH'),('DISOMY','MONOSOMY')),
-                      (False,False,True): (('SPH','BPH'),('SPH','MONOSOMY')),
-                      (False,False,False): (('SPH','MONOSOMY'),)}
+    #classification = {(True,True,True): (('BPH','SPH'),),
+    #                  (False,True,True): (('DISOMY','BPH'),('DISOMY','MONOSOMY')),
+    #                  (False,False,True): (('SPH','BPH'),('SPH','MONOSOMY')),
+    #                  (False,False,False): (('SPH','MONOSOMY'),)}
 
     pairs = (('BPH','DISOMY'), ('DISOMY','SPH'), ('SPH','MONOSOMY'), ('BPH','SPH'))
 
-    default_classification = defaultdict(lambda: pairs, classification)
+    #default_classification = defaultdict(lambda: pairs, classification)
     
     for ax1,(likelihoods,info) in zip(AX,DATA):
         _ = {};
@@ -233,8 +235,8 @@ def panel_plot(DATA,N,**kwargs):
                        for window,L in likelihoods.items()} for i,j in pairs}
     
         A = {p: confidence(LLR_stat,N,z=1) for (p,LLR_stat) in LLRs_per_genomic_window.items()}
-        key = (*(sum(A[p][1])>0 for p in pairs[:3]),) #2*sum(A[p][2])**.5
-        for (a,b) in default_classification[key]:
+        #key = (*(sum(A[p][1])>0 for p in pairs[:3]),) #2*sum(A[p][2])**.5
+        for (a,b) in pairs: #default_classification[key]:
             LLR_stat = {window:  mean_and_var([*starmap(LLR, ((_[a], _[b]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
                        for window,L in likelihoods.items()}
             X,Y,E,C = confidence(LLR_stat,N,z=1)
@@ -274,6 +276,41 @@ def panel_plot(DATA,N,**kwargs):
        plt.tight_layout()
        plt.show()    
 
+def detect_haploids_and_triploids_old(cases):
+    ERRORS = []
+    HAPLOIDS = []
+    TRIPLOIDS = []
+    
+    for case in cases:
+        if case['sp']=='AFR' or case['sp']=='AMR':
+            continue
+        buffer = []
+        bam_filename = case['filename']
+        for chr_num in case['chr_num']:
+            try:
+                chr_id = 'chr'+ str(chr_num)
+                LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p.bz2'
+                likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/' + LLR_filename)
+                #if chr_id!='chrX' and info['statistics']['num_of_windows']<20: raise Exception('Number of genomic windows is below 20')
+                if info['statistics']['num_of_windows'] and chr_id!='chrX':
+                    #show_info(LLR_filename,info,('SPH','MONOSOMY'))
+                    S = info['statistics']['LLRs_per_chromosome']
+                    a =  S[('SPH','MONOSOMY')]['mean']/S[('SPH','MONOSOMY')]['std_of_mean']<-1 and S[('BPH','DISOMY')]['mean']/S[('BPH','DISOMY')]['std_of_mean']<-1
+                    b =  S[('SPH','MONOSOMY')]['mean']/S[('SPH','MONOSOMY')]['std_of_mean']>1 and S[('BPH','DISOMY')]['mean']/S[('BPH','DISOMY')]['std_of_mean']>1
+                    buffer.append(b-a)
+            except Exception as error: 
+                print(f'ERROR: {LLR_filename:s} ---', error)
+                ERRORS.append((bam_filename.strip().split('/')[-1],error))
+                continue
+        if sum(buffer)<-1:
+            print('haploid:',buffer,case['sp'])
+            HAPLOIDS.append(case)
+        if sum(buffer)>+1:            
+            print('triploid:',buffer,case['sp'])
+            TRIPLOIDS.append(case)
+    print(Counter(i[0] for i in ERRORS))
+    return HAPLOIDS, TRIPLOIDS, ERRORS
+
 def detect_haploids_and_triploids(cases):
     ERRORS = []
     HAPLOIDS = []
@@ -292,7 +329,7 @@ def detect_haploids_and_triploids(cases):
                 continue
             try:
                 chr_id = 'chr'+ str(chr_num)
-                LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
+                LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p.bz2'
                 #show_info(LLR_filename,info,('BPH','SPH'))
                 likelihoods, info = load_likelihoods(HOME+'/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/' + LLR_filename)
                 if 'ancestry' not in info:
@@ -323,12 +360,12 @@ def detect_haploids_and_triploids(cases):
                                      for likelihoods in LLRs.values() for L in likelihoods.values()] 
                                          for i,j in pairs}
         
-        if len(LLRs_aggregation[pairs[0]])<100: continue
+        if len(LLRs_aggregation[pairs[0]])<10: continue
                 
         M = {pair: mean([m for (m,v) in C]) for pair,C in LLRs_aggregation.items()}
         SD = {pair: std_of_mean([v for (m,v) in C]) for pair,C in LLRs_aggregation.items()}
 
-        if M[('DISOMY','BPH')]/SD[('DISOMY','BPH')]<2 and len(LLRs_aggregation[pairs[0]])>=1000:
+        if M[('DISOMY','BPH')]/SD[('DISOMY','BPH')]<2: #and len(LLRs_aggregation[pairs[0]])>=1000:
             A = {'mean': M[('DISOMY','BPH')], 'SD': SD[('DISOMY','BPH')] }
             print('Triploid',bam_filename.replace('.bam',''), M[('DISOMY','BPH')], SD[('DISOMY','BPH')], case['sp'], len(LLRs_aggregation[pairs[0]]))
             case.update(A)
@@ -343,47 +380,14 @@ def detect_haploids_and_triploids(cases):
     print(Counter(i[0] for i in ERRORS))
     return HAPLOIDS, TRIPLOIDS, ERRORS
 
-def detect_haploids_and_triploids2(cases):
-    ERRORS = []
-    HAPLOIDS = []
-    TRIPLOIDS = []
-    
-    for case in cases:
-        if case['sp']=='AFR' or case['sp']=='AMR':
-            continue
-        buffer = []
-        bam_filename = case['filename']
-        for chr_num in case['chr_num']:
-            try:
-                chr_id = 'chr'+ str(chr_num)
-                LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
-                likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/' + LLR_filename)
-                #if chr_id!='chrX' and info['statistics']['num_of_windows']<20: raise Exception('Number of genomic windows is below 20')
-                if info['statistics']['num_of_windows'] and chr_id!='chrX':
-                    #show_info(LLR_filename,info,('SPH','MONOSOMY'))
-                    S = info['statistics']['LLRs_per_chromosome']
-                    a =  S[('SPH','MONOSOMY')]['mean']/S[('SPH','MONOSOMY')]['std_of_mean']<-1 and S[('BPH','DISOMY')]['mean']/S[('BPH','DISOMY')]['std_of_mean']<-1
-                    b =  S[('SPH','MONOSOMY')]['mean']/S[('SPH','MONOSOMY')]['std_of_mean']>1 and S[('BPH','DISOMY')]['mean']/S[('BPH','DISOMY')]['std_of_mean']>1
-                    buffer.append(b-a)
-            except Exception as error: 
-                print(f'ERROR: {LLR_filename:s} ---', error)
-                ERRORS.append((bam_filename.strip().split('/')[-1],error))
-                continue
-        if sum(buffer)<-1:
-            print('haploid:',buffer,case['sp'])
-            HAPLOIDS.append(case)
-        if sum(buffer)>+1:            
-            print('triploid:',buffer,case['sp'])
-            TRIPLOIDS.append(case)
-    print(Counter(i[0] for i in ERRORS))
-    return HAPLOIDS, TRIPLOIDS, ERRORS
+
 
 def about(cases):
     for case in cases:
         bam_filename = case['filename']
         for i in range(1,23):
             chr_id = f'chr{i:d}'
-            LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p'
+            LLR_filename = re.sub('.bam$','',bam_filename.split('/')[-1]) + f'.{chr_id:s}.LLR.p.bz2'
             likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/' + LLR_filename)
             show_info(LLR_filename,info,('SPH','MONOSOMY'))
 
@@ -394,10 +398,10 @@ if __name__ == "__main__":
         #triple_plot(info,N=10,save=f'/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr{i:d}.png')
     
     #identifier = '13094FA-B6MTL_3'
-    #DATA = [load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/{identifier:s}.chr{i:d}.LLR.p') for i in range(1,23)]
+    #DATA = [load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/{identifier:s}.chr{i:d}.LLR.p.bz2') for i in range(1,23)]
     #panel_plot(DATA,N=10,title=f'{identifier:s}')
     
-    #likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_ZOUVES/12751FA-AWL31_14.chr7.LLR.p')
+    #likelihoods, info = load_likelihoods('/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/12751FA-AWL31_14.chr7.LLR.p.bz2')
     #triple_plot(likelihoods,info,N=10)
     
     #bob = ['10523FA-AFFRU_3', '10523FA-AFFRU_4', '10560FA-AFFPH_3', '10675FA-BJNTV_2', '10675FA-BJNTV_3', '10675FA-BJNTV_4', '10675FA-BJNTV_5', '10686FA-AFFPE_9', '10846FA-AFPAB_3', '10871FA-AJ3U4_12', '10951FA-AJ3WW_3', '10969FA-AJ470_2', '11522FA-AP925_3', '11578FA-AR3WC_3', '11598FA-AP923_9', '12662FA-B5Y5R_1', '12662FA-B5Y5R_3', '12699FA-B8F4K_4', '12789FA-AWL1L_12', '12962FA-BK2G8_6', '14529FA-CM2GK_2', 'GP-CWFRM_8', 'MZ-AFFC4_1', '13068FA-BK2G5_23', '10675FA-BJNTV_3c', 'MZ-AFFC4_2', '10964FA-AJ470_1', '13121FA-BK23M_23', '13086FA-BK2G5_6', '10668FA-AFDL2_2', '11550FA-AP91V_5', '10722FA-AFFCT_3a', '12055FA-ANTJ1_15', '12454FA-AW7BB_2', '10967FA-AJ470_F10', '11946FA-AR452_9', '11550FA-AP91V_4', '13744FA-C4RPY_2', '13086FA-BK2G5_8', '10658FA-AFDL2_F10', '14220FA-CFP2Y_1', '12446FA-AU3UC_29', '14212FA-CFP2Y_5', '11946FA-AR452_1', '11944FA-AR452_13', '11511FA-AP91V_8']
@@ -407,7 +411,7 @@ if __name__ == "__main__":
          db_TEST = pickle.load(f)
          #db_TEST = [i for i in db_TEST if 'AFR'!=i['sp']!='AMR'] 
     
-    HAPLOIDS, TRIPLOIDS, ERRORS = detect_haploids_and_triploids(db_TEST)
+    #HAPLOIDS, TRIPLOIDS, ERRORS = detect_haploids_and_triploids(db_TEST)
     
     #for case in db_TRIPLOIDS:
     #    print(case)
