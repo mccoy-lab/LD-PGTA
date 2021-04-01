@@ -240,9 +240,9 @@ def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,mode
     return examine_homogeneous(obs_tab, leg_tab, hap_tab, None, models_dict, number_of_haplotypes)
 
 if __name__ != "__main__":
-    print('The module LIKELIHOODS_CALCULATOR was imported.')
+    print('The module LIKELIHOODS_CALCULATOR_HOMOGENOUES was imported.')
 else:
-    print('The module LIKELIHOODS_CALCULATOR was invoked directly')
+    print('The module LIKELIHOODS_CALCULATOR_HOMOGENOUES was invoked directly')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################

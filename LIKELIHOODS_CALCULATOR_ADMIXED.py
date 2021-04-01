@@ -284,9 +284,9 @@ def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,samp
     return examine_admixed(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes)
 
 if __name__ != "__main__":
-    print('The module LIKELIHOODS_CALCULATOR was imported.')
+    print('The module LIKELIHOODS_CALCULATOR_ADMIXED was imported.')
 else:
-    print('The module LIKELIHOODS_CALCULATOR was invoked directly')
+    print('The module LIKELIHOODS_CALCULATOR_ADMIXED was invoked directly')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################
