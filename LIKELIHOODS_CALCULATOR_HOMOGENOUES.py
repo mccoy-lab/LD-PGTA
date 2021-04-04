@@ -40,7 +40,7 @@ class examine_homogeneous:
     def __init__(self, obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes):
         """ Initialize the attributes of the class. """
         self.models_dict = models_dict
-        self.hap_dict = self.build_hap_dict(obs_tab, leg_tab, hap_tab, number_of_haplotypes)
+        self.hap_dict, self.fraction_of_matches = self.build_hap_dict(obs_tab, leg_tab, hap_tab, number_of_haplotypes)
         self.total_number_of_haplotypes_in_reference_panel = number_of_haplotypes
 
     def build_hap_dict(self, obs_tab, leg_tab, hap_tab, number_of_haplotypes):
@@ -51,23 +51,25 @@ class examine_homogeneous:
     
         hap_dict = dict()
         mismatches = 0
+        combined = {pos: (ref,alt,hap) for (chr_id,pos,ref,alt),hap in zip(leg_tab, hap_tab)}
+        missing = 3*(None,)
         
         b = (1 << number_of_haplotypes) - 1 #### equivalent to int('1'*number_of_haplotypes,2)
         
-        for (pos, ind, read_id, base) in obs_tab:
-            chr_id, pos2, ref, alt = leg_tab[ind]
-            if pos!=pos2:
-                raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')
+        for (pos, read_id, base) in obs_tab:
+            ref, alt, hap = combined.get(pos, missing)
             if base==alt:
-                hap_dict[(pos,base)] = hap_tab[ind]
+                hap_dict[(pos,base)] = hap
             elif base==ref:
-                hap_dict[(pos,base)] = hap_tab[ind] ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
+                hap_dict[(pos,base)] = hap ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
             else:
                 mismatches += 1
     
-        print('Homogenoues algorithm: %.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
+        fraction_of_matches = 1-mismatches/len(obs_tab)
+        
+        print('Homogenoues algorithm: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
     
-        return hap_dict
+        return hap_dict, fraction_of_matches
 
     def intrenal_hap_dict(self, *alleles):
         """ This function allows treatment of alleles and haplotypes on an
@@ -213,6 +215,22 @@ class examine_homogeneous:
         DISOMY = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy.
         MONOSOMY = abcd #The likelihood of monosomy.
         return MONOSOMY, DISOMY, SPH, BPH
+    
+    def get_likelihoods(self, *x):
+        """ Uses the optimal function to calculate the likelihoods. 
+        In general, self.likelihoods can get less than five alleles but the
+        dedicated functions are optimized to a certain number of alleles. """
+        
+        l = len(x)
+        if l==2:
+            result = self.likelihoods2(*x)
+        elif l==3:
+            result = self.likelihoods3(*x)
+        elif l==4:
+            result = self.likelihoods4(*x)
+        else: 
+            result = self.likelihoods(*x)
+        return result
         
 def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
     """ Wrapper function of the class examine_homogeneous. It receives an observations
@@ -251,13 +269,13 @@ else:
 
 """
 if __name__ != "__main__":
-    print("The module LIKELIHOODS_CALCULATOR was imported.")
+    print("The module LIKELIHOODS_CALCULATOR_HOMOGENOUES was imported.")
 else:
-    print("Executed when invoked directly")
+    print("The module LIKELIHOODS_CALCULATOR_HOMOGENOUES was invoked directly")
     #sys.exit(0)
     import time, random
     a = time.time()
-    obs_filename = 'results_EUR/mixed3haploids.X0.50.HG02035B.HG00451A.HG02513A.chr21.recomb.1.00.obs.p'
+    obs_filename = 'results_EUR/simulated.BPH.chr21.x0.050.NA20807B.NA20803B.NA12763B.obs.p'
     hap_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr21_EUR_panel.hap.gz'
     leg_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr21_EUR_panel.legend.gz'
     models_filename = 'MODELS/MODELS16.p'
@@ -303,5 +321,4 @@ else:
     b = time.time()
 
     print('Done in %.3f sec.' % ((b-a)))
-
 """

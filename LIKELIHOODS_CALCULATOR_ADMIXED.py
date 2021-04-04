@@ -45,7 +45,7 @@ class examine_admixed:
 
         self.total_number_of_haplotypes_in_reference_panel = total_number_of_haplotypes
         self.models_dict = models_dict
-        self.hap_dict = self.build_hap_dict(obs_tab, leg_tab, hap_tab)
+        self.hap_dict, self.fraction_of_matches = self.build_hap_dict(obs_tab, leg_tab, hap_tab)
         self.flags, self.num_of_hap_in_ref_subpanel = self.subpanels(sam_tab)
 
     def subpanels(self, sam_tab):
@@ -70,23 +70,26 @@ class examine_admixed:
     
         hap_dict = dict()
         mismatches = 0
-        
+        combined = {pos: (ref,alt,hap) for (chr_id,pos,ref,alt),hap in zip(leg_tab, hap_tab)}
+        missing = 3*(None,)
+
+
         b = (1 << self.total_number_of_haplotypes_in_reference_panel) - 1 #### equivalent to int('1'*number_of_haplotypes,2)
         
-        for (pos, ind, read_id, base) in obs_tab:
-            chr_id, pos2, ref, alt = leg_tab[ind]
-            if pos!=pos2:
-                raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')
+        for (pos, read_id, base) in obs_tab:
+            ref, alt, hap = combined.get(pos, missing)
             if base==alt:
-                hap_dict[(pos,base)] = hap_tab[ind]
+                hap_dict[(pos,base)] = hap
             elif base==ref:
-                hap_dict[(pos,base)] = hap_tab[ind] ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
+                hap_dict[(pos,base)] = hap ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
             else:
                 mismatches += 1
     
-        print('Admixed algorithm: %.2f%% of the reads matched known alleles.' % (100*(1-mismatches/len(obs_tab))))
+        fraction_of_matches = 1-mismatches/len(obs_tab)
+        
+        print('Admixed algorithm: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
     
-        return hap_dict
+        return hap_dict, fraction_of_matches
 
     def intrenal_hap_dict(self, *alleles):
         """ This function allows treatment of alleles and haplotypes on an
@@ -254,6 +257,22 @@ class examine_admixed:
         DISOMY = (abcd+abc*D+bcd*A+acd*B+abd*C+ab*CD+ad*BC+ac*BD+ABCD+ABC*d+BCD*a+ACD*b+ABD*c+AB*cd+AD*bc+AC*bd)/16 #The likelihood of diploidy. #V
         MONOSOMY = (abcd+ABCD)/2 #The likelihood of monosomy. #V
         return MONOSOMY, DISOMY, SPH, BPH
+    
+    def get_likelihoods(self, *x):
+        """ Uses the optimal function to calculate the likelihoods. 
+        In general, self.likelihoods can get less than five alleles but the
+        dedicated functions are optimized to a certain number of alleles. """
+        
+        l = len(x)
+        if l==2:
+            result = self.likelihoods2(*x)
+        elif l==3:
+            result = self.likelihoods3(*x)
+        elif l==4:
+            result = self.likelihoods4(*x)
+        else: 
+            result = self.likelihoods(*x)
+        return result
         
 def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,sample_filename,models_filename):
     """ Wrapper function of the class examine_Admixed. It receives an observations

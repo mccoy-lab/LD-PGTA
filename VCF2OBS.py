@@ -57,7 +57,7 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
     REF = {pos:ref for chr_id,pos,ref,alt in tab}
     ALT = {pos:alt for chr_id,pos,ref,alt in tab}
 
-    impute2_tab = read_impute2(leg_filename,filetype='legend')
+    leg_tab = read_impute2(leg_filename,filetype='legend')
 
 
     info = {'chr_id': chr_id,
@@ -68,9 +68,7 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
     for g in genotypes:
         M = REF if g=='A' else ALT
 
-        obs_tab = tuple((pos, impute2_index, 'XXX', M[pos])
-                         for impute2_index,(chr_id,pos,ref,alt) in enumerate(impute2_tab)
-                         if pos in M)
+        obs_tab = tuple((pos, 'XXX', M[pos]) for chr_id,pos,ref,alt in leg_tab if pos in M)
 
         with open(output_dir+sample_id+f'{g:s}.{chr_id:s}.hg38.obs.p', 'wb') as binfile:
             pickle.dump(obs_tab, binfile, protocol=4)

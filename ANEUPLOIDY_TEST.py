@@ -49,18 +49,6 @@ except ImportError:
             n -= 1    
         return b
 
-class examine:
-    """ Chooses the set of the statistical models to calculate the LLR based on
-        the reference panel and the number of haplotypes to subsample. """
-   
-    def __init__(self, obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes):
-        g = examine_homogeneous if all(row[2] == sam_tab[0][2] for row in sam_tab) else examine_admixed
-        self.E = g(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
-        
-    def get_likelihoods(self, *x):
-        F = {2: self.E.likelihoods2, 3: self.E.likelihoods3, 4: self.E.likelihoods4 }.get(len(x), self.E.likelihoods)
-        return F(*x)
-
 def mean_and_var(data):
     """ Calculates the mean and variance. """
     m = mean(data)
@@ -98,35 +86,26 @@ def invert(x,n):
     """ Inverts the bits of a positive integer. """
     return  x ^ ((1 << n) - 1)
 
-def mismatches(obs_tab,leg_tab):
-    """ Calculates the fraction of observed alleles at known SNP positions that
-    mismatched the legend. """ 
-    
-    mismatches = 0    
-    if not len(obs_tab): raise Exception('error: obs_tab is empty.')
-    for (pos, ind, read_id, base) in obs_tab:
-        chr_id, pos2, ref, alt = leg_tab[ind]
-        if pos!=pos2:
-            raise Exception('error: the line numbers in obs_tab refer to the wrong chromosome positions in leg_tab.')
-        elif base!=alt and base!=ref:
-            mismatches += 1
-    result = mismatches/len(obs_tab)
-    
-    return result
+def build_combined(leg_tab,hap_tab):
+    """  Returns a dictionary that lists chromosomal positions of SNPs and
+    gives their associated reference alleles, alternative alleles and reference
+    panel. """
+    combined = {pos: (ref,alt,hap) for (chr_id,pos,ref,alt),hap in zip(leg_tab, hap_tab)}
+    return combined
         
-def build_reads_dict(obs_tab,leg_tab):
+def build_reads_dict(obs_tab,combined_dict):
     """ Returns a dictionary that lists read IDs of reads that overlap with
         SNPs and gives the alleles in each read. """
 
     reads = collections.defaultdict(list)
     
-    for (pos, ind, read_id, base) in obs_tab:
-        if base in leg_tab[ind][2:]:
+    for pos, read_id, base in obs_tab:
+        if pos in combined_dict and base in combined_dict[pos][:-1]:
             reads[read_id].append((pos,base))
             
     return reads
-
-def build_score_dict(reads_dict,obs_tab,hap_tab,number_of_haplotypes,min_HF):
+    
+def build_score_dict(reads_dict,combined_dict,number_of_haplotypes,min_HF):
     """ Returns a dicitonary lists read_IDs and gives their score. The scoring
     algorithm scores each read according to the number of differet haplotypes
     that the reference panel supports at the chromosomal region that overlaps
@@ -138,21 +117,27 @@ def build_score_dict(reads_dict,obs_tab,hap_tab,number_of_haplotypes,min_HF):
     N = number_of_haplotypes
     b = (1 << number_of_haplotypes) - 1 #### equivalent to int('1'*number_of_haplotypes,2)
 
-
-    hap_dict = dict()
-    for (pos, ind, read_id, base) in obs_tab:
-        if pos not in hap_dict and (0.01 <= popcount(hap_tab[ind])/N <= 0.99): #Include only biallelic SNPs with MAF of at least 0.01. 
-            hap_dict[pos] = (hap_tab[ind], hap_tab[ind] ^ b) ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
-
     score_dict = dict()
     for read_id in reads_dict:
-        haplotypes = (hap_dict[pos] for pos,base in reads_dict[read_id] if pos in hap_dict)
+        haplotypes = ((combined_dict[pos][-1], combined_dict[pos][-1] ^ b)
+                          for pos,base in reads_dict[read_id]
+                              if 0.01 <= popcount(combined_dict[pos][-1])/N <= 0.99)  #Include only biallelic SNPs with MAF of at least 0.01. Also, ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
+        
         score_dict[read_id] = sum(min_HF <= popcount(reduce(and_,hap))/N <= (1-min_HF)
                                   for hap in product(*haplotypes) if len(hap)!=0)
 
     return score_dict
 
-def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,
+def build_aux_dict(obs_tab,combined_dict):
+    """ Returns a dictionary that lists chromosome positions of SNPs and gives a
+    list of read IDs for all the reads that overlap with the SNP. """
+    aux_dict = collections.defaultdict(list) ### aux_dict is a 
+    for pos, read_id, base in obs_tab:
+        if pos in combined_dict and base in combined_dict[pos][:-1]:
+            aux_dict[pos].append(read_id)
+    return aux_dict
+
+def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
                  max_reads,minimal_score):
     """ Returns an iterator over the genomic windows together with read IDs of
         the reads that overlap with SNPs in the genomic window. Only reads with
@@ -163,22 +148,17 @@ def iter_windows(obs_tab,leg_tab,score_dict,window_size,offset,min_reads,
     initial_win_size = 50000 #initial genomic window size
     
     adaptive, window_size = (False, int(window_size)) if window_size else (True, initial_win_size)
-    
     offset = int(offset)
-    
-    aux_dict = collections.defaultdict(list) ### aux_dict is a dictionary that lists chromosome positions of SNPs and gives a list of read IDs for all the reads that overlap with the SNP.  
-    for (pos, ind, read_id, base) in obs_tab:
-        if base in leg_tab[ind][2:]:
-            aux_dict[pos].append(read_id)
+    aux_dict = build_aux_dict(obs_tab,combined_dict)
             
     first, last = obs_tab[0][0]+offset, obs_tab[-1][0]+window_size
     a, b, readIDs_in_window = first, first+window_size, set()
     
-    for pos in aux_dict:
+    for pos, overlapping_reads in aux_dict.items():
         if pos<first: continue   
         while b<last:
             if a<=pos<b:
-                readIDs_in_window.update(read_ID for read_ID in aux_dict[pos] if minimal_score<=score_dict[read_ID])
+                readIDs_in_window.update(read_ID for read_ID in overlapping_reads if minimal_score<=score_dict[read_ID])
                 break
             elif adaptive and 0<len(readIDs_in_window)<min_reads and b-pos<=max_dist and b-a<=max_win_size:
                 b += 10000
@@ -218,11 +198,13 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     max_reads == max(max_reads,2) # Our statistical models require at least 2 reads.    
     
 
-    reads_dict = build_reads_dict(obs_tab, leg_tab)
-    score_dict = build_score_dict(reads_dict, obs_tab, hap_tab, number_of_haplotypes, min_HF)
-    windows_dict = dict(iter_windows(obs_tab, leg_tab, score_dict, window_size, offset, min_reads, max_reads, minimal_score))       
+    combined_dict = build_combined(leg_tab, hap_tab)
+    reads_dict = build_reads_dict(obs_tab, combined_dict)
+    score_dict = build_score_dict(reads_dict, combined_dict, number_of_haplotypes, min_HF)
+    windows_dict = dict(iter_windows(obs_tab, combined_dict, score_dict, window_size, offset, min_reads, max_reads, minimal_score))       
     
-    E = examine(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
+    examine = examine_homogeneous if all(row[2] == sam_tab[0][2] for row in sam_tab) else examine_admixed
+    analyzer = examine(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
     
     likelihoods = {}
     
@@ -231,9 +213,9 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
         
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
         if effN>0:
-            likelihoods[window] = tuple(E.get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
+            likelihoods[window] = tuple(analyzer.get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
     
-    return likelihoods, windows_dict
+    return likelihoods, windows_dict, analyzer.fraction_of_matches
         
 def statistics(likelihoods,windows_dict,mismatched_alleles):
     """ Compares likelihoods of different aneuploidy scenarios and extracts
@@ -322,10 +304,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
     load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
-    
-    mismatched_alleles = mismatches(obs_tab,leg_tab)
 
-    likelihoods, windows_dict = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF)
+    likelihoods, windows_dict, mismatched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF)
      
     info.update({'ancestry': ancestry,
                  'window_size': window_size,

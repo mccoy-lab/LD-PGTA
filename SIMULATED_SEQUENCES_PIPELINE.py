@@ -124,11 +124,11 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
 
 
 if __name__ == "__main__":
-    depth=0.1
-    sp='EAS_SAS'
+    depth=0.05
+    sp='SAS_EUR'
     chr_id='chr21'
     read_length = 36
-    min_reads,max_reads = 24,12
+    min_reads,max_reads = 18,8
     for n in ([*range(1,23)]+['X'])*20:
         chr_id = 'chr' + str(n)
         runInParallel(*([main]*3),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )

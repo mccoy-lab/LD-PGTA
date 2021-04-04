@@ -76,8 +76,8 @@ def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
         rnd = choices(range(len(W)), weights=W, k=1)[0]
         reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1]-1,chr(65+rnd),i) 
         
-        obs_tab.extend((pos, obs_dicts[rnd][pos][0], reads_id, obs_dicts[rnd][pos][1]) for pos in range(*read_boundaries) if pos in obs_dicts[rnd])
-        #### obs_dicts[rnd][pos][0] and obs_dicts[rnd][pos][1] are impute2_ind, obs_base       
+        obs_tab.extend((pos, reads_id, obs_dicts[rnd][pos]) for pos in range(*read_boundaries) if pos in obs_dicts[rnd])
+        #### obs_dicts[rnd][pos] is the observed base
     obs_tab.sort(key=itemgetter(0))
         
     return obs_tab
@@ -126,7 +126,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     obs_dicts, info_dicts = [], []
     for filename in obs_filenames:
         with open(filename, 'rb') as f:
-            obs_dict = {pos: (impute2_ind, obs_base) for (pos, impute2_ind, reads_id, obs_base) in load(f)}
+            obs_dict = {pos: obs_base for (pos, reads_id, obs_base) in load(f)}
             obs_dicts.append(obs_dict)
             info_dicts.append(load(f))
         

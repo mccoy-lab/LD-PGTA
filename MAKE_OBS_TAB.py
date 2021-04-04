@@ -110,16 +110,16 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                'fastafile': genome_reference,                   # FastaFile object of a reference sequence.    
                'compute_baq': True}                             # By default, performs re-alignment computing per-Base Alignment Qualities (BAQ), if a reference sequence is given.'
                                  
-        leg_tab_iterator = enumerate(leg_tab)        
+        leg_tab_iterator = iter(leg_tab)        
         pos = 0         
         for pileupcolumn in samfile.pileup(**arg):
             
             while pileupcolumn.pos > pos-1:  ### Chromosomal position starts from 1 in bam files, while it starts from 0 in obs files.
-                impute2_index, (chr_id,pos,ref,alt) = next(leg_tab_iterator)  
+                chr_id,pos,ref,alt = next(leg_tab_iterator)  
             
             if pileupcolumn.pos == pos-1:
                 
-                rows = [(pos, impute2_index, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position]) 
+                rows = [(pos, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position]) 
                         for pileupread in pileupcolumn.pileups if pileupread.query_position!=None] # query_position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment). 
                 
                 if pileupcolumn.get_num_aligned()==1:

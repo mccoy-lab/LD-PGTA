@@ -65,8 +65,8 @@ def main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,**kwargs):
             'sample_id': sample_id}
 
     if genotypes in ('A','AB'):
-        obs_tab1 = tuple((pos, impute2_index, 'XXX', alt if allele1 else ref)
-                             for impute2_index,((chrID,pos,ref,alt),(allele1,allele2)) in enumerate(zip(legend,haplotypes))
+        obs_tab1 = tuple((pos, 'XXX', alt if allele1 else ref)
+                             for (chrID,pos,ref,alt),(allele1,allele2) in zip(legend,haplotypes)
                                  if chr_id==chrID)
     
         with open(output_dir+sample_id+'A.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
@@ -75,8 +75,8 @@ def main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,**kwargs):
             pickle.dump(info1 , binfile, protocol=4)
 
     if genotypes in ('B','AB'):
-        obs_tab2 = tuple((pos, impute2_index, 'XXX', alt if allele2 else ref)
-                            for impute2_index,((chrID,pos,ref,alt),(allele1,allele2)) in enumerate(zip(legend,haplotypes))
+        obs_tab2 = tuple((pos, 'XXX', alt if allele2 else ref)
+                            for (chrID,pos,ref,alt),(allele1,allele2) in zip(legend,haplotypes)
                                 if chr_id==chrID)
     
         with open(output_dir+sample_id+'B.%s.hg38.obs.p' % chr_id, 'wb') as binfile:
