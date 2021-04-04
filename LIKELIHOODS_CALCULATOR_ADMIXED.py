@@ -40,6 +40,9 @@ class examine_admixed:
     def __init__(self, obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes):
         """ Initialize the attributes of the class. """
         
+        if len(leg_tab)!=len(hap_tab): 
+            raise Exception('Error: the number of SNPs in the LEGEND file differ from the number of SNPs in the HAP file.')
+            
         if total_number_of_haplotypes!=2*len(sam_tab): 
             raise Exception('Error: the number of diploid samples in the SAMPLE file differ from the number of haplotypes in the HAP file.')
 

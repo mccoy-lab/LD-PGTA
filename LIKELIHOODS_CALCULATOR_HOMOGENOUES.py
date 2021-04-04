@@ -39,6 +39,10 @@ class examine_homogeneous:
     
     def __init__(self, obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes):
         """ Initialize the attributes of the class. """
+        
+        if len(leg_tab)!=len(hap_tab): 
+            raise Exception('Error: the number of SNPs in the LEGEND file differ from the number of SNPs in the HAP file.')
+            
         self.models_dict = models_dict
         self.hap_dict, self.fraction_of_matches = self.build_hap_dict(obs_tab, leg_tab, hap_tab, number_of_haplotypes)
         self.total_number_of_haplotypes_in_reference_panel = number_of_haplotypes
