@@ -28,14 +28,14 @@ def BPH(n):
     Y = dict(collections.Counter(X))
     Z = {i:[] for i in range(50)}
     for i,j in Y.items():
-        Z[j].append('*'.join(i))
+        Z[j].append('*'.join(sorted(i,key=lambda x: 1000*len(x)+ord(x[:1].upper()) )))
     import math
-    P = '+'.join([f'({i//math.gcd(i,2*3**n):d}/{2*3**n//math.gcd(i,2*3**n):d})*('+'+'.join(j)+')' for i,j in Z.items() if len(j)!=0])    
-    P2 =  '('+'+'.join([f'{i:d}*('+'+'.join(j)+')' for i,j in Z.items() if len(j)!=0])+f')/{2*3**n:d}'    
+    P = '+'.join([f'({i//math.gcd(i,2*3**n):d}/{2*3**n//math.gcd(i,2*3**n):d})*('+'+'.join(sorted(j,key=lambda x: ord(x[0])))+')' for i,j in Z.items() if len(j)!=0])    
+    P2 =  '('+'+'.join([f'{i:d}*('+'+'.join(sorted(j,key=lambda x: ord(x[0])))+')' for i,j in Z.items() if len(j)!=0])+f')/{2*3**n:d}'    
 
     #print(P)    
     #print('+'.join(['*'.join([str(j),*i]) for (i,j) in Y.items()]))
-    return P2
+    return P
 
 def DIPLOID(n):
     import itertools
@@ -57,14 +57,14 @@ def DIPLOID(n):
     Y = dict(collections.Counter(X))
     Z = {i:[] for i in range(50)}
     for i,j in Y.items():
-        Z[j].append('*'.join(i))
+        Z[j].append('*'.join(sorted(i,key=lambda x: 1000*len(x)+ord(x[:1].upper()) )))
     import math
-    P = '+'.join([f'({i//math.gcd(i,2*2**n):d}/{2*2**n//math.gcd(i,2*2**n):d})*('+'+'.join(j)+')' for i,j in Z.items() if len(j)!=0])    
-    P2 =  '('+'+'.join([f'{i:d}*('+'+'.join(j)+')' for i,j in Z.items() if len(j)!=0])+f')/{2*2**n:d}'    
+    P = '+'.join([f'({i//math.gcd(i,2*2**n):d}/{2*2**n//math.gcd(i,2*2**n):d})*('+'+'.join(sorted(j,key=lambda x: ord(x[0])))+')' for i,j in Z.items() if len(j)!=0])    
+    P2 =  '('+'+'.join([f'{i:d}*('+'+'.join(sorted(j,key=lambda x: ord(x[0])))+')' for i,j in Z.items() if len(j)!=0])+f')/{2*2**n:d}'    
 
     #print(P)    
     #print('+'.join(['*'.join([str(j),*i]) for (i,j) in Y.items()]))
-    return P2
+    return P
 
 def SPH(n):
     import itertools
@@ -86,11 +86,11 @@ def SPH(n):
     Y = dict(collections.Counter(X))
     Z = {i:[] for i in range(50)}
     for i,j in Y.items():
-        Z[j].append('*'.join(i))
+        Z[j].append('*'.join(sorted(i,key=lambda x: 1000*len(x)+ord(x[:1].upper()) )))
     import math
-    P = '+'.join([f'({i//math.gcd(i,2*3**n):d}/{2*3**n//math.gcd(i,2*3**n):d})*('+'+'.join(j)+')' for i,j in Z.items() if len(j)!=0])    
+    P = '+'.join([f'({i//math.gcd(i,2*3**n):d}/{2*3**n//math.gcd(i,2*3**n):d})*('+'+'.join(sorted(j,key=lambda x: ord(x[0])))+')' for i,j in Z.items() if len(j)!=0])    
     
-    P2 = '('+'+'.join([f'{i:d}*('+'+'.join(j)+')' for i,j in Z.items() if len(j)!=0])+f')/{2*3**n:d}' 
+    P2 = '('+'+'.join([f'{i:d}*('+'+'.join(sorted(j,key=lambda x: ord(x[0])))+')' for i,j in Z.items() if len(j)!=0])+f')/{2*3**n:d}' 
     #print(P)    
     #print('+'.join(['*'.join([str(j),*i]) for (i,j) in Y.items()]))
-    return P2
+    return P
