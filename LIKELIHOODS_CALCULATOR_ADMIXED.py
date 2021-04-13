@@ -255,7 +255,17 @@ class examine_admixed:
         ABC, ABD, ACD, BCD = G[7], G[11], G[13], G[14]
         ABCD = G[15]
         
-        BPH = (2*(AB*c*d+ab*C*D+b*d*AC+B*ac*D+d*bc*A+D*a*BC+b*AD*c+B*ad*C+c*bd*A+a*C*BD+cd*b*A+B*CD*a+d*a*BC+bc*D*A+B*d*ac+AC*b*D+a*c*BD+C*bd*A+B*ad*c+C*b*AD+B*cd*a+CD*b*A+ab*d*C+AB*c*D+d*abc+ABC*D+ab*c*D+d*AB*C+abd*c+C*ABD+ab*cd+AB*CD+b*CD*a+B*cd*A+ad*b*C+B*AD*c+bd*a*C+BD*c*A+b*ac*D+B*d*AC+b*acd+B*ACD+ac*bd+AC*BD+a*bc*D+d*BC*A+ad*bc+AD*BC+bcd*a+BCD*A)+3*(ABCD+abcd)+4*(ABC*d+abc*D+c*ABD+abd*C+AB*cd+ab*CD+b*ACD+B*acd+AC*bd+ac*BD+bc*AD+ad*BC+bcd*A+a*BCD))/162 #The likelihood of three unmatched haplotypes. #V
+        BPH = (2*(AB*CD+AC*BD+AD*BC+
+                  A*(BCD+B*cd+b*CD+b*cd+C*bd+c*BD+c*bd+D*bc+d*BC+d*bc)+
+                  B*(ACD+C*ad+c*AD+c*ad+D*ac+d*AC+d*ac)+
+                  C*(ABD+D*ab+d*AB+d*ab)+
+                  D*ABC+
+                  +ab*cd+ac*bd+ad*bc+
+                  a*(bcd+b*CD+B*cd+B*CD+c*BD+C*bd+C*BD+d*BC+D*bc+D*BC)+
+                  b*(acd+c*AD+C*ad+C*AD+d*AC+D*ac+D*AC)+
+                  c*(abd+d*AB+D*ab+D*AB)+
+                  d*abc)+
+               3*(ABCD+abcd)+4*(A*bcd+B*acd+C*abd+D*abc+AB*cd+AC*bd+AD*bc+a*BCD+b*ACD+c*ABD+d*ABC+ad*BC+ac*BD+ab*CD))/162 #The likelihood of three unmatched haplotypes. #V
         SPH = (8*(AB*cd+ab*CD+AC*bd+ac*BD+bc*AD+ad*BC)+10*(ABC*d+abc*D+c*ABD+abd*C+b*ACD+B*acd+bcd*A+a*BCD)+17*(ABCD+abcd))/162  #The likelihood of two identical haplotypes out three. #V
         DISOMY = (abcd+abc*D+bcd*A+acd*B+abd*C+ab*CD+ad*BC+ac*BD+ABCD+ABC*d+BCD*a+ACD*b+ABD*c+AB*cd+AD*bc+AC*bd)/16 #The likelihood of diploidy. #V
         MONOSOMY = (abcd+ABCD)/2 #The likelihood of monosomy. #V
