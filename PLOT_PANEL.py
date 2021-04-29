@@ -121,15 +121,21 @@ def detect_transition(X,Y,E):
     return result
 
 def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
+    scale = 0.5
     z_score = 1
-    fs=28
+    fs=28 * scale
     import matplotlib as mpl
+    save = kwargs.get('save', '')
+    if save!='':
+            mpl.use('Agg')
+    else:
+        #['GTK3Agg', 'GTK3Cairo', 'MacOSX', 'nbAgg', 'Qt4Agg', 'Qt4Cairo', 'Qt5Agg', 'Qt5Cairo', 'TkAgg', 'TkCairo', 'WebAgg', 'WX', 'WXAgg', 'WXCairo', 'agg', 'cairo', 'pdf', 'pgf', 'ps', 'svg', 'template']
+        mpl.use('Qt5Agg')
     mpl.rcParams.update({'figure.max_open_warning': 0})
     import matplotlib.pyplot as plt
     #from scipy.interpolate import interp1d
     num_of_buckets = {'chr'+str(i): num_of_buckets_in_chr21*chr_length('chr'+str(i))//chr_length('chr21') for i in [*range(1,23)]+['X','Y']}
 
-    save = kwargs.get('save', '')
     colors = {frozenset(('BPH','DISOMY')):(177/255,122/255,162/255),
               frozenset(('DISOMY','SPH')):(242/255,142/255,44/255),
               frozenset(('SPH','MONOSOMY')):(239/255,106/255,92/255),
@@ -137,7 +143,7 @@ def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
               frozenset(('BPH','SPH')):(104/255,162/255,104/255)}
 
 
-    fig,axs =plt.subplots(4,6, sharex='col', sharey='row', figsize=(40, 22.5))
+    fig,axs =plt.subplots(4,6, sharex='col', sharey='row', figsize=(40 * scale, 22.5 * scale))
     #fig.suptitle(kwargs.get('title', ''), fontsize=16)
     #fig.text(0.5, 0, 'Chromosomal position (normalized)',fontsize=28, ha='center')
     #fig.text(0, 0.5, 'Log-likelihood ratio per genomic window', fontsize=28, va='center', rotation='vertical')
@@ -168,15 +174,15 @@ def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
         H[a,b] = ax1.plot(steps_x, steps_y, label=f'LLR of {a:s} to {b:s}',color=colors[frozenset((a,b))], linewidth=2, zorder=10, scalex=True, scaley=True, alpha=0.8)
         
         P = [(x[1]-x[0])/2 for x in X]                
-        ax1.errorbar(T, Y, xerr = P, ecolor=colors[frozenset((a,b))],marker=None, ls='none',alpha=1, zorder=13, linewidth=5) 
+        ax1.errorbar(T, Y, xerr = P, ecolor=colors[frozenset((a,b))],marker=None, ls='none',alpha=1, zorder=13, linewidth=5*scale) 
         
         ax1.tick_params(axis='x', labelsize=fs) 
         ax1.tick_params(axis='y', labelsize=fs)
-        ax1.xaxis.set_tick_params(width=2)
-        ax1.yaxis.set_tick_params(width=2)
+        ax1.xaxis.set_tick_params(width=2*scale)
+        ax1.yaxis.set_tick_params(width=2*scale)
         ###ax1.grid(color='black', linestyle='-.', linewidth=1,alpha=0.5)
         for axis in ['top','bottom','left','right']:
-            ax1.spines[axis].set_linewidth(2)
+            ax1.spines[axis].set_linewidth(2*scale)
         ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
               
     for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
@@ -193,15 +199,15 @@ def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
         
         xmin,xmax = ax1.get_xlim()
         ymin,ymax = ax1.get_ylim()
-        ax1.errorbar(T, Y, yerr = E, ecolor='black',marker=None, ls='none',alpha=0.2, zorder=15, linewidth=4) 
-        ax1.errorbar( xmin + 0.92*(xmax-xmin)-12.5*mean_genomic_window_size[g], ymin + 0.09*(ymax-ymin),marker=None, ls='none', xerr=25*mean_genomic_window_size[g], linewidth=2, color='k', capsize=4)
-        ax1.text(     xmin + 0.92*(xmax-xmin)-12.5*mean_genomic_window_size[g], ymin + 0.065*(ymax-ymin), '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=18)
-        ax1.plot([xmin,xmax],[0,0],color='black', ls='dotted',alpha=0.7,zorder=0, linewidth=2, scalex=False, scaley=False)
+        ax1.errorbar(T, Y, yerr = E, ecolor='black',marker=None, ls='none',alpha=0.2, zorder=15, linewidth=4*scale) 
+        ax1.errorbar( xmin + 0.88*(xmax-xmin)-mean_genomic_window_size[g], ymin + 0.12*(ymax-ymin),marker=None, ls='none', xerr=25*mean_genomic_window_size[g], linewidth=2*scale, color='k', capsize=4*scale)
+        ax1.text(     xmin + 0.88*(xmax-xmin)-mean_genomic_window_size[g], ymin + 0.09*(ymax-ymin), '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=2*fs//3)
+        ax1.plot([xmin,xmax],[0,0],color='black', ls='dotted',alpha=0.7,zorder=0, linewidth=2*scale, scalex=False, scaley=False)
         
         #for i in detect_transition_temp(LLR_stat,chr_length(info['chr_id']),z_score=80):
         for i in detect_transition(X0,Y0,E0):
             #print(g+1,N,len(X0),i)
-            ax1.plot([i,i],[ymin,ymax],color='purple', ls='dotted',alpha=0.7,zorder=0, linewidth=2, scalex=False, scaley=False)
+            ax1.plot([i,i],[ymin,ymax],color='purple', ls='dotted',alpha=0.7,zorder=0, linewidth=2*scale, scalex=False, scaley=False)
         
         ax1.set_xlim((xmin,xmax))                
         ax1.set_ylim((ymin,ymax))
@@ -211,28 +217,34 @@ def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
     ###plt.title(f'{RATIO[0]:s} vs. {RATIO[1]:s}\n', fontsize=int(1.2*fs))
     
-    plt.xlabel('Chromosomal position (normalized)', fontsize=fs,labelpad=25)
-    plt.ylabel('Log-likelihood ratio (normalized)', fontsize=fs,labelpad=45)        
+    plt.xlabel('Chromosomal position (normalized)', fontsize=fs,labelpad=25*scale)
+    plt.ylabel('Log-likelihood ratio (normalized)', fontsize=fs,labelpad=45*scale)        
     
-    AX[-1].tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False, width=0)
-    for axis in ['top','bottom','left','right']:
-        AX[-1].spines[axis].set_visible(False)
+    for l in range(1,len(AX)-len(DATA)+1):
+        AX[-l].tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False, width=0)
+        for axis in ['top','bottom','left','right']:
+            AX[-l].spines[axis].set_visible(False)
+        AX[-l-6].xaxis.set_tick_params(labelbottom=True)
     AX[-1].legend(handles=[i[0] for i in H.values()], title='', bbox_to_anchor=(.5, .45), loc='upper center', ncol=len(H), fancybox=True,fontsize=fs)
     if kwargs.get('title',None): AX[-1].set_title(kwargs.get('title',None), fontsize=int(fs), y=0.55, color='purple')
-        
+            
         
     if save!='':
         print('Saving plot...')
         #ax1.set_title(save.rpartition('/')[-1].removesuffix('.png'))
         plt.tight_layout()
-        plt.savefig(save, format='svg', bbox_inches='tight')
+        extension = 'svg'
+        plt.savefig('.'.join([save,extension]), format=extension, bbox_inches='tight')
         plt.close(fig)
     else:
        plt.tight_layout()
        plt.show() 
        
 def main(identifier):      
-    DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
+    #DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(f'/home/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_ZOUVES/{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
+    import matplotlib as mpl
+    DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(f'/Users/ariad/Dropbox/postdoc_JHU/LD-PGTA_ecosystem/LD-PGTA_V2/results_RPL/{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]}
+    
     for f,(likelihoods,info) in DATA.items():
         show_info(f'{f:s}.LLR.p.bz2',info,('BPH','SPH'))
     panel_plot(DATA.values(),num_of_buckets_in_chr21=5,title=f'{identifier:s}',save='')
