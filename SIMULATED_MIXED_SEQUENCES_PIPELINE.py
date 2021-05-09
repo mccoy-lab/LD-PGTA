@@ -97,7 +97,7 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     ###depth = 0.5
     ###sp = 'EUR'
     ###chr_id = 'chr21'
-    work_dir = f"/mybox/simulations/results_{sp:s}" #'results_EAS' #
+    work_dir = f"/mybox/simulations/results_mixed_{sp:s}" #'results_EAS' #
     #####################
     seed(None, version=2)
     work_dir = work_dir.rstrip('/') + '/' if len(work_dir)!=0 else ''
@@ -106,7 +106,7 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     B = choices(['A','B'],k=3)
     C = [i+j for i,j in zip(A,B)]
     #for a,b in zip(A,B): make_simulated_obs_tab(a,sp,chr_id,b,work_dir)
-    func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', '{sp:s}', '{chr_id:s}', '{b:s}', '{work_dir:s}')") for a,b in zip(A,B))
+    func = (eval(f"lambda: make_simulated_obs_tab('{a:s}', 'ALL', '{chr_id:s}', '{b:s}', '{work_dir:s}')") for a,b in zip(A,B))
     runInParallel(*func)
     filenames = MixHaploids_wrapper(f'{work_dir:s}{C[0]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[1]:s}.{chr_id:s}.hg38.obs.p', f'{work_dir:s}{C[2]:s}.{chr_id:s}.hg38.obs.p', read_length=read_length, depth=depth, scenarios=('monosomy','disomy','SPH','BPH','transitions'), transitions=transitions(chr_id),output_dir=work_dir)
     
@@ -117,22 +117,31 @@ def main(depth,sp,chr_id,read_length,min_reads,max_reads):
     #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.monosomy.chr21.x0.010.NA20536B.obs.p",
     #             "/home/ariad/Dropbox/postdoc_JHU/origin_ecosystem/origin_V2/results_EUR/simulated.disomy.chr21.x0.010.NA20536B.NA20536A.obs.p"]
     print(filenames)
-    func2 = (eval(f"lambda: aneuploidy_test_demo('{f:s}','{chr_id:s}','{sp:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
+    if len(sp)==7:
+        sp2 = random.choice(sp.split('_'))
+    else:
+        sp2 = random.choice(('AFR','AMR','EAS','EUR','SAS'))
+    func2 = (eval(f"lambda: aneuploidy_test_demo('{f:s}','{chr_id:s}','{sp2:s}','MODELS/MODELS16.p',{min_reads:d},{max_reads:d},'{work_dir:s}')") for f in filenames)
     runInParallel(*func2)
     #for f in filenames: aneuploidy_test_demo(f,chr_id,sp,'MODELS/MODELS16.p',min_reads,max_reads,work_dir)
     return 0
 
 
 if __name__ == "__main__":
-    depth=0.1
-    sp='AFR_EUR'
-    chr_id='chr21'
+    seed(a=None, version=2)
+    depth=0.01
+    #sp='EAS'
+    #chr_id='chr21'
     read_length = 36
-    min_reads,max_reads = 24,12
-    for n in ([*range(1,23)]+['X']):
-        chr_id = 'chr' + str(n)
-        runInParallel(*([main]*6),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
+    min_reads,max_reads = 6,4
     #main(depth,sp,chr_id,read_length,min_reads,max_reads)
+    for _ in range(1000):
+        sp = random.choice(('AFR','AMR','EAS','EUR','SAS'))
+        n = random.choice([*range(1,23)]+['X'])
+        chr_id = 'chr' + str(n)
+        print(sp,chr_id)
+        runInParallel(*([main]*3),args=(depth,sp,chr_id,read_length,min_reads,max_reads) )
+        ###main(depth,sp,chr_id,read_length,min_reads,max_reads)
     print('DONE.')
     pass
 else:

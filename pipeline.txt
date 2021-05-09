@@ -1,9 +1,10 @@
-##### Table of Contents
+##### Table of Contents  
 [Sequence Alignment](#seq_alignment) \
 [Create a reference panel](#ref_panel) \
 [Build a table of observed bases at SNP positions](#obs_tab) \
 [Build a table of LLRs at genomic windows along a chromosome](#aneuploidy_test) \
-[Simulating sequences that manifest BPH and SPH scenarios](#simulate)
+[Simulating sequences that manifest BPH and SPH scenarios](#simulate) \
+[IMPUTE2 file format for haplotype reference panels](#IMPUTE2)
 
 # Sequence Alignment #
 <a name="seq_alignment"/>
@@ -41,7 +42,7 @@ For sequences made out of fragments shorter than 70bp we use the software bwa. T
 
 See [the article](https://dx.doi.org/10.1093%2Fbioinformatics%2Fbtp324) and the [documentation of the software for more details](https://github.com/lh3/bwa).
 
-For sequences made out of fragments larger than 70bp we use the software minimap2. The reference index is created from the genome reference by executing:
+For sequences made out of fragments larger than 70bp we use the software minimap2. The reference index is created from the genome reference by executing: 
 
 `minimap2 -x sr -d hg38.sr.mmi hg38.fa`
 
@@ -63,7 +64,7 @@ where the option `-t6' allows multi-threading with 6 threads.
 
 ## Convert from a SAM to a BAM format ##
 
-SAM is a text file, while BAM is essentially GZIP compressed binary forms of the text SAM file. Thus, converting from SAM to BAM format will reduce the data size and improve performance. In addition, a lot of applications (like browser viewing) require the reads in the BAM file to be coordinate-based sorted, .i.e, the reads are ordered from “left” to “right” across the reference genome just as you’d read across a line in a book.
+SAM is a text file, while BAM is essentially GZIP compressed binary forms of the text SAM file. Thus, converting from SAM to BAM format will reduce the data size and improve performance. In addition, a lot of applications (like browser viewing) require the reads in the BAM file to be coordinate-based sorted, .i.e, the reads are ordered from “left” to “right” across the reference genome just as you’d read across a line in a book. 
 
 `samtools view -bS -F 4 SRR6676163.sam | samtools sort -@ 6 -o SRR6676163.sorted.bam -`
 
@@ -84,14 +85,14 @@ VCF files from the 1000 Genome Project Phase 3 aligned against GRCh38/hg38:
 
 `wget 'ftp://ftp.sra.ebi.ac.uk/vol1/ERZ822/ERZ822766/*'`
 
-This call set is also available from:
+This call set is also available from: 
 
 [http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/).
 
 Reference: [Variant calling on the GRCh38 assembly with the data from phase three of the 1000 Genomes Project](https://wellcomeopenresearch.org/articles/4-50/v2)
 
 ## Generate list of individuals to include in the creation of the reference panel ##
-Create a file containing a list of individuals to include in subsequent analysis. Each individual ID (as defined in the VCF headerline) should be included on a separate line. In order to generate such a list for the 1000 genome project phase 1\3 visit https://www.internationalgenome.org/data-portal/sample.
+Create a file containing a list of individuals to include in subsequent analysis. Each individual ID (as defined in the VCF headerline) should be included on a separate line. In order to generate such a list for the 1000 genome project phase 1\3 visit https://www.internationalgenome.org/data-portal/sample. 
 
 ## Generate a reference panel ##
 Here we create a reference panel using BCFtools.  First, the reference panel is stored in a BCF format:
@@ -125,11 +126,12 @@ The arguments that were used:
 Then, we convert from BCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT:
 
 `bcftools convert chr21_EUR_panel.bcf --haplegendsample chr21_EUR_panel`\
-`gunzip chr21_EUR_panel.legend.gz`\
-`gunzip chr21_EUR_panel.hap.gz`\
 `rm chr21_EUR_panel.bcf`
 
 where `--haplegendsample prefix` _converts from BCF to hap/legend/sample format used by IMPUTE2. The columns of the .legend file are ID,POS,REF,ALT. Moreover, in order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The columns of the .sample file are population, group and sex._
+
+
+One caveat, the columns of sample file for population, group and sex expected to be edited by the user. LD-PGTA uses the values in group column to differentiate between samples that are associated to distinct superpopulations and thus filling this information is required.
 
 # Build a table of observed bases at SNP positions #
 <a name="obs_tab"/>
@@ -154,7 +156,7 @@ where the first argument is the filename of the BAM file, containing reads mappe
 `--max-depth <FLOAT>` _Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit._
 
 `--output-filename <FILENAME>` _Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p ._
-
+    
 
 * In order to use the script, the Python module Pysam (v0.15.4) must be present. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
 
@@ -215,20 +217,89 @@ where the three first arguments are the filenames of observation tables created 
 
 ## Create haploid-like observation table using phased genotypes from VCF files.
 
-The script VCF2OBS.py simulates two observation tables of a haploid, using phased genotypes from VCF files. Each observation table includes SNP positions, "alleles from the same haplotype of a certain individual and their corresponding line number within the IMPUTE2 legend file.
+The script VCF2OBS.py simulates two observation tables of a haploid, using phased genotypes from VCF files. Each observation table includes SNP positions, "alleles from the same haplotype of a certain individual and their corresponding line number within the IMPUTE2 legend file. 
 
 We run the script with the following arguments and flags:
 
 `python VCF2OBS.py ALL.chr21.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz chr21_EUR_panel.legend chr21 HG00097`
 
-where the first argument is the filename of a VCF file, containning phased genotypes. The second required argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. The thirds and forth arguemnts are the chromosome ID and sample ID, respectively.
+where the first argument is the filename of a VCF file, containning phased genotypes. The second required argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. The thirds and forth arguemnts are the chromosome ID and sample ID, respectively. 
 
 ## Create haploid-like observation table using phased genotypes from IMPUTE2 files.
 
-The script IMPUTE2OBS.py simulates two observation tables of a haploid, using phased genotypes from IMPUTE2 files. Each observation table includes SNP positions, alleles from the same haplotype of a certain individual and their corresponding line number within the IMPUTE2 legend file.
+The script IMPUTE2OBS.py simulates two observation tables of a haploid, using phased genotypes from IMPUTE2 files. Each observation table includes SNP positions, alleles from the same haplotype of a certain individual and their corresponding line number within the IMPUTE2 legend file. 
 
 We run the script with the following arguments and flags:
 
 `python IMPUTE2OBS.py chr21_EUR_panel.legend chr21_EUR_panel.hap chr21_EUR_panel.samples chr21 HG00097`
 
 where the first argument is the filename of a legend file, describing the SNPs. The second argument is the filename of the IMPUTE2 haplotypes file, which contains a table of haplotypes. The thirds argument is the filename of the IMPUTE2 samples file, which lists the individuals. The forth and fifth arguments are the chromosome ID and sample ID, respectively. 
+
+
+# IMPUTE2 file format for haplotype reference panels #
+<a name="IMPUTE2"/>
+
+Adopted from the documentation of SHAPEIT, https://mathgen.stats.ox.ac.uk/genetics_software/shapeit/shapeit.html#haplegsample
+
+This is a default haplotype text file format used by IMPUTE2 to encode the haplotypes of the 1,000 Genomes Project. To describe it briefly, consider 4 unrelated individuals (Two white American CEU1 & CEU2, an English GBR1 & a Nigerian YRI1) for which haplotypes are available at 3 SNPs. The SNPs are located at positions 123, 456 and 789 and are donoted by SNP123, SNP456 & SNP789, respectively:
+
+|  Individuals  |  Haplotypes  |  SNP123 |  SNP456  |  SNP789  |
+| :---: | :---: | :---: | :---: | :---: |
+|  CEU1  |  hap1  |  A  |  T  |  A  |
+|  CEU1  |  hap2  |  A  |  C  |  T  |
+|  CEU2  |  hap1  |  G  |  C  |  T  |
+|  CEU2  |  hap2  |  A  |  T  |  A  |
+|  GBR1  |  hap1  |  A  |  T  |  T  |
+|  GBR1  |  hap2  |  A  |  C  |  T  |
+|  YRI1  |  hap1  |  G  |  T  |  T  |
+|  YRI1  |  hap2  |  G  |  C  |  T  |
+
+## SAMPLE file ##
+
+The SAMPLE file describes the individuals. The minimal SAMPLE file corresponding to the example dataset is:
+
+| sample | population | group | sex |
+| :---: | :---: | :---: | :---: |
+| CEU1 | CEU | EUR | 1 |   
+| CEU2 | CEU | EUR | 2 |   
+| GBR1 | GBR | EUR | 2 |   
+| YRI1 | YRI | AFR | 2 |
+
+It is SPACE delimited. The first line is a header line that describe the content of the file. Then, each line corresponds to a single individual. The first four columns are:
+
+  - Individual ID
+  - Population  
+  - Superpopulation
+  - Sex (1 for male, 2 for female)
+
+LD-PGTA requires at least 4 columns in the SAMPLE file. Additional columns can be added but SHAPEIT will ignore them. This file should have N+1 lines and at least 4 columns where N is the number of individuals in the reference panel. Each individual must have unique IDs containing only alphanumeric characters. Each individual can have 2 associated group IDs for subsetting purpose.
+
+## LEGEND file ##
+
+The LEGEND file describes the SNPs. The minimal LEGEND file corresponding to the example dataset is:
+
+|  id  |  position  |  ref  |  alt  |
+| :---: | :---: | :---: | :---: |
+|  SNP1  |  123  |  A  |  G  |
+|  SNP2  |  456  |  T  |  C  |
+|  SNP3  |  789  |  A  |  T  |
+
+This file is SPACE delimited. The first line is a header line that describe the content of the file. Each line corresponds to a single SNP. The first four columns are:
+
+  - SNP ID [string]
+  - SNP Position [integer]
+  - Reference allele [string]
+  - Alternative allele [string]
+
+LD-PGTA requires 4 columns in the LEGEND file. This file should have L+1 lines and at least 4 columns where L is the number of SNPs in the reference panel.
+
+## HAP file ##
+
+The HAP file contains the haplotypes. The HAP file corresponding to the example dataset is:
+| | | | | | | | |
+|---|---|---|---|---|---|---|---|
+|  0  |  0  |  1  |  0  |  0  |  0  |  1  |  1  |
+|  0  |  1  |  1  |  0  |  0  |  1  |  0  |  1  |
+|  0  |  1  |  1  |  0  |  1  |  1  |  1  |  1  |
+
+This file is SPACE delimited. Each line corresponds to a single SNP. Each successive column pair (0, 1), (2, 3), (4, 5) and (6, 7) corresponds to the alleles carried at the 4 SNPs by each haplotype of a single individual. For example a pair "1 0" means that the first haplotype carries the alternative allele while the second carries the reference allele as specified in the LEGEND file. The haplotypes are given in the same order than in the SAMPLE file. This file should have L lines and 2N columns, where L and N are the numbers of SNPs and individuals respectively.

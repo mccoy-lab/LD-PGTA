@@ -7,7 +7,7 @@ Daniel Ariad (daniel@ariad.org)
 Dec 20, 2020
 """
 
-import pickle, statistics, collections
+import pickle, statistics, collections, bz2, gzip
 from itertools import starmap
 from operator import or_
 from ANEUPLOIDY_TEST import LLR 
@@ -25,16 +25,16 @@ def std_of_mean(variances):
     return sum(variances)**.5/len(variances)
 
 
-def load_llr(filename):
+def load_likelihoods(filename):
     """ Loads from a file a dictionary that lists genomic windows that contain
     at least two reads and gives the bootstrap distribution of the 
-    log-likelihood BPH/SPH ratios (LLRs). """
-    try:
-        with open(filename, 'rb') as f:
-            likelihoods = pickle.load(f)
-            info = pickle.load(f)
-    except:
-        likelihoods = info = None
+    log-likelihood ratios (LLRs). """
+    
+    Open = {'bz2': bz2.open, 'gzip': gzip.open}.get(filename.rpartition('.')[-1], open)
+    
+    with Open(filename, 'rb') as f:
+        likelihoods = pickle.load(f)
+        info = pickle.load(f)
     return likelihoods, info
 
 
@@ -64,7 +64,7 @@ def build_confidence_dict(criterias, ratio, work_dir):
 
     buffer = {r: collections.defaultdict(dict) for r in ratio}
     for filename in filenamesA+filenamesB:
-        likelihoods, info = load_llr(filename)
+        likelihoods, info = load_likelihoods(filename)
         if likelihoods==None: continue
         subinfo = {x: info.get(x,None) for x in criterias.keys()}
         ### print(subinfo)
@@ -92,10 +92,9 @@ def build_confidence_dict(criterias, ratio, work_dir):
             V = []
             for j in range(1,23):
                  filename, LLRs = buffer[scenario][f'chr{j:d}'].popitem()
-                 mean, std = zip(*LLRs)
-                 M.extend(mean)
-                 V.extend(std)
-            
+                 MEANs, VARs = zip(*LLRs)
+                 M.extend(MEANs)
+                 V.extend(VARs)            
             result[scenario][i] = {'mean': statistics.mean(M), 'std': std_of_mean(V)}
                                                
     
@@ -180,11 +179,12 @@ def configuration(C):
 
     return result[C]
 
-def main(RATIO,SP,matched,mixed,C,depth):
-    DATA = build_confidence_dict(criterias = configuration(C), ratio=RATIO, work_dir = f'/mybox/simulations/results{mixed:s}_{SP:s}/')
+def main(RATIO,SP,matched,mixed,C):
+    conf = configuration(C)
+    DATA = build_confidence_dict(criterias = conf, ratio=RATIO, work_dir = f'/mybox/simulations/results{mixed:s}_{SP:s}/')
     B,A = DATA['transitions'], DATA['disomy']
     R = build_ROC_curve(B, A, positive = 'A', thresholds = Z)
-    with open(f'PREDICTED_RATES_FOR_{RATIO[0]:s}_vs_{RATIO[1]:s}_{matched:s}_{SP:s}_{depth:s}x.p' , "wb") as f:
+    with open(f"PREDICTED_RATES_FOR_{RATIO[0]:s}_vs_{RATIO[1]:s}_{matched:s}_{SP:s}_{conf['depth']:g}x.p" , "wb") as f:
         pickle.dump(R, f, protocol=4)
         pickle.dump(configuration(C), f, protocol=4)
         pickle.dump({'transitions':len(B), 'disomy':len(A)}, f, protocol=4)
@@ -194,13 +194,13 @@ if __name__ == "__main__":
     proc = []
     RATIO = ('transitions','disomy')    
     Z = [i/10 for i in range(-100000,300)] + [i/50 for i in range(-300,300)] + [i/10 for i in range(300,100000)]# Z = [i/500 for i in range(-10000,10000)]
-    for C,depth in (('C0','0.01'),('C2','0.05'),('C1','0.1')):
+    for C in ('C0','C2','C1'):
         for matched,mixed in (('MISMATCHED','_mixed'),('MATCHED','')):
             for SP in ('EUR','EAS','SAS','AFR','AMR'):
-                print(RATIO,SP,matched,mixed,C,depth)
+                print(RATIO,SP,matched,mixed,C)
                 ###main(RATIO,SP,matched,mixed,C,depth)
                 try:
-                    p = Process(target=main,args=(RATIO,SP,matched,mixed,C,depth))
+                    p = Process(target=main,args=(RATIO,SP,matched,mixed,C))
                     p.start()
                     proc.append(p)
                 except:
