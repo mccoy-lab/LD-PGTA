@@ -217,7 +217,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     
     return likelihoods, windows_dict, analyzer.fraction_of_matches
         
-def statistics(likelihoods,windows_dict,mismatched_alleles):
+def statistics(likelihoods,windows_dict,matched_alleles):
     """ Compares likelihoods of different aneuploidy scenarios and extracts
     useful information about the genmoic windows. """
     
@@ -240,10 +240,10 @@ def statistics(likelihoods,windows_dict,mismatched_alleles):
                   'window_size_std': window_size_std,
                   'LLRs_per_genomic_window': LLRs_per_genomic_window,
                   'LLRs_per_chromosome': LLRs_per_chromosome,
-                  'mismatched_alleles': mismatched_alleles}
+                  'matched_alleles': matched_alleles}
     else:
         result = {'num_of_windows': 0,
-                  'mismatched_alleles': mismatched_alleles}
+                  'matched_alleles': matched_alleles}
     return result
 
 def print_summary(obs_filename,info):
@@ -305,7 +305,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    likelihoods, windows_dict, mismatched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF)
+    likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF)
      
     info.update({'ancestry': ancestry,
                  'window_size': window_size,
@@ -315,7 +315,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
                  'max_reads': max_reads,
                  'minimal_score': minimal_score,
                  'min_HF': min_HF,
-                 'statistics': statistics(likelihoods,windows_dict,mismatched_alleles),
+                 'statistics': statistics(likelihoods,windows_dict,matched_alleles),
                  'runtime': time.time()-time0})
     
     if output_filename!=None:
