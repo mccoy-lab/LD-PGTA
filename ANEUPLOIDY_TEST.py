@@ -217,7 +217,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     
     return likelihoods, windows_dict, analyzer.fraction_of_matches
         
-def statistics(likelihoods,windows_dict,matched_alleles):
+def statistics(likelihoods,windows_dict):
     """ Compares likelihoods of different aneuploidy scenarios and extracts
     useful information about the genmoic windows. """
     
@@ -239,11 +239,9 @@ def statistics(likelihoods,windows_dict,matched_alleles):
                   'window_size_mean': window_size_mean,
                   'window_size_std': window_size_std,
                   'LLRs_per_genomic_window': LLRs_per_genomic_window,
-                  'LLRs_per_chromosome': LLRs_per_chromosome,
-                  'matched_alleles': matched_alleles}
+                  'LLRs_per_chromosome': LLRs_per_chromosome}
     else:
-        result = {'num_of_windows': 0,
-                  'matched_alleles': matched_alleles}
+        result = {'num_of_windows': 0}
     return result
 
 def print_summary(obs_filename,info):
@@ -251,7 +249,8 @@ def print_summary(obs_filename,info):
     print('\nFilename: %s' % obs_filename)
     print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S.get('reads_mean',0), S.get('reads_std',0)))
     print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
-    print('Ancestry: %s.' % ', '.join(info['ancestry']))
+    print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (', '.join(info['ancestry']),info['statistics']['matched_alleles']))
+
     if S.get('LLRs_per_chromosome',None):
         for (i,j), L in S['LLRs_per_chromosome'].items():
             print(f"--- LLR between {i:s} and {j:s} ----")        
@@ -307,6 +306,9 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
 
     likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF)
      
+    some_statistics = {'matched_alleles': matched_alleles,
+                       'runtime': time.time()-time0}
+    
     info.update({'ancestry': ancestry,
                  'window_size': window_size,
                  'subsamples': subsamples,
@@ -315,11 +317,12 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
                  'max_reads': max_reads,
                  'minimal_score': minimal_score,
                  'min_HF': min_HF,
-                 'statistics': statistics(likelihoods,windows_dict,matched_alleles),
-                 'runtime': time.time()-time0})
+                 'statistics': {**statistics(likelihoods,windows_dict), **some_statistics}
+                 })
     
     if output_filename!=None:
         save_results(likelihoods,info,compress,obs_filename,output_filename,kwargs.get('output_dir', 'results'))
+    
     print_summary(obs_filename,info)
     
     time1 = time.time()
