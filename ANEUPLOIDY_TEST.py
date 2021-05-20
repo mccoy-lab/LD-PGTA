@@ -163,7 +163,7 @@ def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
             elif adaptive and 0<len(readIDs_in_window)<min_reads and b-pos<=max_dist and b-a<=max_win_size:
                 b += 10000
             else:
-                yield ((a,b-1), readIDs_in_window)
+                yield ((a,b-1), readIDs_in_window) #the genomic window includes both endpoints.
                 a, b, readIDs_in_window = b, b+window_size, set() 
 
 def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
@@ -222,7 +222,7 @@ def statistics(likelihoods,windows_dict,matched_alleles):
     useful information about the genmoic windows. """
     
     if likelihoods:
-        window_size_mean, window_size_std = mean_and_std([j-i for (i,j) in likelihoods])    
+        window_size_mean, window_size_std = mean_and_std([j-i+1 for (i,j) in likelihoods])    
         reads_mean, reads_std = mean_and_std([len(read_IDs) for window,read_IDs in windows_dict.items() if window in likelihoods])
         num_of_windows = len(likelihoods)
         
