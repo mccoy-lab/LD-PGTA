@@ -7,3 +7,5 @@ Extra or missing chromosomes—a phenomenon termed aneuploidy—frequently arise
 Embryo aneuploidy data and results described in the manuscript can be found here: https://github.com/mccoy-lab/LD-PGTA/tree/master/data
 
 A tutorial and description of the software can be found here: https://github.com/mccoy-lab/LD-PGTA/wiki/LD-PGTA-tutorial
+
+© 2021 The Johns Hopkins University 
