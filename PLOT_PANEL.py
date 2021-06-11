@@ -134,7 +134,7 @@ def detect_transition(X,Y,E):
 def capitalize(x):
     return x[0].upper() + x[1:]
     
-def panel_plot(DATA,num_of_buckets_in_chr21,pairs=(('BPH','SPH'),),**kwargs):
+def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
     """ Creates a multi-panel figure. For each numbered chromosome, a figure 
         depicts the log-likelihood ratio vs. chromosomal position for BPH over
         SPH. """
@@ -364,14 +364,14 @@ def single_plot(likelihoods,info,**kwargs):
        plt.tight_layout()
        plt.show()
        
-def wrap_panel_plot(identifier):
+def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),)):
     """ Wraps the function panel_plot. """
     #DATA = {filename: load_likelihoods(filename)}      
     DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(f'{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
     
     for f,(likelihoods,info) in DATA.items():
         show_info(f'{f:s}.LLR.p.bz2',info,('BPH','SPH'))
-    panel_plot(DATA.values(),num_of_buckets_in_chr21=5,title=f'{identifier:s}',save='')
+    panel_plot(DATA.values(),num_of_buckets_in_chr21=5,pairs=pairs,title=f'{identifier:s}',save='')
     return 0
 
 def wrap_single_plot(llr_filename):
