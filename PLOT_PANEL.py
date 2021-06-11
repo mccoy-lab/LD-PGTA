@@ -364,14 +364,14 @@ def single_plot(likelihoods,info,**kwargs):
        plt.tight_layout()
        plt.show()
        
-def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),)):
+def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=''):
     """ Wraps the function panel_plot. """
     #DATA = {filename: load_likelihoods(filename)}      
     DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(f'{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
     
     for f,(likelihoods,info) in DATA.items():
         show_info(f'{f:s}.LLR.p.bz2',info,('BPH','SPH'))
-    panel_plot(DATA.values(),num_of_buckets_in_chr21=5,pairs=pairs,title=f'{identifier:s}',save='')
+    panel_plot(DATA.values(),num_of_buckets_in_chr21=5,pairs=pairs,title=f'{identifier:s}',save=save)
     return 0
 
 def wrap_single_plot(llr_filename):
@@ -392,3 +392,17 @@ else:
     print('The module PLOT_PANEL was imported.')
     
 #identifier = '13094FA-B6MTL_3'
+
+####################################################
+# Produce panel plots for all cases in the folders #
+####################################################
+
+import os
+identifiers = {i.split('.')[0] for i in os.listdir() if i[-3:]=='bz2'}
+for identifier in identifiers:
+    try:
+        if not os.path.isfile(identifier+'.svg'):
+            wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=identifier)
+    except Exception as e:
+        print(identifier,e)
+
