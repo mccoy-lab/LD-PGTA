@@ -130,7 +130,11 @@ def detect_transition(X,Y,E):
         
     return result
 
-def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
+
+def capitalize(x):
+    return x[0].upper() + x[1:]
+    
+def panel_plot(DATA,num_of_buckets_in_chr21,pairs=(('BPH','SPH'),),**kwargs):
     """ Creates a multi-panel figure. For each numbered chromosome, a figure 
         depicts the log-likelihood ratio vs. chromosomal position for BPH over
         SPH. """
@@ -150,10 +154,10 @@ def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
     #from scipy.interpolate import interp1d
     num_of_buckets = {'chr'+str(i): num_of_buckets_in_chr21*chr_length('chr'+str(i))//chr_length('chr21') for i in [*range(1,23)]+['X','Y']}
 
-    colors = {frozenset(('BPH','DISOMY')):(177/255,122/255,162/255),
-              frozenset(('DISOMY','SPH')):(242/255,142/255,44/255),
-              frozenset(('SPH','MONOSOMY')):(239/255,106/255,92/255),
-              frozenset(('DISOMY','MONOSOMY')):(104/255,162/255,183/255),
+    colors = {frozenset(('BPH','disomy')):(177/255,122/255,162/255),
+              frozenset(('disomy','SPH')):(242/255,142/255,44/255),
+              frozenset(('SPH','monosomy')):(239/255,106/255,92/255),
+              frozenset(('disomy','monosomy')):(104/255,162/255,183/255),
               frozenset(('BPH','SPH')):(104/255,162/255,104/255)}
 
 
@@ -167,29 +171,56 @@ def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
     AX = [i for j in axs for i in j]
     
     H = {}
-    a,b = 'BPH', 'SPH'
-    mean_genomic_window_size = []
-    for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
+    YMAX = [0]*23
+    transitions = []
+    for a,b in pairs:
+        for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
+    
+            if (a,b) in info['statistics']['LLRs_per_genomic_window']:
+                LLR_stat = info['statistics']['LLRs_per_genomic_window'][(a,b)]
+            else:
+                _ = {};
+                LLR_stat = {window:  mean_and_var([*starmap(LLR, ((_[a], _[b]) for _['monosomy'], _['disomy'], _['SPH'], _['BPH'] in L))])
+                       for window,L in likelihoods.items()}
+            
+            X,Y,E = confidence(LLR_stat,info,num_of_buckets=num_of_buckets[info['chr_id']],z_score=z_score)
+            Y = [(y if y else 0) for y in Y]
+            E = [(e if e else 0) for e in E]
+            
+            T = [(x[1]+x[0])/2 for x in X]                
+            steps_x = [X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]]
+            steps_y = [i for i in Y for j in (1,2)]
+            H[a,b] = ax1.plot(steps_x, steps_y, label=capitalize(f'{a:s} vs. {b:s}') ,color=colors[frozenset((a,b))], linewidth=2, zorder=10, scalex=True, scaley=True, alpha=0.8)
+            
+            P = [(x[1]-x[0])/2 for x in X]                
+            ax1.errorbar(T, Y, xerr = P, ecolor=colors[frozenset((a,b))],marker=None, ls='none',alpha=1, zorder=13, linewidth=5*scale) 
+            ax1.errorbar(T, Y, yerr = E, ecolor='black',marker=None, ls='none',alpha=0.2, zorder=15, linewidth=4*scale) 
+            
+            yabsmax = max(map(abs,Y))
+            
+            if pairs==(('BPH','SPH'),) or pairs==(('SPH','BPH'),):
+                transitions.append(detect_transition(X,Y,E))
+                    
+            YMAX[g] = yabsmax if YMAX[g]< yabsmax else YMAX[g]
 
-        if (a,b) in info['statistics']['LLRs_per_genomic_window']:
-            LLR_stat = info['statistics']['LLRs_per_genomic_window'][(a,b)]
-        else:
-            _ = {};
-            LLR_stat = {window:  mean_and_var([*starmap(LLR, ((_[a], _[b]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
-                   for window,L in likelihoods.items()}
+    for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
+        mean_genomic_window_size = info['statistics']['window_size_mean']/chr_length(info['chr_id']) 
+        ymax = max(YMAX[6*(g//6):6*(g//6+1)])
+        ax1.errorbar( 0.88-mean_genomic_window_size, -0.76*ymax,marker=None, ls='none', xerr=25*mean_genomic_window_size, linewidth=2*scale, color='k', capsize=4*scale, zorder=20)
+        ax1.text(     0.88-mean_genomic_window_size, -0.82*ymax, '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=2*fs//3, zorder=20)
+        ax1.plot([0,1],[0,0],color='black', ls='dotted',alpha=0.7,zorder=0, linewidth=2*scale, scalex=False, scaley=False)
+        ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
         
-        X,Y,E = confidence(LLR_stat,info,num_of_buckets=num_of_buckets[info['chr_id']],z_score=1)
-        Y = [(y if y else 0) for y in Y]
-        E = [(e if e else 0) for e in E]
-        mean_genomic_window_size.append(info['statistics']['window_size_mean']/chr_length(info['chr_id']) )
+    for g,ax1 in enumerate(AX[:22]):
+        ym = max(YMAX[6*(g//6):6*(g//6+1)])
+        ax1.set_ylim((-1.01*ym,+1.01*ym))
+        ax1.set_xlim((0,1)) 
         
-        T = [(x[1]+x[0])/2 for x in X]                
-        steps_x = [X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]]
-        steps_y = [i for i in Y for j in (1,2)]
-        H[a,b] = ax1.plot(steps_x, steps_y, label=f'LLR of {a:s} to {b:s}',color=colors[frozenset((a,b))], linewidth=2, zorder=10, scalex=True, scaley=True, alpha=0.8)
-        
-        P = [(x[1]-x[0])/2 for x in X]                
-        ax1.errorbar(T, Y, xerr = P, ecolor=colors[frozenset((a,b))],marker=None, ls='none',alpha=1, zorder=13, linewidth=5*scale) 
+        #Replace ticks along the x-axis 
+        X_ticks = [i/10 for i in range(0,11,2)]
+        X_labels = [('%g' % j) for j in X_ticks] 
+        ax1.set_xticks(X_ticks)
+        ax1.set_xticklabels(X_labels)
         
         ax1.tick_params(axis='x', labelsize=fs) 
         ax1.tick_params(axis='y', labelsize=fs)
@@ -198,42 +229,10 @@ def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
         ###ax1.grid(color='black', linestyle='-.', linewidth=1,alpha=0.5)
         for axis in ['top','bottom','left','right']:
             ax1.spines[axis].set_linewidth(2*scale)
-        ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
-              
-    for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
-        ymin,ymax = ax1.get_ylim()
-        ym = abs(ymax) if abs(ymax)>abs(ymin) else abs(ymin)        
-        ax1.set_ylim((-ym,+ym))
-        
-        #Replace ticks along the x-axis 
-        X_ticks = [i/10 for i in range(0,11,2)]
-        X_labels = [('%g' % j) for j in X_ticks] 
-        ax1.set_xticks(X_ticks)
-        ax1.set_xticklabels(X_labels)
-                
-    for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
-        LLR_stat = info['statistics']['LLRs_per_genomic_window'][(a,b)]
-        X0,Y0,E0 = confidence(LLR_stat,info,num_of_buckets=num_of_buckets[info['chr_id']],z_score=z_score)
-        Y = [(y if y else 0) for y in Y0]
-        E = [(e if e else 0) for e in E0]
-        T = [(x[1]+x[0])/2 for x in X0]         
-        
-        #xmin,xmax = ax1.get_xlim()
-        xmin,xmax = 0, 1
-        ymin,ymax = ax1.get_ylim()
-        ax1.errorbar(T, Y, yerr = E, ecolor='black',marker=None, ls='none',alpha=0.2, zorder=15, linewidth=4*scale) 
-        ax1.errorbar( xmin + 0.88*(xmax-xmin)-mean_genomic_window_size[g], ymin + 0.12*(ymax-ymin),marker=None, ls='none', xerr=25*mean_genomic_window_size[g], linewidth=2*scale, color='k', capsize=4*scale)
-        ax1.text(     xmin + 0.88*(xmax-xmin)-mean_genomic_window_size[g], ymin + 0.09*(ymax-ymin), '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=2*fs//3)
-        ax1.plot([xmin,xmax],[0,0],color='black', ls='dotted',alpha=0.7,zorder=0, linewidth=2*scale, scalex=False, scaley=False)
-        
-        #for i in detect_transition_temp(LLR_stat,chr_length(info['chr_id']),z_score=80):
-        for i in detect_transition(X0,Y0,E0):
-            #print(g+1,N,len(X0),i)
-            ax1.plot([i,i],[ymin,ymax],color='purple', ls='dotted',alpha=0.7,zorder=0, linewidth=2*scale, scalex=False, scaley=False)
-        
-        ax1.set_xlim((xmin,xmax))                
-        ax1.set_ylim((ymin,ymax))
-    
+            
+        if pairs==(('BPH','SPH'),) or pairs==(('SPH','BPH'),):
+            for i in transitions[g]:
+                ax1.plot([i,i],[-1.01*ym,1.01*ym],color='purple', ls='dotted',alpha=0.7,zorder=19, linewidth=2*scale, scalex=False, scaley=False)
 
     fig.add_subplot(111, frameon=False)
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
@@ -247,7 +246,7 @@ def panel_plot(DATA,num_of_buckets_in_chr21,**kwargs):
         for axis in ['top','bottom','left','right']:
             AX[-l].spines[axis].set_visible(False)
         AX[-l-6].xaxis.set_tick_params(labelbottom=True)
-    AX[-1].legend(handles=[i[0] for i in H.values()], title='', bbox_to_anchor=(.5, .45), loc='upper center', ncol=len(H), fancybox=True,fontsize=fs)
+    AX[-1].legend(handles=[i[0] for i in H.values()], title='', bbox_to_anchor=(.5, .45), loc='upper center', ncol=1, fancybox=True,fontsize=fs)
     if kwargs.get('title',None): AX[-1].set_title(kwargs.get('title',None), fontsize=int(fs), y=0.55, color='purple')
             
         
@@ -368,7 +367,7 @@ def single_plot(likelihoods,info,**kwargs):
 def wrap_panel_plot(identifier):
     """ Wraps the function panel_plot. """
     #DATA = {filename: load_likelihoods(filename)}      
-    DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(f'results_ZOUVES/{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]}
+    DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(f'{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
     
     for f,(likelihoods,info) in DATA.items():
         show_info(f'{f:s}.LLR.p.bz2',info,('BPH','SPH'))
