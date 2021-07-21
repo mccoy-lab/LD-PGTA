@@ -142,6 +142,8 @@ def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
     scale = 0.5
     z_score = 1
     fs=28 * scale
+    rows = 4
+    columns = 6
     import matplotlib as mpl
     save = kwargs.get('save', '')
     if save!='':
@@ -161,7 +163,7 @@ def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
               frozenset(('BPH','SPH')):(104/255,162/255,104/255)}
 
 
-    fig,axs =plt.subplots(4,6, sharex='col', sharey='row', figsize=(40 * scale, 22.5 * scale))
+    fig,axs =plt.subplots(rows ,columns, sharex='col', sharey='row', figsize=(6.666 * columns * scale, 5.625 * rows * scale))
     fig.subplots_adjust(left=0.05, bottom=0.06, right=.99, top=.97, wspace=None, hspace=None)
     #fig.suptitle(kwargs.get('title', ''), fontsize=16)
     #fig.text(0.5, 0, 'Chromosomal position (normalized)',fontsize=28, ha='center')
@@ -171,7 +173,7 @@ def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
     AX = [i for j in axs for i in j]
     
     H = {}
-    YMAX = [0]*23
+    YMAX = [0]*len(DATA)
     transitions = []
     for a,b in pairs:
         for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
@@ -205,15 +207,16 @@ def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
 
     for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
         mean_genomic_window_size = info['statistics']['window_size_mean']/chr_length(info['chr_id']) 
-        ymax = max(YMAX[6*(g//6):6*(g//6+1)])
+        ymax = max(YMAX[columns*(g//columns):columns*(g//columns+1)])
         ax1.errorbar( 0.88-mean_genomic_window_size, -0.76*ymax,marker=None, ls='none', xerr=25*mean_genomic_window_size, linewidth=2*scale, color='k', capsize=4*scale, zorder=20)
         ax1.text(     0.88-mean_genomic_window_size, -0.82*ymax, '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=2*fs//3, zorder=20)
         ax1.plot([0,1],[0,0],color='black', ls='dotted',alpha=0.7,zorder=0, linewidth=2*scale, scalex=False, scaley=False)
-        ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
+        #ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
+        ax1.set_title(f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x",fontsize=fs)
         
-    for g,ax1 in enumerate(AX[:22]):
-        ym = max(YMAX[6*(g//6):6*(g//6+1)])
-        ax1.set_ylim((-1.01*ym,+1.01*ym))
+    for g,ax1 in enumerate(AX[:len(DATA)]):
+        ymax = max(YMAX[columns*(g//columns):columns*(g//columns+1)])
+        ax1.set_ylim((-1.01*ymax,+1.01*ymax))
         ax1.set_xlim((0,1)) 
         
         #Replace ticks along the x-axis 
@@ -232,20 +235,20 @@ def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
             
         if pairs==(('BPH','SPH'),) or pairs==(('SPH','BPH'),):
             for i in transitions[g]:
-                ax1.plot([i,i],[-1.01*ym,1.01*ym],color='purple', ls='dotted',alpha=0.7,zorder=19, linewidth=2*scale, scalex=False, scaley=False)
+                ax1.plot([i,i],[-1.01*ymax,1.01*ymax],color='purple', ls='dotted',alpha=0.7,zorder=19, linewidth=2*scale, scalex=False, scaley=False)
 
     fig.add_subplot(111, frameon=False)
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
     ###plt.title(f'{RATIO[0]:s} vs. {RATIO[1]:s}\n', fontsize=int(1.2*fs))
     
-    plt.xlabel('Chromosomal position (normalized)', fontsize=fs,labelpad=25*scale)
+    plt.xlabel('Chromosomal position (normalized)', fontsize=fs,labelpad=23*scale)
     plt.ylabel('Log-likelihood ratio (normalized)', fontsize=fs,labelpad=45*scale)        
     
     for l in range(1,len(AX)-len(DATA)+1):
         AX[-l].tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False, width=0)
         for axis in ['top','bottom','left','right']:
             AX[-l].spines[axis].set_visible(False)
-        AX[-l-6].xaxis.set_tick_params(labelbottom=True)
+        AX[-l].xaxis.set_tick_params(labelbottom=True)
     AX[-1].legend(handles=[i[0] for i in H.values()], title='', bbox_to_anchor=(.5, .45), loc='upper center', ncol=1, fancybox=True,fontsize=fs)
     if kwargs.get('title',None): AX[-1].set_title(kwargs.get('title',None), fontsize=int(fs), y=0.55, color='purple')
             
@@ -323,7 +326,9 @@ def single_plot(likelihoods,info,**kwargs):
     ###ax1.grid(color='black', linestyle='-.', linewidth=1,alpha=0.5)
     for axis in ['top','bottom','left','right']:
         ax1.spines[axis].set_linewidth(scale)
-    ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
+        
+    #ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
+    ax1.set_title(f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x",fontsize=fs)
 
     ax1.set_ylabel('Log-likelihood ratio (normalized)', fontsize=fs,labelpad=2*scale)   
     ax1.set_xlabel('Chromosomal position (normalized)', fontsize=fs,labelpad=2*scale)
@@ -364,14 +369,14 @@ def single_plot(likelihoods,info,**kwargs):
        plt.tight_layout()
        plt.show()
        
-def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=''):
+def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),), num_of_buckets_in_chr21=5, save='', work_dir=''):
     """ Wraps the function panel_plot. """
     #DATA = {filename: load_likelihoods(filename)}      
-    DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(f'{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
+    DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(work_dir + f'{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
     
     for f,(likelihoods,info) in DATA.items():
         show_info(f'{f:s}.LLR.p.bz2',info,('BPH','SPH'))
-    panel_plot(DATA.values(),num_of_buckets_in_chr21=5,pairs=pairs,title=f'{identifier:s}',save=save)
+    panel_plot(DATA.values(),num_of_buckets_in_chr21=num_of_buckets_in_chr21,pairs=pairs,title=f'{identifier:s}',save=save)
     return 0
 
 def wrap_single_plot(llr_filename):
@@ -398,11 +403,12 @@ else:
 ####################################################
 
 import os
-identifiers = {i.split('.')[0] for i in os.listdir() if i[-3:]=='bz2'}
+work_dir = 'results2/'
+identifiers = {i.split('.')[0] for i in os.listdir(work_dir) if i[-3:]=='bz2'}
 for identifier in identifiers:
     try:
-        if not os.path.isfile(identifier+'.svg'):
-            wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=identifier)
+        if not os.path.isfile(work_dir+identifier+'.svg'):
+            wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=identifier,work_dir=work_dir, num_of_buckets_in_chr21=20)
     except Exception as e:
         print(identifier,e)
 
