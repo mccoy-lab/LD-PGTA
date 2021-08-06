@@ -48,10 +48,10 @@ class examine_homogeneous:
         self.total_number_of_haplotypes_in_reference_panel = number_of_haplotypes
 
     def build_hap_dict(self, obs_tab, leg_tab, hap_tab, number_of_haplotypes):
-        """ Returns a dictionary that lists chromosome positions of SNPs and gives
-            their relevent row from haplotypes table. The row is stored as a tuple
-            of booleans, where True represents the observed allele. We denote
-            the returned dictionary as the reference panel."""
+        """ Returns a dictionary that lists SNP alleles and gives their
+        relevent row from haplotypes table. The row is stored as bits, where
+        True means that the haplotype contains the allele. We denote the
+        returned dictionary as the reference panel. """
     
         hap_dict = dict()
         mismatches = 0
