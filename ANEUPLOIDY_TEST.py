@@ -168,10 +168,8 @@ def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
 
 def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
     """ Draws up to max_reads reads from a given genomic window. """
-
     drawn_read_IDs = random.sample(read_IDs, min(len(read_IDs)-1,max_reads))
     haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
-    
     return haplotypes
 
 def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
@@ -193,7 +191,6 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     """ Applies a bootstrap approach in which: (i) the resample size is smaller
     than the sample size and (ii) resampling is done without replacement. """
     
-    random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
     min_reads == max(min_reads,3) # Due to the bootstrap approach, min_reads must be at least 3.
     max_reads == max(max_reads,2) # Our statistical models require at least 2 reads.    
     
@@ -285,6 +282,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
 
     time0 = time.time()
     
+    random.seed(a=kwargs.get('seed',None), version=2) #I should make sure that a=None after finishing to debug the code.
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
 
@@ -300,7 +298,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
     ancestry = {row[2] for row in sam_tab}
     if len(ancestry)>2: print('warning: individuals in the sample file are associated with more than two populations.')
     
-    load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
+    load_model = bz2.BZ2File if models_filename[-6:]=='.p.bz2' else open
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 

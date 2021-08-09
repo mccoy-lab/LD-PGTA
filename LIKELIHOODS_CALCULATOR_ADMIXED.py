@@ -305,11 +305,12 @@ def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,samp
     hap_tab, total_number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
     sam_tab  = read_impute2(sample_filename, filetype='sam')
     
-    with open(obs_filename, 'rb') as f:
+    load_obs = bz2.BZ2File if obs_filename[-6:]=='.p.bz2' else open
+    with load_obs(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
         #info = pickle.load(f)
 
-    load_model = bz2.BZ2File if models_filename[-4:]=='pbz2' else open
+    load_model = bz2.BZ2File if models_filename[-6:]=='.p.bz2' else open
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
@@ -331,10 +332,10 @@ else:
     print("Executed when invoked directly")
     #sys.exit(0)
     import time, random
-    a = time.time()
-    obs_filename = 'results_EAS_EUR/simulated.BPH.chr21.x0.010.HG00102B.HG02087A.NA18960B.obs.p'
-    hap_filename = '../build_reference_panel/EAS_EUR_panel.hg38.BCFtools/chr21_EAS_EUR_panel.hap.gz'
-    leg_filename = '../build_reference_panel/EAS_EUR_panel.hg38.BCFtools/chr21_EAS_EUR_panel.legend.gz'
+    t0 = time.time()
+    obs_filename = 'results/SWI-L-10-27-May-2020_S38.chr6.obs.p.bz2'
+    hap_filename = '../build_reference_panel/EAS_EUR_panel.hg38.BCFtools/chr6_EAS_EUR_panel.hap.gz'
+    leg_filename = '../build_reference_panel/EAS_EUR_panel.hg38.BCFtools/chr6_EAS_EUR_panel.legend.gz'
     sam_filename = '../build_reference_panel/samples_per_panel/EAS_EUR_panel.samples'
     models_filename = 'MODELS/MODELS16.p'
     
@@ -350,14 +351,15 @@ else:
     likelihoods3 = A.likelihoods3
     likelihoods4 = A.likelihoods4
 
-    x = random.randrange(len(alleles))
+    random.seed(a=0, version=2)
+    x = random.randrange(len(alleles)-16)
     haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16])
 
     print('-----joint_frequencies_combo-----')    
     print(frequencies0(alleles[x+0]))
-    print(frequencies0(alleles[x:x+4]))
+    print(frequencies0(*alleles[x:x+4]))
     print(frequencies1(alleles[x+0]))
-    print(frequencies1(alleles[x:x+4]))
+    print(frequencies1(*alleles[x:x+4]))
     print('-----likelihoods4-haplotypes-----')
     print(haplotypes)
     print(frequencies0(*haplotypes))
@@ -383,8 +385,8 @@ else:
     print(likelihoods(*alleles[x:x+4]))
     print(likelihoods4(*alleles[x:x+4]))
 
-    b = time.time()
+    t1 = time.time()
 
-    print('Done in %.3f sec.' % ((b-a)))
+    print('Done in %.3f sec.' % ((t1-t0)))
 
 """
