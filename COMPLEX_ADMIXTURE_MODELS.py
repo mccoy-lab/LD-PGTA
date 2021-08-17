@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-LIKELIHOODS_CALCULATOR_GENERALIZED
+COMPLEX_ADMIXTURE_MODELS
 
 Given reads that originated form the same genomic window and a reference panel
 of two populations, the likelihood of observed reads under four scenarios,
@@ -37,7 +37,7 @@ except ModuleNotFoundError:
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')
 
-class examine_generalized:
+class complex_admixture:
     """ Based on two IMPUTE2 arrays, which contain the legend and haplotypes,
     and a dictionary with statisitcal models (models_dict), it allows to
     calculate the likelihoods of observed alleles under various statistical
@@ -288,8 +288,8 @@ class examine_generalized:
             result = self.likelihoods(*x)
         return result
         
-def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,sample_filename,models_filename,admixture):
-    """ Wrapper function of the class examine_generalized. It receives an observations
+def wrapper_of_complex_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sample_filename,models_filename,admixture):
+    """ Wrapper function of the class complex_admixture. It receives an observations
     file, IMPUTE2 legend file, IMPUTE2 haplotypes file, IMPUTE2 samples file,
     and a file with four statistical models. Based on the given data it creates
     and returns an instance of the class. """
@@ -315,12 +315,12 @@ def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,samp
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    return examine_generalized(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes, admixture)
+    return complex_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes, admixture)
 
 if __name__ != "__main__":
-    print('The module LIKELIHOODS_CALCULATOR_GENERALIZED was imported.')
+    print('The module COMPLEX_ADMIXTURE_MODELS was imported.')
 else:
-    print('The module LIKELIHOODS_CALCULATOR_GENERALIZED was invoked directly')
+    print('The module COMPLEX_ADMIXTURE_MODELS was invoked directly')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################
@@ -328,9 +328,9 @@ else:
 
 
 if __name__ != "__main__":
-    print("The module LIKELIHOODS_CALCULATOR was imported.")
+    print("The module COMPLEX_ADMIXTURE_MODELS was imported.")
 else:
-    print("Executed when invoked directly")
+    print('The module COMPLEX_ADMIXTURE_MODELS was invoked directly')
     #sys.exit(0)
     import time, random
     t0 = time.time()
@@ -341,7 +341,7 @@ else:
     models_filename = 'MODELS/MODELS16.p'
     admixture = admixture_tuple('EUR',0.8)
     
-    A = wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename,admixture)
+    A = wrapper_of_complex_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename,admixture)
 
     alleles = tuple(A.hap_dict.keys())
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-LIKELIHOODS_CALCULATOR_HOMOGENOUES
+HOMOGENOUES_MODELS
 
 Given reads that originated form the same genomic window and a reference panel
 of a single population, the likelihood of observed reads under four scenarios,
@@ -35,7 +35,7 @@ except ModuleNotFoundError:
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')
 
-class examine_homogeneous:
+class homogeneous:
     """ Based on two IMPUTE2 arrays, which contain the legend and haplotypes,
     and a dictionary with statisitcal models (models_dict), it allows to
     calculate the likelihoods of observed alleles under various statistical
@@ -241,8 +241,8 @@ class examine_homogeneous:
             result = self.likelihoods(*x)
         return result
         
-def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
-    """ Wrapper function of the class examine_homogeneous. It receives an observations
+def wrapper_of_homogenoues_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
+    """ Wrapper function of the class homogeneous. It receives an observations
     file, IMPUTE2 legend file, IMPUTE2 haplotypes file, and a file with four
     statistical models. Based on the given data it creates and returns an
     instance of the class. """
@@ -266,12 +266,12 @@ def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,mode
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    return examine_homogeneous(obs_tab, leg_tab, hap_tab, None, models_dict, number_of_haplotypes)
+    return homogeneous(obs_tab, leg_tab, hap_tab, None, models_dict, number_of_haplotypes)
 
 if __name__ != "__main__":
-    print('The module LIKELIHOODS_CALCULATOR_HOMOGENOUES was imported.')
+    print('The module HOMOGENOUES_MODELS was imported.')
 else:
-    print('The module LIKELIHOODS_CALCULATOR_HOMOGENOUES was invoked directly')
+    print('The module HOMOGENOUES_MODELS was invoked directly')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################
@@ -280,9 +280,9 @@ else:
 
 """
 if __name__ != "__main__":
-    print("The module LIKELIHOODS_CALCULATOR_HOMOGENOUES was imported.")
+    print("The module HOMOGENOUES_MODELS was imported.")
 else:
-    print("The module LIKELIHOODS_CALCULATOR_HOMOGENOUES was invoked directly")
+    print("The module HOMOGENOUES_MODELS was invoked directly")
     #sys.exit(0)
     import time, random
     t0 = time.time()
@@ -291,7 +291,7 @@ else:
     leg_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr6_EUR_panel.legend.gz'
     models_filename = 'MODELS/MODELS16.p'
     
-    A = wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,models_filename)
+    A = wrapper_of_homogenoues_for_debugging(obs_filename,leg_filename,hap_filename,models_filename)
 
     alleles = tuple(A.hap_dict.keys())
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-LIKELIHOODS_CALCULATOR_ADMIXED
+F1_ADMIXTURE_MODELS
 
 Given reads that originated form the same genomic window and a reference panel
 of two populations, the likelihood of observed reads under four scenarios,
@@ -36,7 +36,7 @@ except ModuleNotFoundError:
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')
 
-class examine_admixed:
+class f1_admixture:
     """ Based on two IMPUTE2 arrays, which contain the legend and haplotypes,
     and a dictionary with statisitcal models (models_dict), it allows to
     calculate the likelihoods of observed alleles under various statistical
@@ -98,7 +98,7 @@ class examine_admixed:
     
         fraction_of_matches = 1-mismatches/len(obs_tab)
         
-        print('Admixed algorithm: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
+        print('Algorithm for F1-admixtures: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
     
         return hap_dict, fraction_of_matches
 
@@ -297,8 +297,8 @@ class examine_admixed:
             result = self.likelihoods(*x)
         return result
         
-def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,sample_filename,models_filename):
-    """ Wrapper function of the class examine_Admixed. It receives an observations
+def wrapper_of_f1_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sample_filename,models_filename):
+    """ Wrapper function of the class f1_admixture. It receives an observations
     file, IMPUTE2 legend file, IMPUTE2 haplotypes file, IMPUTE2 samples file,
     and a file with four statistical models. Based on the given data it creates
     and returns an instance of the class. """
@@ -324,12 +324,12 @@ def wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,samp
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    return examine_admixed(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes)
+    return f1_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes)
 
 if __name__ != "__main__":
-    print('The module LIKELIHOODS_CALCULATOR_ADMIXED was imported.')
+    print('The module F1_ADMIXTURE_MODELS was imported.')
 else:
-    print('The module LIKELIHOODS_CALCULATOR_ADMIXED was invoked directly')
+    print('The module F1_ADMIXTURE_MODELS was invoked directly.')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################
@@ -337,9 +337,9 @@ else:
 """
 
 if __name__ != "__main__":
-    print("The module LIKELIHOODS_CALCULATOR was imported.")
+    print("The module F1_ADMIXTURE_MODELS was imported.")
 else:
-    print("Executed when invoked directly")
+    print("The module F1_ADMIXTURE_MODELS was invoked directly.")
     #sys.exit(0)
     import time, random
     t0 = time.time()
@@ -349,7 +349,7 @@ else:
     sam_filename = '../build_reference_panel/samples_per_panel/EAS_EUR_panel.samples'
     models_filename = 'MODELS/MODELS16.p'
     
-    A = wrapper_of_examine_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename)
+    A = wrapper_of_f1_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename)
 
     alleles = tuple(A.hap_dict.keys())
 

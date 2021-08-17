@@ -16,9 +16,9 @@ Dec 22, 2020
 
 import collections, time, pickle, argparse, re, sys, random, os, bz2, gzip
 from MAKE_OBS_TAB import read_impute2
-from LIKELIHOODS_CALCULATOR_HOMOGENOUES import examine_homogeneous
-from LIKELIHOODS_CALCULATOR_ADMIXED import examine_admixed
-from LIKELIHOODS_CALCULATOR_GENERALIZED import examine_generalized
+from HOMOGENOUES_MODELS import homogeneous
+from F1_ADMIXTURE_MODELS import f1_admixture
+from COMPLEX_ADMIXTURE_MODELS import complex_admixture
 
 
 from itertools import product, starmap
@@ -211,13 +211,13 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     if len(ancestry)==2 and 0<admixture.proportion<1 and admixture.group2 in ancestry:
         proportions = {i:admixture.proportion if admixture.group2==i else 1-admixture.proportion for i in ancestry}
         print('Assuming the following ancestry proportions:', proportions) 
-        instance = examine_generalized(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, admixture)
+        examine = complex_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, admixture)
     elif len(ancestry)==2:
         print('Assuming F1-admixture between %s and %s.' % tuple(ancestry)) 
-        instance = examine_admixed(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
+        examine = f1_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
     else:
         print('Assuming one ancestral population: %s.' % tuple(ancestry))
-        instance = examine_homogeneous(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
+        examine = homogeneous(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
  
     likelihoods = {}
     
@@ -226,9 +226,9 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
         
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
         if effN>0:
-            likelihoods[window] = tuple(instance.get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
+            likelihoods[window] = tuple(examine.get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
     
-    return likelihoods, windows_dict, instance.fraction_of_matches
+    return likelihoods, windows_dict, examine.fraction_of_matches
         
 def statistics(likelihoods,windows_dict):
     """ Compares likelihoods of different aneuploidy scenarios and extracts
