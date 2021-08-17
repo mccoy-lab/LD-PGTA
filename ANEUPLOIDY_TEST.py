@@ -27,11 +27,11 @@ from operator import and_
 from statistics import mean, variance, pstdev
 from math import log
 
-leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt'))
-sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex'))
-obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base'))
-comb_tuple = collections.namedtuple('comb_tuple', ('ref','alt','hap'))
-admixture_tuple = collections.namedtuple('admixture_tuple', ('group2', 'proportion'))
+leg_tuple = collections.namedtuple('legend_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
+sam_tuple = collections.namedtuple('sample_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
+obs_tuple = collections.namedtuple('observation_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+comb_tuple = collections.namedtuple('combined_tuple', ('ref','alt','hap'))
+admixture_tuple = collections.namedtuple('complex_admixture_tuple', ('group2', 'proportion'))
 
 try:
     from gmpy2 import popcount
@@ -194,7 +194,7 @@ def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
         
 def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
               models_dict, window_size, subsamples, offset, min_reads,
-              max_reads, minimal_score, min_HF, admixture):
+              max_reads, minimal_score, min_HF, complex_admixture):
     """ Applies a bootstrap approach in which: (i) the resample size is smaller
     than the sample size and (ii) resampling is done without replacement. """
     
@@ -208,10 +208,10 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     windows_dict = dict(iter_windows(obs_tab, combined_dict, score_dict, window_size, offset, min_reads, max_reads, minimal_score))       
     
     ancestry = {row.group2 for row in sam_tab}
-    if len(ancestry)==2 and 0<admixture.proportion<1 and admixture.group2 in ancestry:
-        proportions = {i:admixture.proportion if admixture.group2==i else 1-admixture.proportion for i in ancestry}
+    if len(ancestry)==2 and 0<complex_admixture.proportion<1 and complex_admixture.group2 in ancestry:
+        proportions = {i:complex_admixture.proportion if complex_admixture.group2==i else 1-complex_admixture.proportion for i in ancestry}
         print('Assuming the following ancestry proportions:', proportions) 
-        examine = complex_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, admixture)
+        examine = complex_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, complex_admixture)
     elif len(ancestry)==2:
         print('Assuming F1-admixture between %s and %s.' % tuple(ancestry)) 
         examine = f1_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
@@ -301,7 +301,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
     random.seed(a=kwargs.get('seed',None), version=2) #I should make sure that a=None after finishing to debug the code.
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
-    admixture = (lambda x,y: admixture_tuple(str(x),float(y)))(*kwargs.get('admixture',('None','-1')))
+    complex_admixture = (lambda x,y: admixture_tuple(str(x),float(y)))(*kwargs.get('complex_admixture',('None','-1')))
 
     Open = {'bz2': bz2.open, 'gzip': gzip.open}.get(obs_filename.rpartition('.')[-1], open)    
     with Open(obs_filename, 'rb') as f:
@@ -319,7 +319,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
     with load_model(models_filename, 'rb') as f:
         models_dict = pickle.load(f)
 
-    likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF, admixture)
+    likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF, complex_admixture)
      
     some_statistics = {'matched_alleles': matched_alleles,
                        'runtime': time.time()-time0}
@@ -335,8 +335,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
                  'statistics': {**statistics(likelihoods,windows_dict), **some_statistics}
                  })
     
-    if len(ancestry)==2 and 0<admixture.proportion<1 and admixture.group2 in ancestry:
-        info['proportions'] = {i:admixture.proportion if admixture.group2==i else 1-admixture.proportion for i in ancestry}
+    if len(ancestry)==2 and 0<complex_admixture.proportion<1 and complex_admixture.group2 in ancestry:
+        info['proportions'] = {i:complex_admixture.proportion if complex_admixture.group2==i else 1-complex_admixture.proportion for i in ancestry}
         
     if output_filename!=None:
         save_results(likelihoods,info,compress,obs_filename,output_filename,kwargs.get('output_dir', 'results'))
@@ -364,8 +364,8 @@ if __name__ == "__main__":
                         help='IMPUTE2 haplotype file')
     parser.add_argument('sam_filename', metavar='SAM_FILENAME', type=str,
                         help='IMPUTE2 samples file')
-    parser.add_argument('-a', '--admixture', metavar='STR FLOAT', type=str, nargs=2, default=['None','-1'],
-                        help='Assume an admixture with a certain ancestry proportion, e.g, EUR 0.8.')
+    parser.add_argument('-a', '--complex-admixture', metavar='STR FLOAT', type=str, nargs=2, default=['None','-1'],
+                        help='Assume a complex admixture with a certain ancestry proportion, e.g, EUR 0.8.')
     parser.add_argument('-w', '--window-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads.')

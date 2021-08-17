@@ -24,9 +24,9 @@ from functools import reduce
 from operator import and_, itemgetter
 from itertools import combinations
 
-leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
-sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
-obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+leg_tuple = collections.namedtuple('legend_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
+sam_tuple = collections.namedtuple('sample_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
+obs_tuple = collections.namedtuple('observation_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 try:
     from gmpy2 import popcount

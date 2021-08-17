@@ -9,7 +9,8 @@ Daniel Ariad (daniel@ariad.org)
 Jan 13, 2021
 """
 import pickle, os, sys, time, argparse, random, gzip, collections
-obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+
+obs_tuple = collections.namedtuple('observation_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 def read_legend(filename):
     """ Reads an IMPUTE2 legend fileand builds a list
