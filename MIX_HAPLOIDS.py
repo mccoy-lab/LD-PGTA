@@ -16,12 +16,14 @@ Daniel Ariad (daniel@ariad.org)
 Jan 14th, 2021
 
 """
-import argparse, sys, os
+import argparse, sys, os, collections
 from random import choices, randrange, seed
 from collections import defaultdict
 from operator import itemgetter
 from time import time
 from pickle import load, dump
+
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter): 
     pass
@@ -47,7 +49,8 @@ def inBPHregion(x,transitions):
     return (transitions[0]=='BPH') ^ (l%2)
       
 def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
-    """ Mixes simulated reads to DNA sequencing of various aneuploidy landscapes. """ 
+    """ Mixes reads of DNA sequencing to simulate various aneuploidy landscapes
+        in non-admixtures as well as F1-admixtures. """ 
     
     num_of_reads = number_of_reads(chr_id,read_length,depth)
     L = len(obs_dicts)
@@ -76,8 +79,43 @@ def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
         rnd = choices(range(len(W)), weights=W, k=1)[0]
         reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1]-1,chr(65+rnd),i) 
         
-        obs_tab.extend((pos, reads_id, obs_dicts[rnd][pos]) for pos in range(*read_boundaries) if pos in obs_dicts[rnd])
+        obs_tab.extend(obs_tuple(pos, reads_id, obs_dicts[rnd][pos]) for pos in range(*read_boundaries) if pos in obs_dicts[rnd])
         #### obs_dicts[rnd][pos] is the observed base
+    obs_tab.sort(key=itemgetter(0))
+        
+    return obs_tab
+
+def build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario):
+    """ Mixes reads of DNA sequencing to simulate various aneuploidy landscapes in complex admixtures. """ 
+    
+    num_of_reads = number_of_reads(chr_id,read_length,depth)
+    regions = 40
+    proportions = (0.8,0.2)    
+    obs_tab = list()
+    dx, odd = divmod(read_length, 2)
+    
+    number_of_haplotypes = {'monosomy':1, 'disomy':2, 'BPH': 3, 'SPH': 3}
+    rsize = chr_length(chr_id)/regions
+    if scenario=='SPH':
+        configurations = {(i*rsize,(i+1)*rsize):
+                          choices([[2,0],[0,2]], weights=proportions) + choices([[1,0],[0,1]], weights=proportions)
+                              for i in range(regions)}
+    elif scenario in {'monosomy', 'disomy', 'BPH'}:
+        configurations = {(i*rsize,(i+1)*rsize):
+                              sum(choices([[1,0],[0,1]], weights=proportions, k=number_of_haplotypes[scenario]),start=[]) 
+                                  for i in range(regions)}
+    else:
+        raise Exception('error: undefined scenario.')   
+        
+    for (start,stop),W in configurations.items():
+        for k in range(num_of_reads/regions):
+            p = randrange(start,stop) + 1
+            read_boundaries = (p-dx,p+dx+odd)     
+            rnd = choices(range(len(W)), weights=W, k=1)[0]
+            reads_id = '%d.%d.%s.%d' % (read_boundaries[0],read_boundaries[1]-1,chr(65+rnd),k) 
+            
+            obs_tab.extend(obs_tuple(pos, reads_id, obs_dicts[rnd][pos]) for pos in range(*read_boundaries) if pos in obs_dicts[rnd])
+            #### obs_dicts[rnd][pos] is the observed base
     obs_tab.sort(key=itemgetter(0))
         
     return obs_tab
@@ -122,6 +160,8 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     list_of_transitions = kwargs.get('transitions', [])
     given_output_filename = kwargs.get('output_filename','')
     output_dir = kwargs.get('output_dir', 'results')
+    complex_admixture = kwargs.get('complex_admixture', False)
+
     
     obs_dicts, info_dicts = [], []
     for filename in obs_filenames:
@@ -137,17 +177,23 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     
     
     number_of_required_obs_files = {'monosomy': 1, 'disomy': 2, 'SPH': 2, 'BPH': 3, 'transitions': 3}
-    
     output_filenames = []
     
     cases = tuple(senarios_iter(scenarios, list_of_transitions))
 
     for ind, (scenario, transitions) in enumerate(cases, start=1): 
         
-        if len(obs_filenames) < number_of_required_obs_files[scenario]:
-            raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]:d} observation files.') 
+        if len(obs_filenames) < number_of_required_obs_files[scenario] * (1+complex_admixture):
+            raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]*(1+complex_admixture):d} observation files.') 
             
-        obs_tab = build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions)
+        if complex_admixture and scenario!='transitions':
+            print('mode: complex admixture.')
+            obs_tab = build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario)
+        elif complex_admixture and scenario=='transitions':
+            raise Exception('error: transitions are not supported in complex admixtures.') 
+        else:
+            print('mode: normal.')
+            obs_tab = build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions)
         
         sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rsplit('/',1).pop()[:-6])
                           + info_dicts[i].get('haplotype','')
@@ -159,7 +205,8 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
                 'scenario': scenario,
                 'transitions': transitions,
                 'sample_ids': sample_ids,
-                'handle-multiple-observations': 'all'}
+                'handle-multiple-observations': 'all',
+                'complex': complex_admixture}
         
         if given_output_filename!=None:
             fn = save_results(obs_tab,info,ind,transitions,given_output_filename,output_dir)
@@ -190,26 +237,37 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--read-length', type=int, 
                         metavar='INT', default=36,
                         help='The number of base pairs (bp) sequenced from a DNA fragment. Default value 36.')
-    parser.add_argument('-s', '--scenarios', type=list,
-                        metavar='monosomy/disomy/SPH/BPH/transitions', default='disomy',
+    parser.add_argument('-s', '--scenarios', type=str, nargs='+', 
+                        metavar='monosomy/disomy/SPH/BPH/transitions', default='disomy', choices=['monosomy','disomy','SPH','BPH','transitions'],
                         help="The simulation supports five scenarios: monosomy/disomy/SPH/BPH/transitions. Default scenario is disomy."
-                             "Giving a list of scenarios, e.g. SPH,BPH would create a batch of simulations.")
-    parser.add_argument('-t', '--transitions', type=list,
-                        metavar='TUPLE', default='',
+                             "Giving a list of scenarios, e.g. \"SPH BPH\" would create a batch of simulations.")
+    parser.add_argument('-t', '--transitions', type=str, nargs='+',
+                        metavar='STR,FLOAT,...,FLOAT', default='',
                         help='Relevant only for the transitions scenario. Introduces transitions between SPH and BPH along the chromosome. '
                              'The locations of the transition is determined by a fraction of chromosome length, ranging between 0 to 1. '
                              'For example a BPH-SPH-BPH transition that equally divides the chromosomes is exressed as BPH,0.333,0.666 and,'  
                              'similarly, a SPH-BPH transition at the middle of the chromosome is expressed as SPH,0.5. '
-                             'In addition, giving a list of cases, e.g. \"SPH,0.2; SPH,0.4; SPH,0.6\"  would create a batch of three simulations. ')
+                             'In addition, giving a list of cases, e.g. \"SPH,0.2 SPH,0.4 SPH,0.6\" would create a batch of three simulations. ')
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
-                        help='Output filename. The default filename is a combination of both obs filenames.')    
+                        help='Output filename. The default filename is a combination of both obs filenames.')
+    parser.add_argument('-c', '--complex-admixture', dest='feature', action='store_true',
+                        help='Simulates monosomy, disomy, SPH and BPH in complex-admixtures (the transitions scenario is not supported). '
+                             'The order of observation tables that are given as arguments is important; '
+                             'Odd positions are associated with population 1, while even positions with population 2. '
+                             'For example, in order to simulate a SPH case the observation tables should be given '
+                             'as follows: \"python MIX_HAPLOIDS -s SPH HAPLOID1_AFR.obs.p HAPLOID2_EUR.obs.p HAPLOID3_AFR.obs.p HAPLOID4_EUR.obs.p\". '
+                             'Here we assume that probability to draw a haplotype from population 1, which is African in the example, is 80%%.')    
     
     kwargs = vars(parser.parse_args())
     
-    kwargs['scenarios'] = [i.strip(' ') for i in ''.join(kwargs['scenarios']).strip(' ').split(',') if i!='']
+    #####kwargs['scenarios'] = [i.strip(' ') for i in ''.join(kwargs['scenarios']).strip(' ').split(',') if i!='']
     
-    kwargs['transitions'] = [[(float(j) if j.strip(' ').replace('.','',1).isdigit() else j.strip(' ')) for j in i.split(',')]
-             for i in ''.join(kwargs['transitions']).strip(' ').strip(';').split(';') if i!='']
+    #####kwargs['transitions'] = [[(float(j) if j.strip(' ').replace('.','',1).isdigit() else j.strip(' ')) for j in i.split(',')]
+    #####         for i in ''.join(kwargs['transitions']).strip(' ').strip(';').split(';') if i!='']
+    
+    kwargs['transitions'] = [[float(i) if i.isdigit() else i for i in j.split(',')] for j in kwargs['transitions']]
+    
+    
     
     MixHaploids(**kwargs)    
     sys.exit(0)

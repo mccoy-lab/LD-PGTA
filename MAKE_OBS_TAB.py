@@ -13,8 +13,12 @@ Daniel Ariad (daniel@ariad.org)
 Jan 3rd, 2021
 """
 
-import sys, os, time, random, argparse, re, pickle, gzip, bz2
+import sys, os, time, random, argparse, re, pickle, gzip, bz2, collections
 
+leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt'))
+sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex'))
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base'))
+    
 try:
     import pysam
 except ModuleNotFoundError:
@@ -28,11 +32,11 @@ def read_impute2(filename,**kwargs):
 
     def leg_format(line):
         rs_id, pos, ref, alt = line.strip().split()
-        return ('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)
+        return leg_tuple('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)
 
     def sam_format(line):
           sample_id, group1, group2, sex = line.strip().split(' ')
-          return (sample_id, group1, group2, int(sex))
+          return sam_tuple(sample_id, group1, group2, int(sex))
 
     with (gzip.open(filename,'rt') if filename[-3:]=='.gz' else open(filename, 'r')) as impute2_in:
         if filetype == 'leg':
@@ -118,7 +122,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
 
             if pileupcolumn.pos == pos-1:
 
-                rows = [(pos, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position])
+                rows = [obs_tuple(pos, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position])
                         for pileupread in pileupcolumn.pileups if pileupread.query_position!=None] # query_position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment).
 
                 if pileupcolumn.get_num_aligned()==1:

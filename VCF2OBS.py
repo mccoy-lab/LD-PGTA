@@ -8,8 +8,10 @@ Simulates an observation table, obs_tab of a haploid, using phased genotypes fro
 Daniel Ariad (daniel@ariad.org)
 Aug 31, 2020
 """
-import pickle, sys, os, time, argparse, random, string
+import pickle, sys, os, time, argparse, random, string, collections
 from MAKE_OBS_TAB import read_impute2
+
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 def get_random_string(length):
     letters = string.ascii_lowercase
@@ -68,7 +70,7 @@ def main(vcf_filename,leg_filename,chr_id,sample_id,bcftools_dir,**kwargs):
     for g in genotypes:
         M = REF if g=='A' else ALT
 
-        obs_tab = tuple((pos, 'XXX', M[pos]) for chr_id,pos,ref,alt in leg_tab if pos in M)
+        obs_tab = tuple(obs_tuple(pos, 'XXX', M[pos]) for chr_id,pos,ref,alt in leg_tab if pos in M)
 
         with open(output_dir+sample_id+f'{g:s}.{chr_id:s}.hg38.obs.p', 'wb') as binfile:
             pickle.dump(obs_tab, binfile, protocol=4)

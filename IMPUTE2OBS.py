@@ -8,7 +8,8 @@ Simulates an observation table, obs_tab of a haploid, using phased genotypes fro
 Daniel Ariad (daniel@ariad.org)
 Jan 13, 2021
 """
-import pickle, os, sys, time, argparse, random, gzip
+import pickle, os, sys, time, argparse, random, gzip, collections
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 def read_legend(filename):
     """ Reads an IMPUTE2 legend fileand builds a list
@@ -65,7 +66,7 @@ def main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,**kwargs):
             'sample_id': sample_id}
 
     if genotypes in ('A','AB'):
-        obs_tab1 = tuple((pos, 'XXX', alt if allele1 else ref)
+        obs_tab1 = tuple(obs_tuple(pos, 'XXX', alt if allele1 else ref)
                              for (chrID,pos,ref,alt),(allele1,allele2) in zip(legend,haplotypes)
                                  if chr_id==chrID)
     
@@ -75,7 +76,7 @@ def main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,**kwargs):
             pickle.dump(info1 , binfile, protocol=4)
 
     if genotypes in ('B','AB'):
-        obs_tab2 = tuple((pos, 'XXX', alt if allele2 else ref)
+        obs_tab2 = tuple(obs_tuple(pos, 'XXX', alt if allele2 else ref)
                             for (chrID,pos,ref,alt),(allele1,allele2) in zip(legend,haplotypes)
                                 if chr_id==chrID)
     

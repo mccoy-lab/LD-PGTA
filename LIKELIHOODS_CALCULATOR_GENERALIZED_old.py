@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-LIKELIHOODS_CALCULATOR_ADMIXED
+LIKELIHOODS_CALCULATOR_GENERALIZED
 
 Given reads that originated form the same genomic window and a reference panel
 of two populations, the likelihood of observed reads under four scenarios,
@@ -13,18 +13,14 @@ haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
 
 Daniel Ariad (daniel@ariad.org)
-Dec 21, 2020
+Aug 10, 2021
 """
 
-import pickle, os, sys, bz2, collections
+import pickle, os, sys, bz2
 
 from functools import reduce
 from operator import and_, itemgetter
 from itertools import combinations
-
-leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
-sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
-obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 try:
     from gmpy2 import popcount
@@ -60,12 +56,12 @@ class examine_admixed:
         panel. Then, all the haplotypes that are associated with each group are
         flagged using a binary representation marks and counted. """
         
-        differentiate = [row.group2 == sam_tab[0].group2 for row in sam_tab for i in (1,2)]
+        differentiate = [row[2] == sam_tab[0][2] for row in sam_tab for i in (1,2)]
         flag0 = sum(v<<i for i, v in enumerate(differentiate[::-1]))
         flag1 = flag0 ^ ((1 << self.total_number_of_haplotypes_in_reference_panel) - 1)
         flags = (flag0, flag1)
-        name2id = {sam_tab[0].group2:0,
-                   sam_tab[differentiate[::2].index(False,1)].group2:1}
+        
+        name2id = {sam_tab[0][2]:0, sam_tab[differentiate.index(False,1)][2]:1}
         N0 = differentiate.count(True)
         N1 = self.total_number_of_haplotypes_in_reference_panel - N0
         number_of_haplotypes_in_reference_subpanel = (N0,N1)
@@ -127,7 +123,7 @@ class examine_admixed:
 
         return hap
 
-    def joint_frequencies_combo(self, *alleles, group2_id, normalize):
+    def joint_frequencies_combo(self, *alleles, group_id, normalize):
         """ Based on the reference panel, it calculates joint frequencies of
             observed alleles. The function arguments are alleles, that is, 
             tuples of position and base, e.g., (100,'T'), (123, 'A') and 
@@ -141,7 +137,7 @@ class examine_admixed:
             arguments can also include haplotypes, that is, tuples of alleles;
             Haplotypes are treated in the same manner as alleles. """
 
-        flag = self.flags[group2_id]
+        flag = self.flags[group_id]
         hap = self.intrenal_hap_dict(*alleles)
 
         result = {c: popcount(A&flag) for c,A in hap.items()}
@@ -160,7 +156,7 @@ class examine_admixed:
             result[sum(hap.keys())] = popcount(reduce(and_,hap.values())&flag)
 
         if normalize:
-            N = self.num_of_hap_in_ref_subpanel[group2_id]
+            N = self.num_of_hap_in_ref_subpanel[group_id]
             result = {k: v/N for k,v in result.items()}
         
         return result
@@ -171,49 +167,47 @@ class examine_admixed:
         and BPH. """
         
         models = self.models_dict[len(alleles)]
-        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=False) 
-        M = self.num_of_hap_in_ref_subpanel[0] #Divide values by M to normalize the joint frequencies, F.
-        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=False) 
-        N = self.num_of_hap_in_ref_subpanel[1] #Divide values by N to normalize the joint frequencies, G.
+        F = self.joint_frequencies_combo(*alleles, group_id=0, normalize=True) 
+        G = self.joint_frequencies_combo(*alleles, group_id=1, normalize=True) 
 
+
+
+        g0, g1 = 0.8, 0.2
+        
         ### BPH ###
         (((A0, A1),((B0,),)),) = models['BPH'][1].items()
-        BPH = (F[B0] / M + G[B0] / N) * A0 / ( 2 * A1 )
+        
+       
+        BPH = (A0 / A1)  * (g0 * F[B0] + g1 * G[B0])  
 
-        BPH += sum( sum( (F[B0] * F[B1] / M**2 + G[B0] * G[B1] / N**2 
-                          + 2 * (F[B0] * G[B1] + G[B0] * F[B1]) / ( M * N ) ) 
-                        for (B0, B1) in C) * A0 / A1
-                           for (A0, A1), C in models['BPH'][2].items()) / 6
 
+        BPH += sum( sum((g0 * F[B0] + g1 * G[B0]) * (g0 * F[B1] + g1 * G[B1]) for (B0, B1) in C) * A0 / A1
+                   for (A0, A1), C in models['BPH'][2].items()) 
+      
         if len(alleles)>2:
-            BPH += sum( sum(F[B0] * sum(( (F[B1] * G[B2] + G[B1] * F[B2]) / M + G[B1] * G[B2] / N) 
-                    for (B1, B2) in C[B0]) for B0 in C) * A0 / A1
-                       for (A0, A1), C in models['BPH'][3].items()) / (6 * M * N)
-            
-            BPH += sum( sum(G[B0] * sum(((F[B1] * G[B2] + G[B1] * F[B2]) / N + F[B1] * F[B2] / M) 
-                    for (B1, B2) in C[B0]) for B0 in C) * A0 / A1
-                       for (A0, A1), C in models['BPH'][3].items()) / (6 * M * N)
+            BPH += sum( sum((g0 * F[B0] + g1 * G[B0]) * sum( (g0 * F[B1] + g1 * G[B1]) * (g0 * F[B2] + g1 * G[B2])
+                  for (B1, B2) in C[B0]) for B0 in C) * A0 / A1
+                     for (A0, A1), C in models['BPH'][3].items()) 
 
         ### SPH ###
         (((A0, A1),((B0,),)),) = models['SPH'][1].items()
-        SPH = (F[B0] / M + G[B0] / N) * A0 / ( 2 * A1 ) 
+        SPH = (A0 / A1)  * (g0 * F[B0] + g1 * G[B0]) 
 
-        SPH += sum( sum((F[B0] * G[B1] + G[B0] * F[B1]) for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in models['SPH'][2].items()) / ( 2 * M * N)
+        SPH += sum( sum((g0 * F[B0] + g1 * G[B0]) * (g0 * F[B1] + g1 * G[B1]) for (B0, B1) in C) * A0 / A1
+                   for (A0, A1), C in models['SPH'][2].items()) 
 
         
         ### DIPLOIDY ###
         (((A0, A1),((B0,),)),) = models['DISOMY'][1].items()
-        DISOMY = ( F[B0] / M + G[B0] / N ) * A0 / ( 2 * A1 )
+        DISOMY = (A0 / A1)  * (g0 * F[B0] + g1 * G[B0]) 
 
-        DISOMY += sum( sum( (F[B0] * G[B1] + G[B0] * F[B1]) for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in models['DISOMY'][2].items()) / (2 * M * N)
+        DISOMY += sum( sum( (g0 * F[B0] + g1 * G[B0]) * (g0 * F[B1] + g1 * G[B1]) for (B0, B1) in C) * A0 / A1
+                   for (A0, A1), C in models['DISOMY'][2].items()) 
 
         ### MONOSOMY ###
         ((B0,),) = models['MONOSOMY'][1][(1,1)]
-        MONOSOMY = ( F[B0] / M + G[B0] / N ) / 2  
+        MONOSOMY = g0 * F[B0] + g1 * G[B0]
         
-
         result = (MONOSOMY, DISOMY, SPH, BPH)
         return result
     
@@ -221,62 +215,122 @@ class examine_admixed:
         """ Calculates the likelihood to observe two alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
         
-        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True) 
-        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True) 
+        F = self.joint_frequencies_combo(*alleles, group_id=0, normalize=True) 
+        G = self.joint_frequencies_combo(*alleles, group_id=1, normalize=True) 
         a, b, ab = F[1], F[2], F[3]
         A, B, AB = G[1], G[2], G[3]
-        BPH = (2*(b*a+B*A)+3*(AB+ab)+4*(b*A+B*a))/18 #The likelihood of three unmatched haplotypes. #V
-        SPH = (4*(b*A+B*a)+5*(AB+ab))/18 #The likelihood of two identical haplotypes out three. #V
-        DISOMY = (ab+A*b+AB+a*B)/4 #The likelihood of diploidy. #V
-        MONOSOMY = (ab+AB)/2 #The likelihood of monosomy. #V
+        
+        g0 = 0.8
+        g1 = 0.2
+        
+        BPH_H0 = (ab+2*a*b)/3 #The likelihood of three unmatched haplotypes, where all the haplotypes are associated with group_id=0.
+        SPH_H0 = (5*ab+4*a*b)/9 #The likelihood of two identical haplotypes out three, where all the haplotypes are associated with group_id=0.
+        DISOMY_H0 = (ab+a*b)/2 #The likelihood of diploidy, where all the haplotypes are associated with group_id=0.
+        MONOSOMY_H0 = ab #The likelihood of monosomy, where all the haplotypes are associated with group_id=0.
+        
+        BPH_H1 = (AB+2*A*B)/3 #The likelihood of three unmatched haplotypes, where all the haplotypes are associated with group_id=1.
+        SPH_H1 = (5*AB+4*A*B)/9 #The likelihood of two identical haplotypes out three, where all the haplotypes are associated with group_id=1.
+        DISOMY_H1 = (AB+A*B)/2 #The likelihood of diploidy, where all the haplotypes are associated with group_id=1.
+        MONOSOMY_H1 = AB #The likelihood of monosomy, where all the haplotypes are associated with group_id=1.
+        
+        
+        SPH_A0 = (4*ab+AB+2*(a*B+A*b))/9 #The likelihood of two identical haplotypes out three, where two haplotypes are associated with group_id=0 and one with group_id=1.
+        BPH_A0 = (2*ab+AB+2*(a*b+a*B+A*b))/9 #The likelihood of three unmatched haplotypes, where two haplotypes are associated with group_id=0 and one with group_id=1.
+        
+        SPH_A1 = (4*AB+ab+2*(A*b+a*B))/9 #The likelihood of two identical haplotypes out three, where two haplotypes are associated with group_id=1 and one with group_id=0.
+        BPH_A1 = (2*AB+ab+2*(A*B+A*b+a*B))/9#The likelihood of three unmatched haplotypes, where two haplotypes are associated with group_id=0 and one with group_id=1.
+        
+        DISOMY_A = (ab+AB+a*B+A*b)/4 #The likelihood of diploidy, where one haplotype is associated with group_id=0 and the other one with group_id=1.
+        
+        
+        BPH = g0**3 * BPH_H0 + g1**3 * BPH_H1 + 3 * g0**2 * g1 * BPH_A0 + 3 * g1**2 * g0 * BPH_A1 #The likelihood of three unmatched haplotypes, where the probability of a haplotype to be associated with group_id=0 is g0.
+        SPH = g0**2 * SPH_H0 + g1**2 * SPH_H1 + g0 * g1 * (SPH_A0 + SPH_A1) #The likelihood of two identical haplotypes out three, where the probability of a haplotype to be associated with group_id=0 is g0.
+        DISOMY = g0**2 * DISOMY_H0 + g1**2 * DISOMY_H1 +  2 * g0 * g1 * DISOMY_A #The likelihood of diploidy, where the probability of a haplotype to be associated with group_id=0 is g0.
+        MONOSOMY = g0 * MONOSOMY_H0 + g1 * MONOSOMY_H1 #The likelihood of monosomy, where the probability of a haplotype to be associated with group_id=0 is g0.
+        
         return MONOSOMY, DISOMY, SPH, BPH
 
     def likelihoods3(self, *alleles):
         """ Calculates the likelihood to observe three alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
         
-        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True) 
-        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True) 
-        a, b, ab, c, ac, bc, abc = F[1], F[2], F[3], F[4], F[5], F[6], F[7]
-        A, B, AB, C, AC, BC, ABC = G[1], G[2], G[3], G[4], G[5], G[6], G[7]
-
-
-        BPH = (2*(b*c*A+B*a*C+B*a*c+b*C*A+ab*c+AB*C+b*a*C+B*c*A+b*ac+B*AC+a*bc+BC*A)+3*(ABC+abc)+4*(AB*c+ab*C+b*AC+B*ac+bc*A+a*BC))/54 #The likelihood of three unmatched haplotypes. #V
-        SPH = (6*(AB*c+ab*C+b*AC+B*ac+bc*A+a*BC)+9*(ABC+abc))/54  #The likelihood of two identical haplotypes out three. #V
-        DISOMY = (abc+ab*C+ac*B+bc*A+ABC+AB*c+AC*b+BC*a)/8 #The likelihood of diploidy. #V
-        MONOSOMY = (abc+ABC)/2 #The likelihood of monosomy. #V
+        F = self.joint_frequencies_combo(*alleles, group_id=0, normalize=True) 
+        G = self.joint_frequencies_combo(*alleles, group_id=1, normalize=True) 
+        a, b, c, ab, ac, bc, abc = F[1], F[2], F[4], F[3], F[5], F[6], F[7]
+        A, B, C, AB, AC, BC, ABC = G[1], G[2], G[4], G[3], G[5], G[6], G[7]
+        
+        g0 = 0.8
+        g1 = 0.2
+        
+        BPH_H0 = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The likelihood of three unmatched haplotypes, where all the haplotypes are associated with group_id=0.
+        SPH_H0 = abc/3+2*(ab*c+ac*b+bc*a)/9  #The likelihood of two identical haplotypes out three, where all the haplotypes are associated with group_id=0.
+        DISOMY_H0 = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy, where all the haplotypes are associated with group_id=0.
+        MONOSOMY_H0 = abc #The likelihood of monosomy, where all the haplotypes are associated with group_id=0.
+        
+        BPH_H1 = (ABC+2*(AB*C+AC*B+BC*A+A*B*C))/9 #The likelihood of three unmatched haplotypes, where all the haplotypes are associated with group_id=1.
+        SPH_H1 = ABC/3+2*(AB*C+AC*B+BC*A)/9  #The likelihood of two identical haplotypes out three, where all the haplotypes are associated with group_id=1.
+        DISOMY_H1 = (ABC+AB*C+AC*B+BC*A)/4 #The likelihood of diploidy, where all the haplotypes are associated with group_id=1.
+        MONOSOMY_H1 = ABC  #The likelihood of monosomy, where all the haplotypes are associated with group_id=1.
+        
+        
+        SPH_A0 = (8*abc+ABC+4*(ab*C+ac*B+bc*A)+2*(a*BC+b*AC+c*AB))/27 #The likelihood of two identical haplotypes out three, where two haplotypes are associated with group_id=0 and one with group_id=1.
+        BPH_A0 = (ABC+2*(abc+a*b*C+a*c*B+b*c*A+ab*c+ac*b+bc*a+ab*C+ac*B+bc*A+AB*c+AC*b+BC*a))/27 #The likelihood of three unmatched haplotypes, where two haplotypes are associated with group_id=0 and one with group_id=1.
+        
+        SPH_A1 = (8*ABC+abc+4*(AB*c+AC*b+BC*a)+2*(A*bc+B*ac+C*ab))/27 #The likelihood of two identical haplotypes out three, where two haplotypes are associated with group_id=1 and one with group_id=0.
+        BPH_A1 = (abc+2*(ABC+A*B*c+A*C*b+B*C*a+AB*C+AC*B+BC*A+AB*c+AC*b+BC*a+ab*C+ac*B+bc*A))/27 #The likelihood of three unmatched haplotypes, where two haplotypes are associated with group_id=0 and one with group_id=1.
+        
+        DISOMY_A = (abc+ab*C+ac*B+bc*A+ABC+AB*c+AC*b+BC*a)/8 #The likelihood of diploidy, where one haplotype is associated with group_id=0 and the other one with group_id=1.
+        
+        BPH = g0**3 * BPH_H0 + g1**3 * BPH_H1 + 3 * g0**2 * g1 * BPH_A0 + 3 * g1**2 * g0 * BPH_A1 #The likelihood of three unmatched haplotypes, where the probability of a haplotype to be associated with group_id=0 is g0.
+        SPH = g0**2 * SPH_H0 + g1**2 * SPH_H1 + g0 * g1 * (SPH_A0 + SPH_A1) #The likelihood of two identical haplotypes out three, where the probability of a haplotype to be associated with group_id=0 is g0.
+        DISOMY = g0**2 * DISOMY_H0 + g1**2 * DISOMY_H1 +  2 * g0 * g1 * DISOMY_A #The likelihood of diploidy, where the probability of a haplotype to be associated with group_id=0 is g0.
+        MONOSOMY = g0 * MONOSOMY_H0 + g1 * MONOSOMY_H1 #The likelihood of monosomy, where the probability of a haplotype to be associated with group_id=0 is g0.
+         
         return MONOSOMY, DISOMY, SPH, BPH
     
     def likelihoods4(self, *alleles):
         """ Calculates the likelihood to observe four alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
         
-        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True) 
-        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True) 
+        F = self.joint_frequencies_combo(*alleles, group_id=0, normalize=True) 
+        G = self.joint_frequencies_combo(*alleles, group_id=1, normalize=True) 
         a, b, c, d = F[1], F[2], F[4], F[8],
-        ab, ac, ad, bc, bd, cd = F[3], F[5], F[9], F[6], F[10], F[12]
+        ab, ac, ad, bc, bd, cd = F[3], F[5], F[9], F[6], F[10], F[12],
         abc, abd, acd, bcd = F[7], F[11], F[13], F[14]
         abcd = F[15]
         
         A, B, C, D = G[1], G[2], G[4], G[8],
-        AB, AC, AD, BC, BD, CD = G[3], G[5], G[9], G[6], G[10], G[12]
+        AB, AC, AD, BC, BD, CD = G[3], G[5], G[9], G[6], G[10], G[12],
         ABC, ABD, ACD, BCD = G[7], G[11], G[13], G[14]
         ABCD = G[15]
         
-        BPH = (2*(AB*CD+AC*BD+AD*BC+
-                  A*(BCD+B*cd+b*CD+b*cd+C*bd+c*BD+c*bd+D*bc+d*BC+d*bc)+
-                  B*(ACD+C*ad+c*AD+c*ad+D*ac+d*AC+d*ac)+
-                  C*(ABD+D*ab+d*AB+d*ab)+
-                  D*ABC+
-                  ab*cd+ac*bd+ad*bc+
-                  a*(bcd+b*CD+B*cd+B*CD+c*BD+C*bd+C*BD+d*BC+D*bc+D*BC)+
-                  b*(acd+c*AD+C*ad+C*AD+d*AC+D*ac+D*AC)+
-                  c*(abd+d*AB+D*ab+D*AB)+
-                  d*abc)+
-               3*(ABCD+abcd)+4*(A*bcd+B*acd+C*abd+D*abc+AB*cd+AC*bd+AD*bc+a*BCD+b*ACD+c*ABD+d*ABC+ad*BC+ac*BD+ab*CD))/162 #The likelihood of three unmatched haplotypes. #V
-        SPH = (8*(AB*cd+ab*CD+AC*bd+ac*BD+bc*AD+ad*BC)+10*(ABC*d+abc*D+c*ABD+abd*C+b*ACD+B*acd+bcd*A+a*BCD)+17*(ABCD+abcd))/162  #The likelihood of two identical haplotypes out three. #V
-        DISOMY = (abcd+abc*D+bcd*A+acd*B+abd*C+ab*CD+ad*BC+ac*BD+ABCD+ABC*d+BCD*a+ACD*b+ABD*c+AB*cd+AD*bc+AC*bd)/16 #The likelihood of diploidy. #V
-        MONOSOMY = (abcd+ABCD)/2 #The likelihood of monosomy. #V
+        g0 = 0.8
+        g1 = 0.2
+        
+        BPH_H0 = (abcd+2*(ab*c*d+a*bd*c+a*bc*d+ac*b*d+a*b*cd+ad*b*c+abc*d+a*bcd+acd*b+abd*c+ab*cd+ad*bc+ac*bd))/27  #The likelihood of three unmatched haplotypes, where all the haplotypes are associated with group_id=0.
+        SPH_H0 = (17*abcd+10*(abc*d+bcd*a+acd*b+abd*c)+8*(ab*cd+ad*bc+ac*bd))/81  #The likelihood of two identical haplotypes out three, where all the haplotypes are associated with group_id=0.
+        DISOMY_H0 = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy, where all the haplotypes are associated with group_id=0.
+        MONOSOMY_H0 = abcd #The likelihood of monosomy, where all the haplotypes are associated with group_id=0.
+
+        BPH_H1 = (ABCD+2*(AB*C*D+A*BD*C+A*BC*D+AC*B*D+A*B*CD+AD*B*C+ABC*D+A*BCD+ACD*B+ABD*C+AB*CD+AD*BC+AC*BD))/27  #The likelihood of three unmatched haplotypes, where all the haplotypes are associated with group_id=0.
+        SPH_H1 = (17*ABCD+10*(ABC*D+BCD*A+ACD*B+ABD*C)+8*(AB*CD+AD*BC+AC*BD))/81  #The likelihood of two identical haplotypes out three, where all the haplotypes are associated with group_id=0.
+        DISOMY_H1 = (ABCD+ABC*D+BCD*A+ACD*B+ABD*C+AB*CD+AD*BC+AC*BD)/8 #The likelihood of diploidy, where all the haplotypes are associated with group_id=0.
+        MONOSOMY_H1 = ABCD #The likelihood of monosomy, where all the haplotypes are associated with group_id=0.
+
+        BPH_A0 = (ABCD+2*(abcd+abc*d+abc*D+abd*c+ab*cd+ab*c*D+abd*C+ab*C*d+ab*CD+acd*b+ac*bd+ac*b*D+ad*bc+a*bcd+a*bc*D+ad*b*C+a*bd*C+a*b*CD+acd*B+ac*B*d+ac*BD+ad*B*c+a*B*cd+a*BD*c+ad*BC+a*BC*d+a*BCD+A*bcd+A*bc*d+AD*bc+A*bd*c+A*b*cd+AD*b*c+AC*bd+AC*b*d+ACD*b+AB*cd+AB*c*d+ABD*c+ABC*d))/81 #The likelihood of three unmatched haplotypes, where two haplotypes are associated with group_id=0 and one with group_id=1.
+        SPH_A0 = (16*abcd+ABCD+8*(abc*D+abd*C+acd*B+A*bcd)+4*(ab*CD+ac*BD+ad*BC+AD*bc+AC*bd+AB*cd)+2*(a*BCD+ACD*b+ABD*c+ABC*d))/81 #The likelihood of two identical haplotypes out three, where two haplotypes are associated with group_id=0 and one with group_id=1.
+        
+        BPH_A1 = (abcd+2*(ABCD+ABC*D+ABC*d+ABD*C+AB*CD+AB*C*d+ABD*c+AB*c*D+AB*cd+ACD*B+AC*BD+AC*B*d+AD*BC+A*BCD+A*BC*d+AD*B*c+A*BD*c+A*B*cd+ACD*b+AC*b*D+AC*bd+AD*b*C+A*b*CD+A*bd*C+AD*bc+A*bc*D+A*bcd+a*BCD+a*BC*D+ad*BC+a*BD*C+a*B*CD+ad*B*C+ac*BD+ac*B*D+acd*B+ab*CD+ab*C*D+abd*C+abc*D))/81 #The likelihood of three unmatched haplotypes, where two haplotypes are associated with group_id=1 and one with group_id=0.
+        SPH_A1 = (16*ABCD+abcd+8*(ABC*d+ABD*c+ACD*b+a*BCD)+4*(AB*cd+AC*bd+AD*bc+ad*BC+ac*BD+ab*CD)+2*(A*bcd+acd*B+abd*C+abc*D))/81 #The likelihood of two identical haplotypes out three, where two haplotypes are associated with group_id=1 and one with group_id=1.
+        
+        DISOMY_A = (abcd+abc*D+bcd*A+acd*B+abd*C+ab*CD+ad*BC+ac*BD+ABCD+ABC*d+BCD*a+ACD*b+ABD*c+AB*cd+AD*bc+AC*bd)/16 #The likelihood of diploidy. #V
+        
+        BPH = g0**3 * BPH_H0 + g1**3 * BPH_H1 + 3 * g0**2 * g1 * BPH_A0 + 3 * g1**2 * g0 * BPH_A1 #The likelihood of three unmatched haplotypes, where the probability of a haplotype to be associated with group_id=0 is g0.
+        SPH = g0**2 * SPH_H0 + g1**2 * SPH_H1 + g0 * g1 * (SPH_A0 + SPH_A1) #The likelihood of two identical haplotypes out three, where the probability of a haplotype to be associated with group_id=0 is g0.
+        DISOMY = g0**2 * DISOMY_H0 + g1**2 * DISOMY_H1 +  2 * g0 * g1 * DISOMY_A #The likelihood of diploidy, where the probability of a haplotype to be associated with group_id=0 is g0.
+        MONOSOMY = g0 * MONOSOMY_H0 + g1 * MONOSOMY_H1 #The likelihood of monosomy, where the probability of a haplotype to be associated with group_id=0 is g0.
+        
+        
         return MONOSOMY, DISOMY, SPH, BPH
     
     def get_likelihoods(self, *x):
@@ -351,8 +405,8 @@ else:
 
     alleles = tuple(A.hap_dict.keys())
 
-    frequencies0 = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,group2_id=0,normalize=True).items()}
-    frequencies1 = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,group2_id=1,normalize=True).items()}
+    frequencies0 = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,group_id=0,normalize=True).items()}
+    frequencies1 = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,group_id=1,normalize=True).items()}
 
     likelihoods = A.likelihoods
     likelihoods2 = A.likelihoods2

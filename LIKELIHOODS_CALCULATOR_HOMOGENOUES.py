@@ -16,11 +16,16 @@ Daniel Ariad (daniel@ariad.org)
 Dec 21, 2020
 """
 
-import pickle, os, sys, bz2
+import pickle, os, sys, bz2, collections
 
 from functools import reduce
 from operator import and_, itemgetter
 from itertools import combinations
+
+leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
+sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+
 
 try:
     from gmpy2 import popcount
@@ -198,7 +203,7 @@ class examine_homogeneous:
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
         
         F = self.joint_frequencies_combo(*alleles, normalize=True)
-        a, b, c, ab, ac, bc, abc = F[1], F[2], F[4], F[3], F[5], F[6], F[7]
+        a, b, ab, c, ac, bc, abc = F[1], F[2], F[3], F[4], F[5], F[6], F[7]
         BPH = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The likelihood of three unmatched haplotypes.
         SPH = abc/3+2*(ab*c+ac*b+bc*a)/9  #The likelihood of two identical haplotypes out three.
         DISOMY = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy.
@@ -210,8 +215,8 @@ class examine_homogeneous:
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
         
         F = self.joint_frequencies_combo(*alleles, normalize=True)
-        a, b, c, d = F[1], F[2], F[4], F[8],
-        ab, ac, ad, bc, bd, cd = F[3], F[5], F[9], F[6], F[10], F[12],
+        a, b, c, d = F[1], F[2], F[4], F[8]
+        ab, ac, ad, bc, bd, cd = F[3], F[5], F[9], F[6], F[10], F[12]
         abc, abd, acd, bcd = F[7], F[11], F[13], F[14]
         abcd = F[15]
         BPH = (abcd+2*(ab*c*d+a*bd*c+a*bc*d+ac*b*d+a*b*cd+ad*b*c+abc*d+a*bcd+acd*b+abd*c+ab*cd+ad*bc+ac*bd))/27  #The likelihood of three unmatched haplotypes.

@@ -101,6 +101,31 @@ def MONOSOMY(number_of_reads):
     model = ENGINE(number_of_reads,degeneracies)
     return COMPACT(model,number_of_reads,degeneracies)
 
+def representationA(model):
+    """ Represents the model that is returned from the function ENGINE. """
+    result = ''
+    for partition,weight in model.items():
+        if result!='':
+            result += '+'
+        l = [''.join((chr(read+65) for read in hap)) for hap in partition if len(hap)] 
+        sandwitch = ''.join('f('+hap+')' for hap in l)
+        if weight!=1:
+            result += f'{weight:d}'
+        result += f'{sandwitch:s}'
+    return result
+
+def representationB(model):
+    """ An alternative representation of the model. """
+    result=''
+    for partition,weight in model.items():
+        if result!='':
+            result += '+'
+        l = [''.join((chr(65+read_ind) for read_ind in hap)) for hap in partition if len(hap)] 
+        if weight!=1:
+            result += f'{weight:d}*'
+        result += f"{'*'.join(l):s}"
+    return result
+
 def BUILD(x):
     """ Build and store a dictionary with statistical models for BPH, SPH, disomy and monosomy. """
 
