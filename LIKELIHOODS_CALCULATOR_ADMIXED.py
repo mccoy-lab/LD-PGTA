@@ -6,7 +6,9 @@ LIKELIHOODS_CALCULATOR_ADMIXED
 
 Given reads that originated form the same genomic window and a reference panel
 of two populations, the likelihood of observed reads under four scenarios,
-namely, monosomy, disomy, SPH and BPH is calculated.
+namely, monosomy, disomy, SPH and BPH is calculated. This module is for 
+F1-admixtures, where the parents are associated with different ancestral
+populations.
 
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
