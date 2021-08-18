@@ -27,11 +27,11 @@ from operator import and_
 from statistics import mean, variance, pstdev
 from math import log
 
-leg_tuple = collections.namedtuple('legend_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
-sam_tuple = collections.namedtuple('sample_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
-obs_tuple = collections.namedtuple('observation_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
-comb_tuple = collections.namedtuple('combined_tuple', ('ref','alt','hap'))
-admixture_tuple = collections.namedtuple('complex_admixture_tuple', ('group2', 'proportion'))
+leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
+sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+comb_tuple = collections.namedtuple('comb_tuple', ('ref','alt','hap'))
+admix_tuple = collections.namedtuple('admix_tuple', ('group2', 'proportion'))
 
 try:
     from gmpy2 import popcount
@@ -301,7 +301,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
     random.seed(a=kwargs.get('seed',None), version=2) #I should make sure that a=None after finishing to debug the code.
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
-    ancestral_proportion = (lambda x,y: admixture_tuple(str(x),float(y)))(*kwargs.get('ancestral_proportion',('None','-1')))
+    ancestral_proportion = (lambda x,y: admix_tuple(str(x),float(y)))(*kwargs.get('ancestral_proportion',('None','-1')))
 
     Open = {'bz2': bz2.open, 'gzip': gzip.open}.get(obs_filename.rpartition('.')[-1], open)    
     with Open(obs_filename, 'rb') as f:

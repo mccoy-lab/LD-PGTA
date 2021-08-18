@@ -10,7 +10,7 @@ Jan 13, 2021
 """
 import pickle, os, sys, time, argparse, random, gzip, collections
 
-obs_tuple = collections.namedtuple('observation_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 def read_legend(filename):
     """ Reads an IMPUTE2 legend fileand builds a list
@@ -118,9 +118,9 @@ if __name__ == "__main__":
 def test():
     sample_id = 'HG00097'
     chr_id = 'chr21'
-    leg_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.legend'
-    hap_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.hap'
-    samp_filename = '../build_reference_panel/ref_panel.EUR.hg38.BCFtools/chr21_EUR_panel.samples'
+    leg_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr21_EUR_panel.legend.gz'
+    hap_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr21_EUR_panel.hap.gz'
+    samp_filename = '../build_reference_panel/samples_per_panel/EUR_panel.samples'
 
     work_dir='results_TEMP'
     return main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,output_dir=work_dir)

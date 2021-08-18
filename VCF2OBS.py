@@ -11,7 +11,7 @@ Aug 31, 2020
 import pickle, sys, os, time, argparse, random, string, collections
 from MAKE_OBS_TAB import read_impute2
 
-obs_tuple = collections.namedtuple('observation_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 def get_random_string(length):
     letters = string.ascii_lowercase

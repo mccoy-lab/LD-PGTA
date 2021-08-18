@@ -24,10 +24,10 @@ from functools import reduce
 from operator import and_, itemgetter
 from itertools import combinations
 
-leg_tuple = collections.namedtuple('legend_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
-sam_tuple = collections.namedtuple('sample_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
-obs_tuple = collections.namedtuple('observation_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
-admixture_tuple = collections.namedtuple('complex_admixture_tuple', ('group2', 'proportion'))
+leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
+sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
+obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+admix_tuple = collections.namedtuple('admix_tuple', ('group2', 'proportion'))
 
 try:
     from gmpy2 import popcount
@@ -339,7 +339,7 @@ else:
     leg_filename = '../build_reference_panel/EAS_EUR_panel.hg38.BCFtools/chr6_EAS_EUR_panel.legend.gz'
     sam_filename = '../build_reference_panel/samples_per_panel/EAS_EUR_panel.samples'
     models_filename = 'MODELS/MODELS16.p'
-    admixture = admixture_tuple('EUR',0.8)
+    admixture = admix_tuple('EUR',0.8)
     
     A = wrapper_of_complex_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename,admixture)
 
