@@ -90,7 +90,7 @@ def build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario):
     
     num_of_reads = number_of_reads(chr_id,read_length,depth)
     regions = 40
-    proportions = (0.8,0.2)    
+    proportions = (1,1)    
     obs_tab = list()
     dx, odd = divmod(read_length, 2)
     
@@ -241,33 +241,24 @@ if __name__ == "__main__":
                         metavar='monosomy/disomy/SPH/BPH/transitions', default='disomy', choices=['monosomy','disomy','SPH','BPH','transitions'],
                         help="The simulation supports five scenarios: monosomy/disomy/SPH/BPH/transitions. Default scenario is disomy."
                              "Giving a list of scenarios, e.g. \"SPH BPH\" would create a batch of simulations.")
-    parser.add_argument('-t', '--transitions', type=str, nargs='+',
-                        metavar='STR,FLOAT,...,FLOAT', default='',
+    parser.add_argument('-t', '--transitions', type=str, nargs='+', metavar='STR,FLOAT,...,FLOAT',
                         help='Relevant only for the transitions scenario. Introduces transitions between SPH and BPH along the chromosome. '
                              'The locations of the transition is determined by a fraction of chromosome length, ranging between 0 to 1. '
                              'For example a BPH-SPH-BPH transition that equally divides the chromosomes is exressed as BPH,0.333,0.666 and,'  
                              'similarly, a SPH-BPH transition at the middle of the chromosome is expressed as SPH,0.5. '
                              'In addition, giving a list of cases, e.g. \"SPH,0.2 SPH,0.4 SPH,0.6\" would create a batch of three simulations. ')
-    parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str, default='',
+    parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str,
                         help='Output filename. The default filename is a combination of both obs filenames.')
     parser.add_argument('-c', '--complex-admixture', dest='feature', action='store_true',
                         help='Simulates monosomy, disomy, SPH and BPH in complex-admixtures (the transitions scenario is not supported). '
-                             'The order of observation tables that are given as arguments is important; '
+                             'It is assumed that probability to draw a haplotype from one of the populations is 1/2. '
+                             'In addition, the order of observation tables that are given as arguments is important; '
                              'Odd positions are associated with population 1, while even positions with population 2. '
                              'For example, in order to simulate a SPH case the observation tables should be given '
                              'as follows: \"python MIX_HAPLOIDS -s SPH HAPLOID1_AFR.obs.p HAPLOID2_EUR.obs.p HAPLOID3_AFR.obs.p HAPLOID4_EUR.obs.p\". '
-                             'Here we assume that probability to draw a haplotype from population 1, which is African in the example, is 80%%.')    
+                             )    
     
     kwargs = vars(parser.parse_args())
-    
-    #####kwargs['scenarios'] = [i.strip(' ') for i in ''.join(kwargs['scenarios']).strip(' ').split(',') if i!='']
-    
-    #####kwargs['transitions'] = [[(float(j) if j.strip(' ').replace('.','',1).isdigit() else j.strip(' ')) for j in i.split(',')]
-    #####         for i in ''.join(kwargs['transitions']).strip(' ').strip(';').split(';') if i!='']
-    
-    kwargs['transitions'] = [[float(i) if i.isdigit() else i for i in j.split(',')] for j in kwargs['transitions']]
-    
-    
-    
+    kwargs['transitions'] = [[float(i) if i.isdigit() else i for i in j.split(',')] for j in kwargs.get('transitions','')]
     MixHaploids(**kwargs)    
     sys.exit(0)
