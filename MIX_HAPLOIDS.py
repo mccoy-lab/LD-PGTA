@@ -180,19 +180,23 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     output_filenames = []
     
     cases = tuple(senarios_iter(scenarios, list_of_transitions))
-
+    
+    
+    if complex_admixture:
+        print('mode: complex admixture.')
+    else:
+        print('mode: normal.')
+    
     for ind, (scenario, transitions) in enumerate(cases, start=1): 
         
         if len(obs_filenames) < number_of_required_obs_files[scenario] * (1+complex_admixture):
             raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]*(1+complex_admixture):d} observation files.') 
             
         if complex_admixture and scenario!='transitions':
-            print('mode: complex admixture.')
             obs_tab = build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario)
         elif complex_admixture and scenario=='transitions':
             raise Exception('error: transitions are not supported in complex admixtures.') 
         else:
-            print('mode: normal.')
             obs_tab = build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions)
         
         sample_ids = [info_dicts[i].get('sample_id',obs_filenames[i].strip().rsplit('/',1).pop()[:-6])
