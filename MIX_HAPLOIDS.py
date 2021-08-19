@@ -95,10 +95,10 @@ def build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario):
     dx, odd = divmod(read_length, 2)
     
     number_of_haplotypes = {'monosomy':1, 'disomy':2, 'BPH': 3, 'SPH': 3}
-    rsize = chr_length(chr_id)/regions
+    rsize = chr_length(chr_id)//regions
     if scenario=='SPH':
         configurations = {(i*rsize,(i+1)*rsize):
-                          choices([[2,0],[0,2]], weights=proportions) + choices([[1,0],[0,1]], weights=proportions)
+                          sum(choices([[2,0],[0,2]], weights=proportions) + choices([[1,0],[0,1]], weights=proportions),start=[])
                               for i in range(regions)}
     elif scenario in {'monosomy', 'disomy', 'BPH'}:
         configurations = {(i*rsize,(i+1)*rsize):
@@ -108,7 +108,8 @@ def build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario):
         raise Exception('error: undefined scenario.')   
         
     for (start,stop),W in configurations.items():
-        for k in range(num_of_reads/regions):
+        print(W)
+        for k in range(num_of_reads//regions):
             p = randrange(start,stop) + 1
             read_boundaries = (p-dx,p+dx+odd)     
             rnd = choices(range(len(W)), weights=W, k=1)[0]
