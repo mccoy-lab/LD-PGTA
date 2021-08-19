@@ -234,7 +234,8 @@ if __name__ == "__main__":
                     "\t(4) BPH (`both parental homologs') - trisomy with three unmatched haplotypes.\n"
                     "\t(5) Meiotic trisomy - trisomy with recombination, charecterized by a transition between SPH to BPH.\n", formatter_class=Formatter)
     parser.add_argument('obs_filenames', metavar='OBS_FILENAME', type=str, nargs='+',
-                        help='Pickle files created by SIMULATE_HAPLOIDS, containing base observations at known SNP positions.')
+                        help='Pickle files created by SIMULATE_HAPLOIDS, containing base observations at known SNP positions. '
+                             'When simulating SPH, the first given haploid would serve as the duplicated homolog.')
     parser.add_argument('-d', '--depth', type=float, 
                         metavar='FLOAT', default=0.1, 
                         help='The average coverage for the whole chromosome.  Default value 0.1')
@@ -260,6 +261,7 @@ if __name__ == "__main__":
                              'Odd positions are associated with population 1, while even positions with population 2. '
                              'For example, in order to simulate a SPH case the observation tables should be given '
                              'as follows: \"python MIX_HAPLOIDS -s SPH HAPLOID1_AFR.obs.p HAPLOID2_EUR.obs.p HAPLOID3_AFR.obs.p HAPLOID4_EUR.obs.p\". '
+                             'When simulating SPH, the first two observation tables would be associated with the duplicated homolog.'
                              )    
     
     kwargs = vars(parser.parse_args())
