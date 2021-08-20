@@ -108,7 +108,6 @@ def build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario):
         raise Exception('error: undefined scenario.')   
         
     for (start,stop),W in configurations.items():
-        print(W)
         for k in range(num_of_reads//regions):
             p = randrange(start,stop) + 1
             read_boundaries = (p-dx,p+dx+odd)     
