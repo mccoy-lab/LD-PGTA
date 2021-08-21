@@ -42,67 +42,67 @@ class complex_admixture:
     and a dictionary with statisitcal models (models_dict), it allows to
     calculate the likelihoods of observed alleles under various statistical
     models (monosomy, disomy, SPH and BPH). """
-   
-    
+
+
     def __init__(self, obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes, admixture):
         """ Initialize the attributes of the class. """
-        
-        if len(leg_tab)!=len(hap_tab): 
+
+        if len(leg_tab)!=len(hap_tab):
             raise Exception('Error: the number of SNPs in the LEGEND file differ from the number of SNPs in the HAP file.')
-            
-        if total_number_of_haplotypes!=2*len(sam_tab): 
+
+        if total_number_of_haplotypes!=2*len(sam_tab):
             raise Exception('Error: the number of diploid samples in the SAMPLE file differ from the number of haplotypes in the HAP file.')
 
         self.total_number_of_haplotypes_in_reference_panel = total_number_of_haplotypes
         self.models_dict = models_dict
         self.hap_dict, self.fraction_of_matches = self.build_hap_dict(obs_tab, leg_tab, hap_tab)
         self.flags, self.num_of_hap_in_ref_subpanel, self.name2id = self.subpanels(sam_tab)
-        self.admixture = admixture #The first element in the tuple is the group2 name and second is the haplotype proportion.      
+        self.admixture = admixture #The first element in the tuple is the group2 name and second is the haplotype proportion.
         self.proportions = {self.name2id[admixture.group2]: admixture.proportion, 1-self.name2id[admixture.group2]: 1-admixture.proportion}
         ##########print(str({ancestry: admixture.proportion if ancestry==admixture.group2 else 1-admixture.proportion for ancestry in self.name2id})[1:-1])
-        
+
     def subpanels(self, sam_tab):
         """ Differentiates between the two groups that compose the reference
         panel. Then, all the haplotypes that are associated with each group are
         flagged using a binary representation marks and counted. """
-        
+
         differentiate = [row.group2 == sam_tab[0].group2 for row in sam_tab for i in (1,2)]
         flag0 = sum(v<<i for i, v in enumerate(differentiate[::-1]))
         flag1 = flag0 ^ ((1 << self.total_number_of_haplotypes_in_reference_panel) - 1)
-        flags = (flag0, flag1)       
+        flags = (flag0, flag1)
         name2id = {sam_tab[0].group2:0,
                    sam_tab[differentiate[::2].index(False,1)].group2: 1}
         N0 = differentiate.count(True)
         N1 = self.total_number_of_haplotypes_in_reference_panel - N0
         number_of_haplotypes_in_reference_subpanel = (N0,N1)
         return flags, number_of_haplotypes_in_reference_subpanel, name2id
-    
+
     def build_hap_dict(self, obs_tab, leg_tab, hap_tab):
         """ Returns a dictionary that lists SNP alleles and gives their
         relevent row from haplotypes table. The row is stored as bits, where
         True means that the haplotype contains the allele. We denote the
         returned dictionary as the reference panel. """
-    
+
         hap_dict = dict()
         mismatches = 0
         combined = {pos: (ref,alt,hap) for (chr_id,pos,ref,alt),hap in zip(leg_tab, hap_tab)}
         missing = 3*(None,)
 
         b = (1 << self.total_number_of_haplotypes_in_reference_panel) - 1 #### equivalent to int('1'*number_of_haplotypes,2)
-        
+
         for (pos, read_id, base) in obs_tab:
             ref, alt, hap = combined.get(pos, missing)
             if base==alt:
                 hap_dict[(pos,base)] = hap
             elif base==ref:
-                hap_dict[(pos,base)] = hap ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
+                hap_dict[(pos,base)] = hap ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator.
             else:
                 mismatches += 1
-    
+
         fraction_of_matches = 1-mismatches/len(obs_tab)
-        
-        print('Generalized algorithm: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
-    
+
+        print('Algorithm for complex admixtures: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
+
         return hap_dict, fraction_of_matches
 
     def intrenal_hap_dict(self, *alleles):
@@ -134,8 +134,8 @@ class complex_admixture:
 
     def joint_frequencies_combo(self, *alleles, group2_id, normalize):
         """ Based on the reference panel, it calculates joint frequencies of
-            observed alleles. The function arguments are alleles, that is, 
-            tuples of position and base, e.g., (100,'T'), (123, 'A') and 
+            observed alleles. The function arguments are alleles, that is,
+            tuples of position and base, e.g., (100,'T'), (123, 'A') and
             (386, 'C'). Each allele is enumerated according to the order it
             was received by the function. The function returns a dictionary that
             lists all the possible subgroups of the given alleles. Each key in
@@ -167,116 +167,116 @@ class complex_admixture:
         if normalize:
             N = self.num_of_hap_in_ref_subpanel[group2_id]
             result = {k: v/N for k,v in result.items()}
-        
+
         return result
-    
+
     def likelihoods(self, *alleles):
         """ Calculates the likelihood to observe a set with alleles
         and haplotypes under four scenarios, namely, monosomy, disomy, SPH
         and BPH. """
-        
+
         models = self.models_dict[len(alleles)]
-        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True) 
-        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True) 
+        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True)
+        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True)
 
         m = self.proportions[0] #The probability to draw a haplotype that is associated with group2_id=0.
         n = self.proportions[1] #The probability to draw a haplotype that is associated with group2_id=1.
-        
+
         ### BPH ###
         (((A0, A1),((B0,),)),) = models['BPH'][1].items()
-        
-        BPH = (A0 / A1)  * (m * F[B0] + n * G[B0])  
+
+        BPH = (A0 / A1)  * (m * F[B0] + n * G[B0])
 
 
         BPH += sum( sum((m * F[B0] + n * G[B0]) * (m * F[B1] + n * G[B1]) for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in models['BPH'][2].items()) 
-      
+                   for (A0, A1), C in models['BPH'][2].items())
+
         if len(alleles)>2:
             BPH += sum( sum((m * F[B0] + n * G[B0]) * sum( (m * F[B1] + n * G[B1]) * (m * F[B2] + n * G[B2])
                   for (B1, B2) in C[B0]) for B0 in C) * A0 / A1
-                     for (A0, A1), C in models['BPH'][3].items()) 
+                     for (A0, A1), C in models['BPH'][3].items())
 
         ### SPH ###
         (((A0, A1),((B0,),)),) = models['SPH'][1].items()
-        SPH = (A0 / A1)  * (m * F[B0] + n * G[B0]) 
+        SPH = (A0 / A1)  * (m * F[B0] + n * G[B0])
 
         SPH += sum( sum((m * F[B0] + n * G[B0]) * (m * F[B1] + n * G[B1]) for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in models['SPH'][2].items()) 
+                   for (A0, A1), C in models['SPH'][2].items())
 
-        
+
         ### DIPLOIDY ###
         (((A0, A1),((B0,),)),) = models['DISOMY'][1].items()
-        DISOMY = (A0 / A1)  * (m * F[B0] + n * G[B0]) 
+        DISOMY = (A0 / A1)  * (m * F[B0] + n * G[B0])
 
         DISOMY += sum( sum( (m * F[B0] + n * G[B0]) * (m * F[B1] + n * G[B1]) for (B0, B1) in C) * A0 / A1
-                   for (A0, A1), C in models['DISOMY'][2].items()) 
+                   for (A0, A1), C in models['DISOMY'][2].items())
 
         ### MONOSOMY ###
         ((B0,),) = models['MONOSOMY'][1][(1,1)]
         MONOSOMY = m * F[B0] + n * G[B0]
-        
+
         result = (MONOSOMY, DISOMY, SPH, BPH)
         return result
-    
+
     def likelihoods2(self, *alleles):
         """ Calculates the likelihood to observe two alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
-        
+
         m = self.proportions[0] #The probability to draw a haplotype that is associated with group2_id=0.
         n = self.proportions[1] #The probability to draw a haplotype that is associated with group2_id=1.
-        
-        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True) 
-        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True) 
+
+        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True)
+        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True)
         a, b, ab = m*F[1]+n*G[1] , m*F[2]+n*G[2], m*F[3]+n*G[3] #The probability of a haplotype to be associated with group2_id=0 is m.
-        
+
         BPH = (ab+2*a*b)/3 #The likelihood of three unmatched haplotypes.
         SPH = (5*ab+4*a*b)/9 #The likelihood of two identical haplotypes out three.
         DISOMY = (ab+a*b)/2 #The likelihood of diploidy.
         MONOSOMY = ab #The likelihood of monosomy.
-        
+
         return MONOSOMY, DISOMY, SPH, BPH
 
     def likelihoods3(self, *alleles):
         """ Calculates the likelihood to observe three alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
-        
+
         m = self.proportions[0] #The probability to draw a haplotype that is associated with group2_id=0.
         n = self.proportions[1] #The probability to draw a haplotype that is associated with group2_id=1.
-        
-        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True) 
-        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True) 
-        a, b, ab, c, ac, bc, abc = (m*F[i]+n*G[i] for i in range(1,8))        
-        
+
+        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True)
+        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True)
+        a, b, ab, c, ac, bc, abc = (m*F[i]+n*G[i] for i in range(1,8))
+
         BPH = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The likelihood of three unmatched haplotypes.
         SPH = abc/3+2*(ab*c+ac*b+bc*a)/9  #The likelihood of two identical haplotypes out three.
         DISOMY = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy.
         MONOSOMY = abc #The likelihood of monosomy.
 
         return MONOSOMY, DISOMY, SPH, BPH
-    
+
     def likelihoods4(self, *alleles):
         """ Calculates the likelihood to observe four alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
-        
+
         m = self.proportions[0] #The probability to draw a haplotype that is associated with group2_id=0.
         n = self.proportions[1] #The probability to draw a haplotype that is associated with group2_id=1.
-        
-        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True) 
-        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True) 
+
+        F = self.joint_frequencies_combo(*alleles, group2_id=0, normalize=True)
+        G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True)
         a, b, ab, c, ac, bc, abc, d, ad, bd, abd, cd, acd, bcd, abcd = (m*F[i]+n*G[i] for i in range(1,16))
-        
+
         BPH = (abcd+2*(ab*c*d+a*bd*c+a*bc*d+ac*b*d+a*b*cd+ad*b*c+abc*d+a*bcd+acd*b+abd*c+ab*cd+ad*bc+ac*bd))/27  #The likelihood of three unmatched haplotypes.
         SPH = (17*abcd+10*(abc*d+bcd*a+acd*b+abd*c)+8*(ab*cd+ad*bc+ac*bd))/81  #The likelihood of two identical haplotypes out three.
         DISOMY = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy.
         MONOSOMY = abcd #The likelihood of monosomy.
 
         return MONOSOMY, DISOMY, SPH, BPH
-    
+
     def get_likelihoods(self, *x):
-        """ Uses the optimal function to calculate the likelihoods. 
+        """ Uses the optimal function to calculate the likelihoods.
         In general, self.likelihoods can get less than five alleles but the
         dedicated functions are optimized to a certain number of alleles. """
-        
+
         l = len(x)
         if l==2:
             result = self.likelihoods2(*x)
@@ -284,10 +284,10 @@ class complex_admixture:
             result = self.likelihoods3(*x)
         elif l==4:
             result = self.likelihoods4(*x)
-        else: 
+        else:
             result = self.likelihoods(*x)
         return result
-        
+
 def wrapper_of_complex_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sample_filename,models_filename,admixture):
     """ Wrapper function of the class complex_admixture. It receives an observations
     file, IMPUTE2 legend file, IMPUTE2 haplotypes file, IMPUTE2 samples file,
@@ -305,7 +305,7 @@ def wrapper_of_complex_admixture_for_debugging(obs_filename,leg_filename,hap_fil
     leg_tab = read_impute2(leg_filename, filetype='leg')
     hap_tab, total_number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
     sam_tab  = read_impute2(sample_filename, filetype='sam')
-    
+
     load_obs = bz2.BZ2File if obs_filename[-6:]=='.p.bz2' else open
     with load_obs(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
@@ -340,7 +340,7 @@ else:
     sam_filename = '../build_reference_panel/samples_per_panel/EAS_EUR_panel.samples'
     models_filename = 'MODELS/MODELS16.p'
     admixture = admix_tuple('EUR',0.8)
-    
+
     A = wrapper_of_complex_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename,admixture)
 
     alleles = tuple(A.hap_dict.keys())
@@ -357,7 +357,7 @@ else:
     x = random.randrange(len(alleles)-16)
     haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16])
 
-    print('-----joint_frequencies_combo-----')    
+    print('-----joint_frequencies_combo-----')
     print(frequencies0(alleles[x+0]))
     print(frequencies0(*alleles[x:x+4]))
     print(frequencies1(alleles[x+0]))

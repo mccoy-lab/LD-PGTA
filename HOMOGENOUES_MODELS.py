@@ -39,14 +39,14 @@ class homogeneous:
     and a dictionary with statisitcal models (models_dict), it allows to
     calculate the likelihoods of observed alleles under various statistical
     models (monosomy, disomy, SPH and BPH). """
-   
-    
+
+
     def __init__(self, obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes):
         """ Initialize the attributes of the class. """
-        
-        if len(leg_tab)!=len(hap_tab): 
+
+        if len(leg_tab)!=len(hap_tab):
             raise Exception('Error: the number of SNPs in the LEGEND file differ from the number of SNPs in the HAP file.')
-            
+
         self.models_dict = models_dict
         self.hap_dict, self.fraction_of_matches = self.build_hap_dict(obs_tab, leg_tab, hap_tab, number_of_haplotypes)
         self.total_number_of_haplotypes_in_reference_panel = number_of_haplotypes
@@ -56,27 +56,27 @@ class homogeneous:
         relevent row from haplotypes table. The row is stored as bits, where
         True means that the haplotype contains the allele. We denote the
         returned dictionary as the reference panel. """
-    
+
         hap_dict = dict()
         mismatches = 0
         combined = {pos: (ref,alt,hap) for (chr_id,pos,ref,alt),hap in zip(leg_tab, hap_tab)}
         missing = 3*(None,)
-        
+
         b = (1 << number_of_haplotypes) - 1 #### equivalent to int('1'*number_of_haplotypes,2)
-        
+
         for (pos, read_id, base) in obs_tab:
             ref, alt, hap = combined.get(pos, missing)
             if base==alt:
                 hap_dict[(pos,base)] = hap
             elif base==ref:
-                hap_dict[(pos,base)] = hap ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
+                hap_dict[(pos,base)] = hap ^ b ### ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator.
             else:
                 mismatches += 1
-    
+
         fraction_of_matches = 1-mismatches/len(obs_tab)
-        
-        print('Homogenoues algorithm: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
-    
+
+        print('Algorithm for non-admixtures: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
+
         return hap_dict, fraction_of_matches
 
     def intrenal_hap_dict(self, *alleles):
@@ -108,8 +108,8 @@ class homogeneous:
 
     def joint_frequencies_combo(self, *alleles, normalize):
         """ Based on the reference panel, it calculates joint frequencies of
-            observed alleles. The function arguments are alleles, that is, 
-            tuples of position and base, e.g., (100,'T'), (123, 'A') and 
+            observed alleles. The function arguments are alleles, that is,
+            tuples of position and base, e.g., (100,'T'), (123, 'A') and
             (386, 'C'). Each allele is enumerated according to the order it
             was received by the function. The function returns a dictionary that
             lists all the possible subgroups of the given alleles. Each key in
@@ -139,14 +139,14 @@ class homogeneous:
 
         if normalize:
             result = {k: v/self.total_number_of_haplotypes_in_reference_panel for k,v in result.items()}
-            
+
         return result
-    
+
     def likelihoods(self, *alleles):
         """ Calculates the likelihood to observe a set with alleles
         and haplotypes under four scenarios, namely, monosomy, disomy, SPH
         and BPH. """
-        
+
         F = self.joint_frequencies_combo(*alleles, normalize=False)
         N = self.total_number_of_haplotypes_in_reference_panel #Divide values by N to normalize the joint frequencies.
         models = self.models_dict[len(alleles)]
@@ -164,31 +164,31 @@ class homogeneous:
 
         ### SPH ###
         (((A0, A1),((B0,),)),) = models['SPH'][1].items()
-        SPH = F[B0] * A0 / ( A1 * N ) 
+        SPH = F[B0] * A0 / ( A1 * N )
 
         SPH += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
                    for (A0, A1), C in models['SPH'][2].items()) / N**2
 
-        
+
         ### DIPLOIDY ###
         (((A0, A1),((B0,),)),) = models['DISOMY'][1].items()
-        DISOMY = F[B0] * A0 / ( A1 * N ) 
+        DISOMY = F[B0] * A0 / ( A1 * N )
 
         DISOMY += sum( sum(F[B0] * F[B1] for (B0, B1) in C) * A0 / A1
                    for (A0, A1), C in models['DISOMY'][2].items()) / N**2
 
         ### MONOSOMY ###
         ((B0,),) = models['MONOSOMY'][1][(1,1)]
-        MONOSOMY = F[B0] / N 
-        #MONOSOMY = F[int(N*'1',2)] / N 
+        MONOSOMY = F[B0] / N
+        #MONOSOMY = F[int(N*'1',2)] / N
 
         result = (MONOSOMY, DISOMY, SPH, BPH)
         return result
-    
+
     def likelihoods2(self, *alleles):
         """ Calculates the likelihood to observe two alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
-        
+
         F = self.joint_frequencies_combo(*alleles, normalize=True)
         a, b, ab = F[1], F[2], F[3]
         BPH = (ab+2*a*b)/3 #The likelihood of three unmatched haplotypes.
@@ -200,7 +200,7 @@ class homogeneous:
     def likelihoods3(self, *alleles):
         """ Calculates the likelihood to observe three alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
-        
+
         F = self.joint_frequencies_combo(*alleles, normalize=True)
         a, b, ab, c, ac, bc, abc = F[1], F[2], F[3], F[4], F[5], F[6], F[7]
         BPH = (abc+2*(ab*c+ac*b+bc*a+a*b*c))/9 #The likelihood of three unmatched haplotypes.
@@ -208,11 +208,11 @@ class homogeneous:
         DISOMY = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy.
         MONOSOMY = abc #The likelihood of monosomy.
         return MONOSOMY, DISOMY, SPH, BPH
-    
+
     def likelihoods4(self, *alleles):
         """ Calculates the likelihood to observe four alleles/haplotypes
         under four scenarios, namely, monosomy, disomy, SPH and BPH. """
-        
+
         F = self.joint_frequencies_combo(*alleles, normalize=True)
         a, b, c, d = F[1], F[2], F[4], F[8]
         ab, ac, ad, bc, bd, cd = F[3], F[5], F[9], F[6], F[10], F[12]
@@ -223,12 +223,12 @@ class homogeneous:
         DISOMY = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy.
         MONOSOMY = abcd #The likelihood of monosomy.
         return MONOSOMY, DISOMY, SPH, BPH
-    
+
     def get_likelihoods(self, *x):
-        """ Uses the optimal function to calculate the likelihoods. 
+        """ Uses the optimal function to calculate the likelihoods.
         In general, self.likelihoods can get less than five alleles but the
         dedicated functions are optimized to a certain number of alleles. """
-        
+
         l = len(x)
         if l==2:
             result = self.likelihoods2(*x)
@@ -236,10 +236,10 @@ class homogeneous:
             result = self.likelihoods3(*x)
         elif l==4:
             result = self.likelihoods4(*x)
-        else: 
+        else:
             result = self.likelihoods(*x)
         return result
-        
+
 def wrapper_of_homogenoues_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
     """ Wrapper function of the class homogeneous. It receives an observations
     file, IMPUTE2 legend file, IMPUTE2 haplotypes file, and a file with four
@@ -255,7 +255,7 @@ def wrapper_of_homogenoues_for_debugging(obs_filename,leg_filename,hap_filename,
 
     leg_tab = read_impute2(leg_filename, filetype='leg')
     hap_tab, number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
-    
+
     load_obs = bz2.BZ2File if obs_filename[-6:]=='.p.bz2' else open
     with load_obs(obs_filename, 'rb') as f:
         obs_tab = pickle.load(f)
@@ -289,7 +289,7 @@ else:
     hap_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr6_EUR_panel.hap.gz'
     leg_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr6_EUR_panel.legend.gz'
     models_filename = 'MODELS/MODELS16.p'
-    
+
     A = wrapper_of_homogenoues_for_debugging(obs_filename,leg_filename,hap_filename,models_filename)
 
     alleles = tuple(A.hap_dict.keys())
@@ -300,12 +300,12 @@ else:
     likelihoods2 = A.likelihoods2
     likelihoods3 = A.likelihoods3
     likelihoods4 = A.likelihoods4
-    
+
     random.seed(a=0, version=2)
     x = random.randrange(len(alleles)-16) #123
     haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16])
 
-    print('-----joint_frequencies_combo-----')    
+    print('-----joint_frequencies_combo-----')
     print(frequencies(alleles[x+0]))
     print(frequencies(*alleles[x:x+4]))
     print('-----likelihoods4-haplotypes-----')
