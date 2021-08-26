@@ -33,17 +33,18 @@ def read_haplotypes(sample_filename, hap_filename, sample_id):
 
     with open(sample_filename, 'r') as impute2_in:
          impute2_in.readline()   # Bite off the header
-         samples = [line.strip().split()[0] for line in impute2_in]
+         samples = [line.split(None, 1)[0] for line in impute2_in]
 
     if sample_id in samples:
         ind = samples.index(sample_id)
     else:
         raise Exception('Error: sample_id not found.')
 
-    a,b = 2*ind, 2*ind+2
+    string2tuple = {'0 0':(0,0),'0 1':(0,1),'1 0':(1,0),'1 1':(1,1)}
+    a,b = 4*ind, 4*ind+3
     ###with open(hap_filename, 'r') as impute2_in:
     with (gzip.open(hap_filename,'rt') if hap_filename[-3:]=='.gz' else open(hap_filename, 'r')) as impute2_in:
-        result = [[i=='1' for i in x.strip().split()[a:b]] for x in impute2_in ]
+        result = [string2tuple[x[a:b]] for x in impute2_in]
 
     return result
 
@@ -117,10 +118,10 @@ if __name__ == "__main__":
 
 def test():
     sample_id = 'HG00097'
-    chr_id = 'chr21'
-    leg_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr21_EUR_panel.legend.gz'
-    hap_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr21_EUR_panel.hap.gz'
-    samp_filename = '../build_reference_panel/samples_per_panel/EUR_panel.samples'
+    chr_id = 'chr1'
+    leg_filename = f'../build_reference_panel/AFR_EUR_panel.hg38.BCFtools/{chr_id:s}_AFR_EUR_panel.legend.gz'
+    hap_filename = f'../build_reference_panel/AFR_EUR_panel.hg38.BCFtools/{chr_id:s}_AFR_EUR_panel.hap.gz'
+    samp_filename = '../build_reference_panel/samples_per_panel/AFR_EUR_panel.samples'
 
     work_dir='results_TEMP'
     return main(leg_filename,hap_filename,samp_filename,chr_id,sample_id,output_dir=work_dir)
