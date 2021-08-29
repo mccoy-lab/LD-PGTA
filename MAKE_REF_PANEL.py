@@ -166,7 +166,7 @@ if __name__ == "__main__":
         impute2_leg = read_impute2(impute2_leg_filename,filetype='leg')
         impute2_hap = read_impute2(impute2_hap_filename,filetype='hap')
         impute2_sam = read_impute2(samp_filename,filetype='sam')
-        save_ref_panel(impute2_leg, impute2_hap, impute2_sam)
+        save_ref_panel(samp_filename, impute2_leg, impute2_hap, impute2_sam)
         
         
         #print(test_module(impute2_leg_filename, impute2_hap_filename, legend, haplotypes))
