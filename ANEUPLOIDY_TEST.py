@@ -15,10 +15,9 @@ Dec 22, 2020
 """
 
 import collections, time, pickle, argparse, re, sys, random, os, bz2, gzip
-from MAKE_OBS_TAB import read_impute2
 from HOMOGENOUES_MODELS import homogeneous
 from F1_ADMIXTURE_MODELS import f1_admixture
-from COMPLEX_ADMIXTURE_MODELS import complex_admixture
+from DISTANT_ADMIXTURE_MODELS import distant_admixture
 
 
 from itertools import product, starmap
@@ -53,20 +52,20 @@ except ImportError:
         for t in range(min(k, n-k)):
             b *= n
             b //= t+1
-            n -= 1    
+            n -= 1
         return b
 
 def mean_and_var(data):
     """ Calculates the mean and variance. """
     m = mean(data)
     var = variance(data, xbar=m)
-    return m, var 
+    return m, var
 
 def mean_and_std(data):
     """ Calculates the mean and population standard deviation. """
     m = mean(data)
     std = pstdev(data, mu=m)
-    return m, std 
+    return m, std
 
 def summarize(M,V):
     """ Calculates chromosome-wide statistics of the LLRs """
@@ -80,13 +79,13 @@ def LLR(y,x):
     if x and y:
         result = log(y/x)
     elif x and not y:
-        result = -1.23456789 
+        result = -1.23456789
     elif not x and y:
-        result = +1.23456789 
+        result = +1.23456789
     elif not x and not y:
-        result = 0 
+        result = 0
     else:
-        result = None    
+        result = None
     return result
 
 def invert(x,n):
@@ -99,24 +98,24 @@ def build_combined(leg_tab,hap_tab):
     panel. """
     combined = {pos: comb_tuple(ref,alt,hap) for (chr_id,pos,ref,alt),hap in zip(leg_tab, hap_tab)}
     return combined
-        
+
 def build_reads_dict(obs_tab,combined_dict):
     """ Returns a dictionary that lists read IDs of reads that overlap with
         SNPs and gives the alleles in each read. """
 
     reads = collections.defaultdict(list)
-    
+
     for pos, read_id, base in obs_tab:
         if pos in combined_dict and (base==combined_dict[pos].ref or base==combined_dict[pos].alt):
             reads[read_id].append((pos,base))
-            
+
     return reads
-    
+
 def build_score_dict(reads_dict,combined_dict,number_of_haplotypes,min_HF):
     """ Returns a dicitonary lists read_IDs and gives their score. The scoring
     algorithm scores each read according to the number of differet haplotypes
     that the reference panel supports at the chromosomal region that overlaps
-    with the read. Only bialleic SNP with a minor allele frequeancy above 
+    with the read. Only bialleic SNP with a minor allele frequeancy above
     0.01 are considered for the calculation, since they are unlikely to affect
     the score. In addition, only haplotypes with a frequnecy between min_HF
     and 1-min_HF add to the score of a read. """
@@ -128,8 +127,8 @@ def build_score_dict(reads_dict,combined_dict,number_of_haplotypes,min_HF):
     for read_id in reads_dict:
         haplotypes = ((combined_dict[pos].hap, combined_dict[pos].hap ^ b)
                           for pos,base in reads_dict[read_id]
-                              if 0.01 <= popcount(combined_dict[pos].hap)/N <= 0.99)  #Include only biallelic SNPs with MAF of at least 0.01. Also, ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator. 
-        
+                              if 0.01 <= popcount(combined_dict[pos].hap)/N <= 0.99)  #Include only biallelic SNPs with MAF of at least 0.01. Also, ^b flips all bits of the binary number, hap_tab[ind] using bitwise xor operator.
+
         score_dict[read_id] = sum(min_HF <= popcount(reduce(and_,hap))/N <= (1-min_HF)
                                   for hap in product(*haplotypes) if len(hap)!=0)
 
@@ -138,7 +137,7 @@ def build_score_dict(reads_dict,combined_dict,number_of_haplotypes,min_HF):
 def build_aux_dict(obs_tab,combined_dict):
     """ Returns a dictionary that lists chromosome positions of SNPs and gives a
     list of read IDs for all the reads that overlap with the SNP. """
-    aux_dict = collections.defaultdict(list) ### aux_dict is a 
+    aux_dict = collections.defaultdict(list) ### aux_dict is a
     for pos, read_id, base in obs_tab:
         if pos in combined_dict and (base==combined_dict[pos].ref or base==combined_dict[pos].alt):
             aux_dict[pos].append(read_id)
@@ -153,16 +152,16 @@ def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
     max_dist = 100000 #maximal distance between consecutive observed alleles.
     max_win_size = 350000 #maximal genomic window size
     initial_win_size = 50000 #initial genomic window size
-    
+
     adaptive, window_size = (False, int(window_size)) if window_size else (True, initial_win_size)
     offset = int(offset)
     aux_dict = build_aux_dict(obs_tab,combined_dict)
-            
+
     first, last = obs_tab[0].pos + offset, obs_tab[-1].pos + window_size
     a, b, readIDs_in_window = first, first+window_size, set()
-    
+
     for pos, overlapping_reads in aux_dict.items():
-        if pos<first: continue   
+        if pos<first: continue
         while b<last:
             if a<=pos<b:
                 readIDs_in_window.update(read_ID for read_ID in overlapping_reads if minimal_score<=score_dict[read_ID])
@@ -171,7 +170,7 @@ def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
                 b += 10000
             else:
                 yield ((a,b-1), readIDs_in_window) #the genomic window includes both endpoints.
-                a, b, readIDs_in_window = b, b+window_size, set() 
+                a, b, readIDs_in_window = b, b+window_size, set()
 
 def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
     """ Draws up to max_reads reads from a given genomic window. """
@@ -181,73 +180,73 @@ def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
 
 def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
     """ Ensures that the number of requested subsamples is not larger than the
-    number of unique subsamples. """ 
-    
+    number of unique subsamples. """
+
     if  min_reads <= num_of_reads > max_reads:
         eff_subsamples = min(comb(num_of_reads,max_reads),subsamples)
     elif min_reads <= num_of_reads <= max_reads:
         eff_subsamples = min(num_of_reads,subsamples)
     else:
         eff_subsamples = 0
-        
+
     return eff_subsamples
-        
+
 def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
               models_dict, window_size, subsamples, offset, min_reads,
               max_reads, minimal_score, min_HF, ancestral_proportion):
     """ Applies a bootstrap approach in which: (i) the resample size is smaller
     than the sample size and (ii) resampling is done without replacement. """
-    
+
     min_reads == max(min_reads,3) # Due to the bootstrap approach, min_reads must be at least 3.
-    max_reads == max(max_reads,2) # Our statistical models require at least 2 reads.    
-    
+    max_reads == max(max_reads,2) # Our statistical models require at least 2 reads.
+
 
     combined_dict = build_combined(leg_tab, hap_tab)
     reads_dict = build_reads_dict(obs_tab, combined_dict)
     score_dict = build_score_dict(reads_dict, combined_dict, number_of_haplotypes, min_HF)
-    windows_dict = dict(iter_windows(obs_tab, combined_dict, score_dict, window_size, offset, min_reads, max_reads, minimal_score))       
-    
+    windows_dict = dict(iter_windows(obs_tab, combined_dict, score_dict, window_size, offset, min_reads, max_reads, minimal_score))
+
     ancestry = {row.group2 for row in sam_tab}
     if len(ancestry)==2 and 0<ancestral_proportion.proportion<1 and ancestral_proportion.group2 in ancestry:
         proportions = {i:ancestral_proportion.proportion if ancestral_proportion.group2==i else 1-ancestral_proportion.proportion for i in ancestry}
-        print('Assuming the following ancestry proportions:', proportions) 
-        examine = complex_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, ancestral_proportion)
+        print('Assuming the following ancestry proportions:', proportions)
+        examine = distant_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, ancestral_proportion)
     elif len(ancestry)==2:
-        print('Assuming F1-admixture between %s and %s.' % tuple(ancestry)) 
+        print('Assuming F1-admixture between %s and %s.' % tuple(ancestry))
         examine = f1_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
     else:
         print('Assuming one ancestral population: %s.' % tuple(ancestry))
         examine = homogeneous(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
- 
+
     likelihoods = {}
-    
-    for k,(window,read_IDs) in enumerate(windows_dict.items()):    
+
+    for k,(window,read_IDs) in enumerate(windows_dict.items()):
         sys.stdout.write(f"\r[{'=' * (33*(k+1)//len(windows_dict)):{33}s}] {int(100*(k+1)/len(windows_dict))}%"); sys.stdout.flush()
-        
+
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
         if effN>0:
             likelihoods[window] = tuple(examine.get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
-    
+
     return likelihoods, windows_dict, examine.fraction_of_matches
-        
+
 def statistics(likelihoods,windows_dict):
     """ Compares likelihoods of different aneuploidy scenarios and extracts
     useful information about the genmoic windows. """
-    
+
     if likelihoods:
-        window_size_mean, window_size_std = mean_and_std([j-i+1 for (i,j) in likelihoods])    
+        window_size_mean, window_size_std = mean_and_std([j-i+1 for (i,j) in likelihoods])
         reads_mean, reads_std = mean_and_std([len(read_IDs) for window,read_IDs in windows_dict.items() if window in likelihoods])
         num_of_windows = len(likelihoods)
-        
-        
+
+
         pairs = (('BPH','SPH'), ('BPH','disomy'), ('disomy','SPH'), ('SPH','monosomy')); _ = {};
         LLRs_per_genomic_window = {(i,j): {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['monosomy'], _['disomy'], _['SPH'], _['BPH'] in L))])
                            for window,L in likelihoods.items()} for i,j in pairs}
-        
+
         LLRs_per_chromosome = {pair: summarize(*zip(*stat.values())) for pair,stat in LLRs_per_genomic_window.items()}
-        
+
         result = {'num_of_windows': num_of_windows,
-                  'reads_mean': reads_mean, 
+                  'reads_mean': reads_mean,
                   'reads_std': reads_std,
                   'window_size_mean': window_size_mean,
                   'window_size_std': window_size_std,
@@ -266,16 +265,16 @@ def print_summary(obs_filename,info):
 
     if S.get('LLRs_per_chromosome',None):
         for (i,j), L in S['LLRs_per_chromosome'].items():
-            print(f"--- LLR between {i:s} and {j:s} ----")        
+            print(f"--- LLR between {i:s} and {j:s} ----")
             print(f"Mean LLR: {L['mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
             print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
 
 def save_results(likelihoods,info,compress,obs_filename,output_filename,output_dir):
     """ Saves the likelihoods together with information about the chromosome
-        number, depth of coverage, ancestry, statistics of the genomic windows 
+        number, depth of coverage, ancestry, statistics of the genomic windows
         and flags that were used. Also, data compression is supported in gzip
         and bzip2 formats. """
-        
+
     Open = {'bz2': bz2.open, 'gz': gzip.open}.get(compress, open)
     ext = ('.'+compress) * (compress in ('bz2','gz'))
     obs_filename_stripped =  obs_filename.rsplit('/', 1).pop()
@@ -285,10 +284,10 @@ def save_results(likelihoods,info,compress,obs_filename,output_filename,output_d
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     with Open(output_dir + output_filename, "wb") as f:
         pickle.dump(likelihoods, f, protocol=4)
-        pickle.dump(info, f, protocol=4)       
+        pickle.dump(info, f, protocol=4)
     return output_dir + output_filename
-            
-def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
+
+def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
                     window_size,subsamples,offset,min_reads,max_reads,
                     minimal_score,min_HF,output_filename,compress,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
@@ -297,33 +296,46 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
     It also returns a dictionary with various run parameters. """
 
     time0 = time.time()
-    
+
     random.seed(a=kwargs.get('seed',None), version=2) #I should make sure that a=None after finishing to debug the code.
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
     ancestral_proportion = (lambda x,y: admix_tuple(str(x),float(y)))(*kwargs.get('ancestral_proportion',('None','-1')))
 
-    Open = {'bz2': bz2.open, 'gzip': gzip.open}.get(obs_filename.rpartition('.')[-1], open)    
-    with Open(obs_filename, 'rb') as f:
-        obs_tab = pickle.load(f)
-        info = pickle.load(f)
-        
-    leg_tab = read_impute2(leg_filename, filetype='leg')
-    hap_tab, number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
-    sam_tab = read_impute2(sam_filename, filetype='sam')
-    
+    load = lambda filename: {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open)  #Adjusts the opening method according to the file extension.
+
+    open_hap = load(hap_filename)
+    with open_hap(hap_filename,'rb') as hap_in:
+        hap_tab, number_of_haplotypes = pickle.load(hap_in)
+
+    open_leg = load(leg_filename)
+    with open_leg(leg_filename,'rb') as leg_in:
+        leg_tab = pickle.load(leg_in)
+
+
+    open_samp = load(samp_filename)
+    with open_samp(samp_filename,'rb') as samp_in:
+        sam_tab = pickle.load(samp_in)
+
+    open_obs = load(obs_filename)
+    with open_obs(obs_filename, 'rb') as obs_in:
+        obs_tab = pickle.load(obs_in)
+        info = pickle.load(obs_in)
+
+    open_model = load(models_filename)
+    with open_model(models_filename, 'rb') as model_in:
+        models_dict = pickle.load(model_in)
+
+
     ancestry = {row.group2 for row in sam_tab}
     if len(ancestry)>2: print('warning: individuals in the sample file are associated with more than two populations.')
-    
-    load_model = bz2.BZ2File if models_filename[-6:]=='.p.bz2' else open
-    with load_model(models_filename, 'rb') as f:
-        models_dict = pickle.load(f)
+
 
     likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF, ancestral_proportion)
-     
+
     some_statistics = {'matched_alleles': matched_alleles,
                        'runtime': time.time()-time0}
-    
+
     info.update({'ancestry': ancestry,
                  'window_size': window_size,
                  'subsamples': subsamples,
@@ -334,18 +346,18 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,sam_filename,
                  'min_HF': min_HF,
                  'statistics': {**statistics(likelihoods,windows_dict), **some_statistics}
                  })
-    
+
     if len(ancestry)==2 and 0<ancestral_proportion.proportion<1 and ancestral_proportion.group2 in ancestry:
         info['proportions'] = {i:ancestral_proportion.proportion if ancestral_proportion.group2==i else 1-ancestral_proportion.proportion for i in ancestry}
-        
+
     if output_filename!=None:
         save_results(likelihoods,info,compress,obs_filename,output_filename,kwargs.get('output_dir', 'results'))
-    
+
     print_summary(obs_filename,info)
-    
+
     time1 = time.time()
     print('Done calculating LLRs for all the genomic windows in %.3f sec.' % ((time1-time0)))
-    
+
     return likelihoods, info
 
 if __name__ == "__main__":
@@ -357,15 +369,15 @@ if __name__ == "__main__":
                 '(Single Parental Homolog) correspond to chromosome gains'
                 'involving identical homologs.')
     parser.add_argument('obs_filename', metavar='OBS_FILENAME', type=str,
-                        help='A pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions.')
+                        help='A observations file created by MAKE_OBS_TAB.')
     parser.add_argument('leg_filename', metavar='LEG_FILENAME', type=str,
-                        help='IMPUTE2 legend file')
+                        help='A legend file of the reference panel.')
     parser.add_argument('hap_filename', metavar='HAP_FILENAME', type=str,
-                        help='IMPUTE2 haplotype file')
+                        help='A haplotype file of the reference panel.')
     parser.add_argument('sam_filename', metavar='SAM_FILENAME', type=str,
-                        help='IMPUTE2 samples file')
+                        help='A samples file of the reference panel.')
     parser.add_argument('-a', '--ancestral-proportion', metavar='STR FLOAT', type=str, nargs=2, default=['None','-1'],
-                        help='Assume a complex admixture with a certain ancestry proportion, e.g, EUR 0.8.')
+                        help='Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8.')
     parser.add_argument('-w', '--window-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads.')
@@ -417,9 +429,9 @@ def aneuploidy_test_demo(obs_filename='SWI-L-10-27-May-2020_S38.chr6.obs.p.bz2',
                 output_filename = '',
                 compress = 'bz2',
                 seed=0)
-    
-   
-    
+
+
+
     LLR_dict, info = aneuploidy_test(**args)
     return LLR_dict, info"
 """

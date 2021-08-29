@@ -16,7 +16,7 @@ Daniel Ariad (daniel@ariad.org)
 Dec 21, 2020
 """
 
-import pickle, os, sys, bz2, collections
+import pickle, os, sys, bz2, collections, gzip
 
 from functools import reduce
 from operator import and_, itemgetter
@@ -35,10 +35,9 @@ except ModuleNotFoundError:
         return bin(x).count('1')
 
 class homogeneous:
-    """ Based on two IMPUTE2 arrays, which contain the legend and haplotypes,
-    and a dictionary with statisitcal models (models_dict), it allows to
-    calculate the likelihoods of observed alleles under various statistical
-    models (monosomy, disomy, SPH and BPH). """
+    """ Based on the statisitcal models (models_dict) and the reference panel
+    (leg_tab, hap_tab and sam_tab), it allows to calculate the likelihoods of
+    observed alleles under various statistical models (monosomy, disomy, SPH and BPH). """
 
 
     def __init__(self, obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes):
@@ -241,29 +240,34 @@ class homogeneous:
         return result
 
 def wrapper_of_homogenoues_for_debugging(obs_filename,leg_filename,hap_filename,models_filename):
-    """ Wrapper function of the class homogeneous. It receives an observations
-    file, IMPUTE2 legend file, IMPUTE2 haplotypes file, and a file with four
+    """ Wrapper function of the class 'homogeneous'. It receives an observations
+    file, legend file, haplotypes file, samples file and a file with the
     statistical models. Based on the given data it creates and returns an
     instance of the class. """
-
-    from MAKE_OBS_TAB import read_impute2
 
     if not os.path.isfile(obs_filename): raise Exception('Error: OBS file does not exist.')
     if not os.path.isfile(leg_filename): raise Exception('Error: LEGEND file does not exist.')
     if not os.path.isfile(hap_filename): raise Exception('Error: HAP file does not exist.')
     if not os.path.isfile(models_filename): raise Exception('Error: MODELS file does not exist.')
 
-    leg_tab = read_impute2(leg_filename, filetype='leg')
-    hap_tab, number_of_haplotypes = read_impute2(hap_filename, filetype='hap')
+    load = lambda filename: {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open)  #Adjusts the opening method according to the file extension.
 
-    load_obs = bz2.BZ2File if obs_filename[-6:]=='.p.bz2' else open
-    with load_obs(obs_filename, 'rb') as f:
-        obs_tab = pickle.load(f)
+    open_hap = load(hap_filename)
+    with open_hap(hap_filename,'rb') as hap_in:
+        hap_tab, number_of_haplotypes = pickle.load(hap_in)
+
+    open_leg = load(leg_filename)
+    with open_leg(leg_filename,'rb') as leg_in:
+        leg_tab = pickle.load(leg_in)
+
+    open_obs = load(obs_filename)
+    with open_obs(obs_filename, 'rb') as obs_in:
+        obs_tab = pickle.load(obs_in)
         #info = pickle.load(f)
 
-    load_model = bz2.BZ2File if models_filename[-6:]=='.p.bz2' else open
-    with load_model(models_filename, 'rb') as f:
-        models_dict = pickle.load(f)
+    open_model = load(models_filename)
+    with open_model(models_filename, 'rb') as model_in:
+        models_dict = pickle.load(model_in)
 
     return homogeneous(obs_tab, leg_tab, hap_tab, None, models_dict, number_of_haplotypes)
 

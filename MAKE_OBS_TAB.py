@@ -4,8 +4,8 @@
 MAKE_OBS_TAB
 
 This script extracts single base observations at SNP positions from a given
-sequence. It requires an aligned and sorted BAM file with the sequence, as well
-as an IMPUTE2 legend format, which contains the SNPs positions.
+sequence. It requires a BAM file that is sorted according to position, as well
+as a legend format, which contains the SNPs positions.
 The observed alleles, together with their associated read ID, chromosome
 position and line number in the legend file, are organized in a table.
 
@@ -23,42 +23,6 @@ try:
     import pysam
 except ModuleNotFoundError:
     print('Caution: The module pysam is missing.')
-
-def read_impute2(filename,**kwargs):
-    """ Reads an IMPUTE2 file format (LEGEND/HAPLOTYPE/SAMPLE) and builds a list
-        of lists, containing the dataset. """
-
-    filetype = kwargs.get('filetype', None)
-
-    def leg_format(line):
-        rs_id, pos, ref, alt = line.strip().split()
-        return leg_tuple('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)
-
-    def sam_format(line):
-          sample_id, group1, group2, sex = line.strip().split(' ')
-          return sam_tuple(sample_id, group1, group2, int(sex))
-
-    with (gzip.open(filename,'rt') if filename[-3:]=='.gz' else open(filename, 'r')) as impute2_in:
-        if filetype == 'leg':
-            impute2_in.readline()   # Bite off the header
-            result = tuple(map(leg_format,impute2_in))
-
-        elif filetype == 'hap':
-            firstline = impute2_in.readline()   # Get first line
-            a0 = int(firstline.replace(' ', ''), 2)
-            a1 = (int(line.replace(' ', ''), 2) for line in impute2_in)
-            hap_tab = (a0, *a1)
-            number_of_haplotypes = len(firstline.strip().split())
-            result = hap_tab, number_of_haplotypes
-
-        elif filetype == 'sam':
-            impute2_in.readline()   # Bite off the header
-            result = tuple(map(sam_format,impute2_in))
-
-        else:
-            result = tuple(line.strip().split() for line in impute2_in)
-
-    return result
 
 def save_obs(obs_tab,info,compress,bam_filename,output_filename,output_dir):
     """ Saves the observations table together with information about
@@ -92,7 +56,12 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
     try:
         genome_reference = pysam.FastaFile(fasta_filename) if fasta_filename!='' else None
         samfile = pysam.AlignmentFile(bam_filename, 'rb' )
-        leg_tab = read_impute2(legend_filename, filetype='leg')
+
+        load = lambda filename: {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open)  #Adjusts the opening method according to the file extension. 
+        open_leg = load(legend_filename)
+        with open_leg(legend_filename,'rb') as leg_in:
+            leg_tab = pickle.load(leg_in)
+
 
         if next(zip(*leg_tab)).count(leg_tab[0][0])!=len(leg_tab):
             raise Exception('Error: Unsuitable legend file. All SNP positions should refer to the same chr_id.')
@@ -163,9 +132,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Builds a table of single base observations at known SNP positions.')
     parser.add_argument('bam_filename', metavar='BAM_FILENAME', type=str,
-                        help='BAM file')
+                        help='A BAM file sorted by position.')
     parser.add_argument('legend_filename', metavar='LEG_FILENAME', type=str,
-                        help='IMPUTE2 legend file')
+                        help='A legend file of reference panel.')
     parser.add_argument('-f','--fasta_filename', type=str,metavar='FASTA_FILENAME', default='',
                         help='The faidx-indexed reference file in the FASTA format. '
                              'Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8.')
