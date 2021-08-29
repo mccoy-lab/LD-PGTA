@@ -183,7 +183,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
 
 
     if complex_admixture:
-        print('mode: complex admixture.')
+        print('mode: distant admixture.')
     else:
         print('mode: normal.')
 
