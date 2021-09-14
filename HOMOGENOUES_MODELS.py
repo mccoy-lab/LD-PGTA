@@ -89,7 +89,7 @@ class homogeneous:
         hap = dict()
 
         for i, X in enumerate(alleles):
-            if type(X[0])==tuple: #Checks if X is a tuple of alleles.
+            if type(X[0])==tuple: #Checks if X is a tuple/list of alleles.
                 n = len(X)
                 if n==1:
                     hap[1 << i] = self.hap_dict[X[0]]
