@@ -151,7 +151,7 @@ def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
 
     max_dist = 100000 #maximal distance between consecutive observed alleles.
     max_win_size = 350000 #maximal genomic window size
-    initial_win_size = 50000 #initial genomic window size
+    initial_win_size = 10000 #initial genomic window size
 
     adaptive, window_size = (False, int(window_size)) if window_size else (True, initial_win_size)
     offset = int(offset)
