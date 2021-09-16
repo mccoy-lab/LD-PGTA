@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 """
-F1_ADMIXTURE_MODELS
+RECENT_ADMIXTURE_MODELS
 
 Given reads that originated form the same genomic window and a reference panel
 of two populations, the likelihood of observed reads under four scenarios,
 namely, monosomy, disomy, SPH and BPH is calculated. This module is for
-F1-admixtures, where the parents are associated with different ancestral
+recent-admixtures, where the parents are associated with different ancestral
 populations.
 
 BPH (Both Parental Homologs) correspond to the presence of three unmatched
@@ -36,7 +36,7 @@ except ModuleNotFoundError:
         """ Counts non-zero bits in positive integer. """
         return bin(x).count('1')
 
-class f1_admixture:
+class recent_admixture:
     """ Based on the statisitcal models (models_dict) and the reference panel
     (leg_tab, hap_tab and sam_tab), it allows to calculate the likelihoods of
     observed alleles under various statistical models (monosomy, disomy, SPH
@@ -98,7 +98,7 @@ class f1_admixture:
 
         fraction_of_matches = 1-mismatches/len(obs_tab)
 
-        print('Algorithm for F1-admixtures: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
+        print('Algorithm for recent-admixtures: %.2f%% of the observed alleles matched the reference panel.' % (100*fraction_of_matches))
 
         return hap_dict, fraction_of_matches
 
@@ -297,8 +297,8 @@ class f1_admixture:
             result = self.likelihoods(*x)
         return result
 
-def wrapper_of_f1_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sample_filename,models_filename):
-    """ Wrapper function of the class 'f1_admixture'. It receives an observations
+def wrapper_of_recent_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sample_filename,models_filename):
+    """ Wrapper function of the class 'recent_admixture'. It receives an observations
     file, legend file, haplotypes file, samples file and a file with the
     statistical models. Based on the given data it creates and returns an
     instance of the class. """
@@ -333,12 +333,12 @@ def wrapper_of_f1_admixture_for_debugging(obs_filename,leg_filename,hap_filename
     with open_model(models_filename, 'rb') as model_in:
         models_dict = pickle.load(model_in)
 
-    return f1_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes)
+    return recent_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes)
 
 if __name__ != "__main__":
-    print('The module F1_ADMIXTURE_MODELS was imported.')
+    print('The module RECENT_ADMIXTURE_MODELS was imported.')
 else:
-    print('The module F1_ADMIXTURE_MODELS was invoked directly.')
+    print('The module RECENT_ADMIXTURE_MODELS was invoked directly.')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################
@@ -346,9 +346,9 @@ else:
 """
 
 if __name__ != "__main__":
-    print("The module F1_ADMIXTURE_MODELS was imported.")
+    print("The module RECENT_ADMIXTURE_MODELS was imported.")
 else:
-    print("The module F1_ADMIXTURE_MODELS was invoked directly.")
+    print("The module RECENT_ADMIXTURE_MODELS was invoked directly.")
     #sys.exit(0)
     import time, random
     t0 = time.time()
@@ -358,7 +358,7 @@ else:
     sam_filename = '../build_reference_panel/samples_per_panel/EAS_EUR_panel.samples'
     models_filename = 'MODELS/MODELS16.p'
 
-    A = wrapper_of_f1_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename)
+    A = wrapper_of_recent_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename)
 
     alleles = tuple(A.hap_dict.keys())
 

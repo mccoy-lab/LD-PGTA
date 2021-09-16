@@ -16,7 +16,7 @@ Dec 22, 2020
 
 import collections, time, pickle, argparse, re, sys, random, os, bz2, gzip
 from HOMOGENOUES_MODELS import homogeneous
-from F1_ADMIXTURE_MODELS import f1_admixture
+from RECENT_ADMIXTURE_MODELS import recent_admixture
 from DISTANT_ADMIXTURE_MODELS import distant_admixture
 
 
@@ -215,8 +215,8 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
         print('Assuming the following ancestry proportions:', proportions)
         examine = distant_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, ancestral_proportion)
     elif len(ancestry)==2:
-        print('Assuming F1-admixture between %s and %s.' % tuple(ancestry))
-        examine = f1_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
+        print('Assuming recent-admixture between %s and %s.' % tuple(ancestry))
+        examine = recent_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
     else:
         print('Assuming one ancestral population: %s.' % tuple(ancestry))
         examine = homogeneous(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
