@@ -289,10 +289,10 @@ else:
     #sys.exit(0)
     import time, random
     t0 = time.time()
-    obs_filename = 'results/SWI-L-10-27-May-2020_S38.chr6.obs.p.bz2'
-    hap_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr6_EUR_panel.hap.gz'
-    leg_filename = '../build_reference_panel/EUR_panel.hg38.BCFtools/chr6_EUR_panel.legend.gz'
-    models_filename = 'MODELS/MODELS16.p'
+    obs_filename = 'test/test.obs.p'
+    hap_filename = 'test/test.hap.p'
+    leg_filename = 'test/test.leg.p'
+    models_filename = 'MODELS/MODELS12.p'
 
     A = wrapper_of_homogenoues_for_debugging(obs_filename,leg_filename,hap_filename,models_filename)
 
@@ -305,8 +305,9 @@ else:
     likelihoods3 = A.likelihoods3
     likelihoods4 = A.likelihoods4
 
-    random.seed(a=0, version=2)
-    x = random.randrange(len(alleles)-16) #123
+    #random.seed(a=0, version=2)
+    #x = random.randrange(len(alleles)-16) #123
+    x=0
     haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16])
 
     print('-----joint_frequencies_combo-----')
