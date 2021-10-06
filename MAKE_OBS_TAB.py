@@ -86,7 +86,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         pos = 0
         for pileupcolumn in samfile.pileup(**arg):
 
-            while pileupcolumn.pos > pos-1:  ### Chromosomal position starts from 1 in bam files, while it starts from 0 in obs files.
+            while pileupcolumn.pos > pos-1:  ### Chromosomal position starts from 1 in legend table, while it starts from 0 in the pileup iterator.
                 chr_id,pos,ref,alt = next(leg_tab_iterator)
 
             if pileupcolumn.pos == pos-1:
