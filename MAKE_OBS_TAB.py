@@ -144,10 +144,10 @@ if __name__ == "__main__":
                              'However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) pick randomly an observed base and (c) skip the observed bases.')
     parser.add_argument('-b', '--min-bq', type=int,
                         metavar='INT', default=30,
-                        help='Minimum base quaility for observations. Default value is 30.')
+                        help='Minimum base quality for observations. Default value is 30.')
     parser.add_argument('-m', '--min-mq', type=int,
                         metavar='INT', default=30,
-                        help='Minimum mapping quaility for observations. Default value 30.')
+                        help='Minimum mapping quality for observations. Default value 30.')
     parser.add_argument('-d', '--max-depth', type=int,
                         metavar='INT', default=0,
                         help='Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit.')
