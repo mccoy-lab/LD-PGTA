@@ -106,6 +106,7 @@ def build_ref_panel(samp_filename,vcf_filename,mask_filename):
 
     HAPLOTYPES = []
     LEGEND = []
+    skipped_SNPs = 0
     
     for record in vcf_in.fetch():
         if record.info["VT"]==('SNP',): ### ### Only encode SNPs
@@ -116,13 +117,18 @@ def build_ref_panel(samp_filename,vcf_filename,mask_filename):
             ALLELES = tuple(itertools.chain.from_iterable((record.samples[sample].allele_indices for sample in SAM)))
             an = ALLELES.count(1)
             if an==2*lenSAM or an==0: continue ### Only encode SNPs with a non-zero minor allele count.
-            if mask!=None and mask[record.pos-1]!='P': continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks. 
+            if mask!=None and mask[record.pos-1]!='P': 
+                skipped_SNPs +=1
+                continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks. 
 
             LEGEND.append(leg_tuple('chr'+record.contig, record.pos, *record.alleles)) ### Add the record to the legend list        
             binary = sum(v<<i for i, v in enumerate(ALLELES[::-1])) ### Encode the alleles as bits
             HAPLOTYPES.append(binary) ### Add the record to the haplotypes list
                       
     time1 = time.time()
+    if mask!=None:
+        print(f'--- Based on the genome accessibility mask, {skipped_SNPs:d} SNP records were skipped.')
+    print(f'--- The reference panel contains {len(LEGEND):d} SNPs.')
     print('Done building the reference panel in %.3f sec.' % (time1-time0))
     
     result = tuple(LEGEND), (tuple(HAPLOTYPES), 2*lenSAM), SAMPLES
@@ -192,6 +198,6 @@ if __name__ == "__main__":
         
         
         #print(test_module(impute2_leg_filename, impute2_hap_filename, legend, haplotypes))
-"""       
-    
+       
+"""   
     
