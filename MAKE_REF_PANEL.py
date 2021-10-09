@@ -66,12 +66,26 @@ def test_module(impute2_leg_filename, impute2_hap_filename, legend, haplotypes):
     print('Haplotypes:', all(a==b for a,b in zip(impute2_hap[0],haplotypes[0])))
     return 0
 
-def build_ref_panel(samp_filename,vcf_filename):
+def load_mask_tab_fasta_gz(mask_filename):
+    """ Loads accessibility masks from fasta.gz files. """
+    with gzip.open(mask_filename,'rb') as f0:
+        with gzip.open(f0,'rt') as f:
+            print(f'--- Mask filename: {mask_filename:s}')
+            f.readline()
+            cache = [i.rstrip('\n') for i in f]
+            result = ''.join(cache)
+            
+    return result
+
+def build_ref_panel(samp_filename,vcf_filename,mask_filename):
     """ Builds a reference panel with similar structure to the IMPUTE2 format.
         The reference panel is encoded for efficient storage and retrieval. """
     
     time0 = time.time()
-       
+    
+    mask = load_mask_tab_fasta_gz(mask_filename) if mask_filename!='' else None
+
+    
     def sam_format(line):
           sample_id, group1, group2, sex = line.strip().split(' ')
           return sam_tuple(sample_id, group1, group2, int(sex))
@@ -81,7 +95,8 @@ def build_ref_panel(samp_filename,vcf_filename):
         SAMPLES = tuple(map(sam_format,impute2_in))
     
     vcf_in = pysam.VariantFile(vcf_filename,'r')  # auto-detect input format
-    print(vcf_in.description) ### Based on the VCF header, prints a description of the VCF file. 
+    print(f'--- VCF Filename: {vcf_filename:s}')
+    print(f'--- VCF description: {vcf_in.description:s}') ### Based on the VCF header, prints a description of the VCF file. 
 
     SAM = [s.sample_id for s in SAMPLES if s.sample_id in vcf_in.header.samples]
 
@@ -101,6 +116,7 @@ def build_ref_panel(samp_filename,vcf_filename):
             ALLELES = tuple(itertools.chain.from_iterable((record.samples[sample].allele_indices for sample in SAM)))
             an = ALLELES.count(1)
             if an==2*lenSAM or an==0: continue ### Only encode SNPs with a non-zero minor allele count.
+            if mask!=None and mask[record.pos-1]!='P': continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks. 
 
             LEGEND.append(leg_tuple('chr'+record.contig, record.pos, *record.alleles)) ### Add the record to the legend list        
             binary = sum(v<<i for i, v in enumerate(ALLELES[::-1])) ### Encode the alleles as bits
@@ -128,9 +144,9 @@ def save_ref_panel(samp_filename, legend, haplotypes, samples):
     return 0
 
 
-def main(samp_filename,vcf_filename):
+def main(samp_filename,vcf_filename,mask_filename):
     """ Builds and saves the reference panel. """ 
-    legend, haplotypes, samples = build_ref_panel(samp_filename,vcf_filename)
+    legend, haplotypes, samples = build_ref_panel(samp_filename,vcf_filename,mask_filename)
     save_ref_panel(samp_filename, legend, haplotypes, samples)
     return 0
     
@@ -145,7 +161,9 @@ if __name__ == "__main__":
                     help='IMPUTE2 samples file')
     parser.add_argument('vcf_filename', metavar='vcf_filename', type=str,
                         help='IMPUTE2 legend file')
-
+    parser.add_argument('-m','--mask_filename', type=str,metavar='GZIPPED_FASTA_FILENAME', default='',
+                        help='An accessibility mask file in a gzipped FASTA format.'
+                             'Supplying an accessibility mask file will reduce false SNPs in regions of the genome that are less accessible to NGS methods.')
     args = parser.parse_args()
     sys.exit(main(**vars(args)))
 else:
@@ -153,23 +171,27 @@ else:
 
 """
 if __name__ == "__main__": 
-    SP ='ALL'
-    samp_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/samples_per_panel/{SP:s}_panel.samples'
+    #for SP in 'EUR','EAS','SAS','AFR','AMR','AFR_EUR','EAS_EUR','SAS_EUR','EAS_SAS':
+    SP = 'EAS_SAS'
+    print(SP)
+    samp_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/reference_panels/samples_per_panel/{SP:s}_panel.samples'
     for i in ['X',*range(22,0,-1)]:    
-        #vcf_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/vcf_phase3_hg38_v2/ALL.chr{i}.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz'
-        #legend, haplotypes, samples = build_ref_panel(samp_filename,vcf_filename)
-        #save_ref_panel(legend, haplotypes, samples)
+        print(i)
+        vcf_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/vcf_phase3_hg38_v2/ALL.chr{i}.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz'
+        mask_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/mask/20160622.chr{i}.mask.fasta.gz'
+        legend, haplotypes, samples = build_ref_panel(samp_filename,vcf_filename,mask_filename)
+        save_ref_panel(samp_filename, legend, haplotypes, samples)
         
-        impute2_leg_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/{SP:s}_panel.hg38.BCFtools/chr{i}_{SP:s}_panel.legend.gz'
-        impute2_hap_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/{SP:s}_panel.hg38.BCFtools/chr{i}_{SP:s}_panel.hap.gz'
+        #impute2_leg_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/{SP:s}_panel.hg38.BCFtools/chr{i}_{SP:s}_panel.legend.gz'
+        #impute2_hap_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/{SP:s}_panel.hg38.BCFtools/chr{i}_{SP:s}_panel.hap.gz'
         
-        impute2_leg = read_impute2(impute2_leg_filename,filetype='leg')
-        impute2_hap = read_impute2(impute2_hap_filename,filetype='hap')
-        impute2_sam = read_impute2(samp_filename,filetype='sam')
-        save_ref_panel(samp_filename, impute2_leg, impute2_hap, impute2_sam)
+        #impute2_leg = read_impute2(impute2_leg_filename,filetype='leg')
+        #impute2_hap = read_impute2(impute2_hap_filename,filetype='hap')
+        #impute2_sam = read_impute2(samp_filename,filetype='sam')
+        #save_ref_panel(samp_filename, impute2_leg, impute2_hap, impute2_sam)
         
         
         #print(test_module(impute2_leg_filename, impute2_hap_filename, legend, haplotypes))
-"""        
+"""       
     
     
