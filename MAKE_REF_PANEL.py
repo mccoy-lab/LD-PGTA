@@ -144,9 +144,9 @@ def save_ref_panel(samp_filename, legend, haplotypes, samples):
     return 0
 
 
-def main(samp_filename,vcf_filename,mask_filename):
+def main(samp_filename,vcf_filename,mask):
     """ Builds and saves the reference panel. """ 
-    legend, haplotypes, samples = build_ref_panel(samp_filename,vcf_filename,mask_filename)
+    legend, haplotypes, samples = build_ref_panel(samp_filename,vcf_filename,mask)
     save_ref_panel(samp_filename, legend, haplotypes, samples)
     return 0
     
@@ -161,7 +161,7 @@ if __name__ == "__main__":
                     help='IMPUTE2 samples file')
     parser.add_argument('vcf_filename', metavar='vcf_filename', type=str,
                         help='IMPUTE2 legend file')
-    parser.add_argument('-m','--mask_filename', type=str,metavar='GZIPPED_FASTA_FILENAME', default='',
+    parser.add_argument('-m','--mask', type=str,metavar='GZIPPED_FASTA_FILENAME', default='',
                         help='An accessibility mask file in a gzipped FASTA format.'
                              'Supplying an accessibility mask file will reduce false SNPs in regions of the genome that are less accessible to NGS methods.')
     args = parser.parse_args()
