@@ -183,9 +183,9 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
 
 
     if complex_admixture:
-        print('mode: distant admixture.')
+        print('mode: distant admixture (each homolog is a mosaic of haplotypes, where each haplotype is associated with one out of two possible ancestries).')
     else:
-        print('mode: normal.')
+        print('mode: non-admixed/recent-admixture (each homolog is associated with a specific ancestry).')
 
     for ind, (scenario, transitions) in enumerate(cases, start=1):
 
