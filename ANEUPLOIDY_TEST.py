@@ -11,7 +11,7 @@ BPH (Both Parental Homologs) correspond to the presence of three unmatched
 haplotypes, while SPH (Single Parental Homolog) correspond to chromosome gains
 involving identical homologs.
 Daniel Ariad (daniel@ariad.org)
-Dec 22, 2020
+Sep 1, 2020
 """
 
 import collections, time, pickle, argparse, re, sys, random, os, bz2, gzip
@@ -174,16 +174,18 @@ def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
 
 def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
     """ Draws up to max_reads reads from a given genomic window. The reads are
-        randomly sampled without replacement to meet the assumptions of the 
+        randomly sampled without replacement to meet the assumptions of the
         statistical models."""
-        
+
     drawn_read_IDs = random.sample(read_IDs, min(len(read_IDs)-1,max_reads))
     haplotypes = tuple(reads_dict[read_ID] for read_ID in drawn_read_IDs)
     return haplotypes
 
 def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
     """ Ensures that the number of requested subsamples is not larger than the
-    number of unique subsamples. """
+    number of unique subsamples. In addition, it checks that a genomic window
+    contains a minimal number of reads (min_reads) that overlap with known 
+    SNPs. """
 
     if  min_reads <= num_of_reads > max_reads:
         eff_subsamples = min(comb(num_of_reads,max_reads),subsamples)
@@ -227,7 +229,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
         sys.stdout.write(f"\r[{'=' * (33*(k+1)//len(windows_dict)):{33}s}] {int(100*(k+1)/len(windows_dict))}%"); sys.stdout.flush()
 
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
-        if effN>0:
+        if effN>0: ### Ensures that the genomic windows contains enough reads for sampling.
             likelihoods[window] = tuple(examine.get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
 
     return likelihoods, windows_dict, examine.fraction_of_matches
