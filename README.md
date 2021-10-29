@@ -1,4 +1,5 @@
 **Haplotype-aware inference of human chromosome abnormalities**
+[![DOI](https://zenodo.org/badge/261246135.svg)](https://zenodo.org/badge/latestdoi/261246135)
 
 <img src="https://rajivmccoy.files.wordpress.com/2021/05/method.png" alt="drawing" width="400"/>
 
