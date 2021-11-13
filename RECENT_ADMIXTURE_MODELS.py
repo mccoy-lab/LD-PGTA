@@ -63,7 +63,7 @@ class recent_admixture:
         flagged using a binary representation marks and counted. """
 
         differentiate = [row.group2 == sam_tab[0].group2 for row in sam_tab for i in (1,2)]
-        flag0 = sum(v<<i for i, v in enumerate(differentiate[::-1]))
+        flag0 = sum(v<<i for i, v in enumerate(reversed(differentiate)))
         flag1 = flag0 ^ ((1 << self.total_number_of_haplotypes_in_reference_panel) - 1)
         flags = (flag0, flag1)
         name2id = {sam_tab[0].group2:0,
