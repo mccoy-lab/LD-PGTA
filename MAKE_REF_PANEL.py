@@ -11,17 +11,26 @@ Daniel Ariad (daniel@ariad.org)
 AUG 27, 2022
 """
 
-import sys, os, time, random, argparse, re, pickle, gzip, bz2, collections, itertools
+import sys, os, time, random, argparse, re, pickle, gzip, bz2, collections, itertools, operator
 
 leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
 sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
 obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
-    
-try:
-    import pysam
-except ModuleNotFoundError:
-    print('Caution: The module pysam is missing.')
 
+
+try:
+    import cyvcf2
+    handle_vcf = 'cyvcf2'
+except ModuleNotFoundError:
+    print('Caution: The module cyvcf2 is missing. Trying to use pysam instead.')    
+    try:
+        import pysam
+        handle_vcf = 'pysam'
+    except ModuleNotFoundError:
+        print('Caution: The module pysam is missing.')
+        print('Error: Either the module cyvcf2 or pysam is required. Use cyvcf2 for faster performance.')
+        exit(1)
+        
 def read_impute2(filename,**kwargs):
     """ Reads an IMPUTE2 file format (LEGEND/HAPLOTYPE/SAMPLE) and builds a list
         of lists, containing the dataset. """
@@ -77,30 +86,40 @@ def load_mask_tab_fasta_gz(mask_filename):
             
     return result
 
-def build_ref_panel(samp_filename,vcf_filename,mask_filename):
-    """ Builds a reference panel with similar structure to the IMPUTE2 format.
-        The reference panel is encoded for efficient storage and retrieval. """
-    
-    time0 = time.time()
-    
-    mask = load_mask_tab_fasta_gz(mask_filename) if mask_filename!='' else None
 
+def parse_samples(samp_filename):
+    """ Parses the samples file. """
     
     def sam_format(line):
-          sample_id, group1, group2, sex = line.strip().split(' ')
-          return sam_tuple(sample_id, group1, group2, int(sex))
+        """ Auxaliry function for parsing a single line in the samples file. """
+        sample_id, group1, group2, sex = line.strip().split(' ')
+        return sam_tuple(sample_id, group1, group2, int(sex))
     
     with (gzip.open(samp_filename,'rt') if samp_filename[-3:]=='.gz' else open(samp_filename, 'r')) as impute2_in:
         impute2_in.readline()   # Bite off the header
         SAMPLES = tuple(map(sam_format,impute2_in))
     
+    return SAMPLES
+
+
+def build_ref_panel_via_pysam(samp_filename,vcf_filename,mask_filename):
+    """ Builds a reference panel via pysam with similar structure to the IMPUTE2 format.
+        The reference panel is encoded for efficient storage and retrieval. """
+    time0 = time.time()
+    
+    mask = load_mask_tab_fasta_gz(mask_filename) if mask_filename!='' else None
+
+    
     vcf_in = pysam.VariantFile(vcf_filename,'r')  # auto-detect input format
     print(f'--- VCF Filename: {vcf_filename:s}')
     print(f'--- VCF description: {vcf_in.description:s}') ### Based on the VCF header, prints a description of the VCF file. 
 
+    SAMPLES = parse_samples(samp_filename)
     SAM = [s.sample_id for s in SAMPLES if s.sample_id in vcf_in.header.samples]
 
     lenSAM = len(SAM) ### The number of samples that are also included in the VCF.
+    get_samples = operator.itemgetter(*SAM)
+
     
     vcf_in.subset_samples(SAM) ### Read only a subset of samples to reduce processing time and memory. Must be called prior to retrieving records.
 
@@ -114,17 +133,16 @@ def build_ref_panel(samp_filename,vcf_filename,mask_filename):
             phased = all((record.samples[sample].phased for sample in SAM))
             if not phased: continue ### Only encode phased SNPs
         
-            ALLELES = tuple(itertools.chain.from_iterable((record.samples[sample].allele_indices for sample in SAM)))
+            ALLELES = tuple(itertools.chain.from_iterable((s.allele_indices for s in get_samples(record.samples))))
             an = ALLELES.count(1)
             if an==2*lenSAM or an==0: continue ### Only encode SNPs with a non-zero minor allele count.
             if mask!=None and mask[record.pos-1]!='P': 
                 skipped_SNPs +=1
                 continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks. 
 
-            LEGEND.append(leg_tuple('chr'+record.contig, record.pos, *record.alleles)) ### Add the record to the legend list        
-            binary = sum(v<<i for i, v in enumerate(ALLELES[::-1])) ### Encode the alleles as bits
+            LEGEND.append(leg_tuple('chr'+record.contig, record.pos, *record.alleles)) ### Add the record to the legend list. pos is 1-based inclusive!
+            binary = sum(v<<i for i, v in enumerate(reversed(ALLELES)) if v) ### Encode the alleles as bits
             HAPLOTYPES.append(binary) ### Add the record to the haplotypes list
-                      
     time1 = time.time()
     if mask!=None:
         print(f'--- Based on the genome accessibility mask, {skipped_SNPs:d} SNP records were skipped.')
@@ -135,25 +153,90 @@ def build_ref_panel(samp_filename,vcf_filename,mask_filename):
 
     return result
 
-def save_ref_panel(samp_filename, legend, haplotypes, samples):
+def build_ref_panel_via_cyvcf2(samp_filename,vcf_filename,mask_filename):
+    """ Builds a reference panel via cyvcf2 with similar structure to the IMPUTE2 format.
+        The reference panel is encoded for efficient storage and retrieval. """
+    
+    time0 = time.time()
+    reverse_haplotypes = operator.itemgetter(1,0)
+    
+    mask = load_mask_tab_fasta_gz(mask_filename) if mask_filename!='' else None
+
+    vcf_in = cyvcf2.VCF(vcf_filename,'r', strict_gt=True)  # auto-detect input format
+
+    print(f'--- VCF Filename: {vcf_filename:s}')
+
+    assert len(vcf_in.seqnames)==1, 'All records in the VCF must correspond to a single chromosome.'
+
+    SAMPLES = parse_samples(samp_filename)
+    
+    SAM = [s.sample_id for s in SAMPLES if s.sample_id in vcf_in.samples]
+    lenSAM = len(SAM) ### The number of samples that are also included in the VCF.
+    vcf_in.set_samples(SAM) ### Read only a subset of samples to reduce processing time and memory. Must be called prior to retrieving records.
+
+        
+    X = [s for s in vcf_in.samples if s in SAM]
+    reversed_order = operator.itemgetter(*(X.index(s) for s in reversed(SAM))) #Returns the reversed order of samples with respect to the list SAMPLES.
+        
+    HAPLOTYPES = []
+    LEGEND = []
+    skipped_SNPs = 0
+    
+    for record in vcf_in():
+        if record.INFO.get("VT")=='SNP': ### Only encode SNPs
+        
+        
+            if not record.gt_phases.all(): continue ### Only encode phased SNPs
+            if record.num_unknown>0 or record.num_hom_ref==lenSAM or record.num_hom_alt==lenSAM: continue ### Only encode SNPs with a non-zero minor allele count.
+            if mask!=None and mask[record.POS-1]!='P': # According to description of the VCF format, positions are 1-based.
+                skipped_SNPs +=1
+                continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks. 
+
+            LEGEND.append(leg_tuple('chr'+record.CHROM, record.POS, record.REF, *record.ALT)) ### Add the record to the legend list        
+            alleles = itertools.chain.from_iterable(map(reverse_haplotypes,reversed_order(record.genotypes)))
+            binary = sum(v<<i for i, v in enumerate(alleles) if v) ### Encode the alleles as bits
+            HAPLOTYPES.append(binary) ### Add the record to the haplotypes list
+    time1 = time.time()
+    if mask!=None:
+        print(f'--- Based on the genome accessibility mask, {skipped_SNPs:d} SNP records were skipped.')
+    print(f'--- The reference panel contains {len(LEGEND):d} SNPs.')
+    print('Done building the reference panel in %.3f sec.' % (time1-time0))
+    
+    result = tuple(LEGEND), (tuple(HAPLOTYPES), 2*lenSAM), SAMPLES
+
+    return result
+
+def save_ref_panel(samp_filename, legend, haplotypes, samples, output_dir):
     """ Saves the reference panel as a compressed pickle file. """
     time0 = time.time()
-    base = samp_filename.rsplit('/', 1)[1].rsplit('.', 1)[0]
-    with gzip.open(''.join([legend[0].chr_id,'_',base,'.legend.gz']),'wb') as f:
+    if output_dir.strip()!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
+    path = output_dir.strip().rstrip('/')+'/' if output_dir.strip()!='' else ''
+    strip_samp_filename = samp_filename.rsplit('/', 1)[1].rsplit('.', 1)[0]
+    base_filename = ''.join([legend[0].chr_id,'_',strip_samp_filename])
+    with gzip.open(path+base_filename+'.legend.gz','wb') as f:
         pickle.dump(legend,f)
-    with gzip.open(''.join([legend[0].chr_id,'_',base,'.hap.gz']),'wb') as f:
+    with gzip.open(path+base_filename+'.hap.gz','wb') as f:
         pickle.dump(haplotypes,f)
-    with gzip.open(base+'.samples.gz','wb') as f:
+    with gzip.open(path+strip_samp_filename+'.samples.gz','wb') as f:
         pickle.dump(samples,f)
     time1 = time.time()
     print('Done saving the reference panel in %.3f sec.' % (time1-time0))
     return 0
 
 
-def main(samp_filename,vcf_filename,mask):
+def main(samp_filename,vcf_filename,mask,output_directory,force_module):
     """ Builds and saves the reference panel. """ 
-    legend, haplotypes, samples = build_ref_panel(samp_filename,vcf_filename,mask)
-    save_ref_panel(samp_filename, legend, haplotypes, samples)
+    
+    if force_module=='pysam' or handle_vcf == 'pysam':
+        if 'pysam' not in sys.modules:
+            global pysam; import pysam
+        print('--- Creating the reference panel via the module pysam.')
+        legend, haplotypes, samples = build_ref_panel_via_pysam(samp_filename,vcf_filename,mask)
+    else:
+        print('--- Creating the reference panel via the module cyvcf2.')
+        legend, haplotypes, samples = build_ref_panel_via_cyvcf2(samp_filename,vcf_filename,mask)
+        
+    save_ref_panel(samp_filename, legend, haplotypes, samples, output_directory)
     return 0
     
         
@@ -170,6 +253,10 @@ if __name__ == "__main__":
     parser.add_argument('-m','--mask', type=str,metavar='GZIPPED_FASTA_FILENAME', default='',
                         help='An accessibility mask file in a gzipped FASTA format.'
                              'Supplying an accessibility mask file will reduce false SNPs in regions of the genome that are less accessible to NGS methods.')
+    parser.add_argument('-o','--output-directory', type=str,metavar='directory path', default='',
+                        help='The directory in which the reference panel would be created.')
+    parser.add_argument('-f','--force-module', type=str,metavar='cyvcf2/pysam', default='',
+                        help='By deafult cyvcf2 module would be used. This allows to use pysam instead.')
     args = parser.parse_args()
     sys.exit(main(**vars(args)))
 else:
@@ -178,7 +265,7 @@ else:
 """
 if __name__ == "__main__": 
     #for SP in 'EUR','EAS','SAS','AFR','AMR','AFR_EUR','EAS_EUR','SAS_EUR','EAS_SAS':
-    SP = 'EAS_SAS'
+    SP = 'ALL'
     print(SP)
     samp_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/reference_panels/samples_per_panel/{SP:s}_panel.samples'
     for i in ['X',*range(22,0,-1)]:    
