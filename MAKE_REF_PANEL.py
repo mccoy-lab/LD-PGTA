@@ -105,6 +105,7 @@ def parse_samples(samp_filename):
 def build_ref_panel_via_pysam(samp_filename,vcf_filename,mask_filename):
     """ Builds a reference panel via pysam with similar structure to the IMPUTE2 format.
         The reference panel is encoded for efficient storage and retrieval. """
+    import pysam
     time0 = time.time()
 
     mask = load_mask_tab_fasta_gz(mask_filename) if mask_filename!='' else None
@@ -128,7 +129,7 @@ def build_ref_panel_via_pysam(samp_filename,vcf_filename,mask_filename):
     skipped_SNPs = 0
 
     for record in vcf_in.fetch():
-        if record.info["VT"]==('SNP',): ### ### Only encode SNPs
+        if record.info.get('VT')==('SNP',) or record.info.get('VT')==None: ### Only encode SNPs
 
             phased = all((record.samples[sample].phased for sample in SAM))
             if not phased: continue ### Only encode phased SNPs
@@ -183,7 +184,7 @@ def build_ref_panel_via_cyvcf2(samp_filename,vcf_filename,mask_filename):
     skipped_SNPs = 0
 
     for record in vcf_in():
-        if record.INFO.get("VT")=='SNP': ### Only encode SNPs
+        if record.INFO.get("VT")=='SNP' or record.INFO.get("VT")==None: ### Only encode SNPs
 
 
             if not record.gt_phases.all(): continue ### Only encode phased SNPs
@@ -264,26 +265,30 @@ else:
 
 """
 if __name__ == "__main__":
-    #for SP in 'EUR','EAS','SAS','AFR','AMR','AFR_EUR','EAS_EUR','SAS_EUR','EAS_SAS':
-    SP = 'ALL'
-    print(SP)
-    samp_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/reference_panels/samples_per_panel/{SP:s}_panel.samples'
-    for i in ['X',*range(22,0,-1)]:
-        print(i)
-        vcf_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/vcf_phase3_hg38_v2/ALL.chr{i}.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz'
-        mask_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/mask/20160622.chr{i}.mask.fasta.gz'
-        legend, haplotypes, samples = build_ref_panel(samp_filename,vcf_filename,mask_filename)
-        save_ref_panel(samp_filename, legend, haplotypes, samples)
-
-        #impute2_leg_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/{SP:s}_panel.hg38.BCFtools/chr{i}_{SP:s}_panel.legend.gz'
-        #impute2_hap_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/{SP:s}_panel.hg38.BCFtools/chr{i}_{SP:s}_panel.hap.gz'
-
-        #impute2_leg = read_impute2(impute2_leg_filename,filetype='leg')
-        #impute2_hap = read_impute2(impute2_hap_filename,filetype='hap')
-        #impute2_sam = read_impute2(samp_filename,filetype='sam')
-        #save_ref_panel(samp_filename, impute2_leg, impute2_hap, impute2_sam)
-
-
-        #print(test_module(impute2_leg_filename, impute2_hap_filename, legend, haplotypes))
+    for SP in 'EUR','EAS','SAS','AFR','AMR','AFR_EUR','EAS_EUR','SAS_EUR','EAS_SAS':
+        #SP = 'ALL'
+        print(SP)
+        samp_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/reference_panels/samples_per_panel/{SP:s}_panel.samples'
+        output_directory = f'/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/reference_panels/{SP:s}_panel'
+        for i in ['X',*range(22,0,-1)]:
+            print(i)
+            if i=='X':
+                vcf_filename = '/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/1000_genomes_30x_on_GRCh38_3202_samples/CCDG_14151_B01_GRM_WGS_2020-08-05_chrX.filtered.eagle2-phased.v2.vcf.gz'
+            else:
+                vcf_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/1000_genomes_30x_on_GRCh38_3202_samples/CCDG_14151_B01_GRM_WGS_2020-08-05_chr{i}.filtered.shapeit2-duohmm-phased.vcf.gz'
+            mask_filename = ''# f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/mask/20160622.chr{i}.mask.fasta.gz'
+            legend, haplotypes, samples = build_ref_panel_via_cyvcf2(samp_filename,vcf_filename,mask_filename)
+            save_ref_panel(samp_filename, legend, haplotypes, samples, output_directory)
+    
+            #impute2_leg_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/{SP:s}_panel.hg38.BCFtools/chr{i}_{SP:s}_panel.legend.gz'
+            #impute2_hap_filename = f'/home/ariad/Dropbox/postdoc_JHU/Project1_LD-PGTA/LD-PGTA_ecosystem/build_reference_panel/{SP:s}_panel.hg38.BCFtools/chr{i}_{SP:s}_panel.hap.gz'
+    
+            #impute2_leg = read_impute2(impute2_leg_filename,filetype='leg')
+            #impute2_hap = read_impute2(impute2_hap_filename,filetype='hap')
+            #impute2_sam = read_impute2(samp_filename,filetype='sam')
+            #save_ref_panel(samp_filename, impute2_leg, impute2_hap, impute2_sam)
+    
+    
+            #print(test_module(impute2_leg_filename, impute2_hap_filename, legend, haplotypes))
 
 """
