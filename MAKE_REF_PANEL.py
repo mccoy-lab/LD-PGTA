@@ -18,6 +18,8 @@ sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2'
 obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
 
+global handle_vcf
+
 try:
     import cyvcf2
     handle_vcf = 'cyvcf2'
@@ -31,6 +33,11 @@ except ModuleNotFoundError:
         print('Error: Either the module cyvcf2 or pysam is required. Use cyvcf2 for faster performance.')
         exit(1)
 
+def add_prefix(x):
+    """ Adds the suffix 'chr' when missing. """
+    return 'chr' + x.removeprefix('chr')
+
+
 def read_impute2(filename,**kwargs):
     """ Reads an IMPUTE2 file format (LEGEND/HAPLOTYPE/SAMPLE) and builds a list
         of lists, containing the dataset. """
@@ -39,7 +46,7 @@ def read_impute2(filename,**kwargs):
 
     def leg_format(line):
         rs_id, pos, ref, alt = line.strip().split()
-        return leg_tuple('chr'+rs_id[:2].rstrip(':'), int(pos), ref, alt)
+        return leg_tuple(add_prefix(rs_id.split(':',1)[0]), int(pos), ref, alt)
 
     def sam_format(line):
           sample_id, group1, group2, sex = line.strip().split(' ')
@@ -67,14 +74,6 @@ def read_impute2(filename,**kwargs):
 
     return result
 
-def test_module(impute2_leg_filename, impute2_hap_filename, legend, haplotypes):
-    """ Compares the IMPUTE2 reference panels to LD-PGTA reference panels. """
-    impute2_leg = read_impute2(impute2_leg_filename,filetype='leg')
-    impute2_hap = read_impute2(impute2_hap_filename,filetype='hap')
-    print('Legend:', all(a==b for a,b in zip(impute2_leg,legend)))
-    print('Haplotypes:', all(a==b for a,b in zip(impute2_hap[0],haplotypes[0])))
-    return 0
-
 def load_mask_tab_fasta_gz(mask_filename):
     """ Loads accessibility masks from fasta.gz files. """
     with gzip.open(mask_filename,'rb') as f0:
@@ -85,7 +84,6 @@ def load_mask_tab_fasta_gz(mask_filename):
             result = ''.join(cache)
 
     return result
-
 
 def parse_samples(samp_filename):
     """ Parses the samples file. """
@@ -102,12 +100,73 @@ def parse_samples(samp_filename):
     return SAMPLES
 
 
+def build_ref_panel_via_bcftools(samp_filename,vcf_filename,mask_filename):
+    """ Builds a reference panel via bcftools with similar structure to the IMPUTE2 format.
+        The reference panel is encoded for efficient storage and retrieval. """
+    time0 = time.time()
+    import os, tempfile
+    print(f'--- Samples Filename: {samp_filename:s}')
+    
+    tmp_dir = tempfile._get_default_tempdir()
+    indv_filename = tmp_dir +'/' + next(tempfile._get_candidate_names()) 
+    bcf_filename = tmp_dir +'/' + next(tempfile._get_candidate_names()) 
+    impute2_leg_filename = tmp_dir +'/' + next(tempfile._get_candidate_names()) 
+    impute2_hap_filename = tmp_dir +'/' + next(tempfile._get_candidate_names()) 
+    impute2_samp_filename = tmp_dir +'/' + next(tempfile._get_candidate_names()) 
+    
+    
+    pipeline = [f"sed '1d' {samp_filename:s} | cut -f 1 -d ' ' > {indv_filename:s}",
+                f"bcftools view \
+                {vcf_filename:s} \
+                --samples-file {indv_filename:s} \
+                --exclude-types indels,mnps,ref,bnd,other \
+                --min-alleles 2 \
+                --max-alleles 2 \
+                --min-ac 1:minor \
+                --phased \
+                --exclude 'AN!=2*N_SAMPLES' \
+                --output-file {bcf_filename:s} \
+                --output-type u \
+                --force-samples",
+                f"bcftools convert {bcf_filename:s} --haplegendsample {impute2_hap_filename:s},{impute2_leg_filename:s},{impute2_samp_filename:s}"]
+    
+    try:
+        for cmd in pipeline:
+            print('--- Executing:',cmd)
+            stream = os.popen(cmd)
+            print('--- Output:',stream.read())
+                      
+        leg_tab = read_impute2(impute2_leg_filename,filetype='leg')
+        hap_tab, number_of_haplotypes = read_impute2(impute2_hap_filename,filetype='hap')
+        sam_tab = read_impute2(samp_filename,filetype='sam')
+        
+        if mask_filename!='':
+            mask = load_mask_tab_fasta_gz(mask_filename)  
+            skipped_SNPs=len(leg_tab)
+            hap_tab = tuple(hap for leg, hap in zip(leg_tab,hap_tab) if mask[leg.pos-1]=='P')
+            leg_tab = tuple(leg for leg in leg_tab if mask[leg.pos-1]=='P')
+            skipped_SNPs-=len(leg_tab)
+            print(f'--- Based on the genome accessibility mask, {skipped_SNPs:d} SNP records were skipped.')
+
+            
+    finally:
+        os.remove(indv_filename)
+        os.remove(bcf_filename)
+        os.remove(impute2_leg_filename)
+        os.remove(impute2_hap_filename)
+        os.remove(impute2_samp_filename)
+    
+    time1 = time.time()
+    print('Done building the reference panel in %.3f sec.' % (time1-time0))
+    return leg_tab, (hap_tab, number_of_haplotypes), sam_tab
+
 def build_ref_panel_via_pysam(samp_filename,vcf_filename,mask_filename):
     """ Builds a reference panel via pysam with similar structure to the IMPUTE2 format.
         The reference panel is encoded for efficient storage and retrieval. """
-    import pysam
     time0 = time.time()
+    print(f'--- Samples Filename: {samp_filename:s}')
 
+    ACTG = set('ACTG')
     mask = load_mask_tab_fasta_gz(mask_filename) if mask_filename!='' else None
 
 
@@ -129,21 +188,20 @@ def build_ref_panel_via_pysam(samp_filename,vcf_filename,mask_filename):
     skipped_SNPs = 0
 
     for record in vcf_in.fetch():
-        if record.info.get('VT')==('SNP',) or record.info.get('VT')==None: ### Only encode SNPs
+        if record.info.get('VT')!=('SNP',) and not (record.alleles[0] in ACTG and record.alleles[1] in ACTG): continue
+        phased = all((record.samples[sample].phased for sample in SAM))
+        if not phased: continue ### Only encode phased SNPs
 
-            phased = all((record.samples[sample].phased for sample in SAM))
-            if not phased: continue ### Only encode phased SNPs
+        ALLELES = tuple(itertools.chain.from_iterable((s.allele_indices for s in get_samples(record.samples))))
+        an = ALLELES.count(1)
+        if an==2*lenSAM or an==0: continue ### Only encode SNPs with a non-zero minor allele count.
+        if mask!=None and mask[record.pos-1]!='P':
+            skipped_SNPs +=1
+            continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks.
 
-            ALLELES = tuple(itertools.chain.from_iterable((s.allele_indices for s in get_samples(record.samples))))
-            an = ALLELES.count(1)
-            if an==2*lenSAM or an==0: continue ### Only encode SNPs with a non-zero minor allele count.
-            if mask!=None and mask[record.pos-1]!='P':
-                skipped_SNPs +=1
-                continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks.
-
-            LEGEND.append(leg_tuple('chr'+record.contig, record.pos, *record.alleles)) ### Add the record to the legend list. pos is 1-based inclusive!
-            binary = sum(v<<i for i, v in enumerate(reversed(ALLELES)) if v) ### Encode the alleles as bits
-            HAPLOTYPES.append(binary) ### Add the record to the haplotypes list
+        LEGEND.append(leg_tuple(add_prefix(record.contig), record.pos, *record.alleles)) ### Add the record to the legend list. pos is 1-based inclusive!
+        binary = sum(v<<i for i, v in enumerate(reversed(ALLELES)) if v) ### Encode the alleles as bits
+        HAPLOTYPES.append(binary) ### Add the record to the haplotypes list
     time1 = time.time()
     if mask!=None:
         print(f'--- Based on the genome accessibility mask, {skipped_SNPs:d} SNP records were skipped.')
@@ -159,8 +217,9 @@ def build_ref_panel_via_cyvcf2(samp_filename,vcf_filename,mask_filename):
         The reference panel is encoded for efficient storage and retrieval. """
 
     time0 = time.time()
+    print(f'--- Samples Filename: {samp_filename:s}')
     reverse_haplotypes = operator.itemgetter(1,0)
-
+    ACTG = set('ACTG')
     mask = load_mask_tab_fasta_gz(mask_filename) if mask_filename!='' else None
 
     vcf_in = cyvcf2.VCF(vcf_filename,'r', strict_gt=True)  # auto-detect input format
@@ -184,19 +243,17 @@ def build_ref_panel_via_cyvcf2(samp_filename,vcf_filename,mask_filename):
     skipped_SNPs = 0
 
     for record in vcf_in():
-        if record.INFO.get("VT")=='SNP' or record.INFO.get("VT")==None: ### Only encode SNPs
+        if record.INFO.get('VT')!='SNP' and not (record.REF in ACTG and record.ALT[0] in ACTG): continue
+        if not record.gt_phases.all(): continue ### Only encode phased SNPs
+        if record.num_unknown>0 or record.num_hom_ref==lenSAM or record.num_hom_alt==lenSAM: continue ### Only encode SNPs with a non-zero minor allele count.
+        if mask!=None and mask[record.POS-1]!='P': # According to description of the VCF format, positions are 1-based.
+            skipped_SNPs +=1
+            continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks.
 
-
-            if not record.gt_phases.all(): continue ### Only encode phased SNPs
-            if record.num_unknown>0 or record.num_hom_ref==lenSAM or record.num_hom_alt==lenSAM: continue ### Only encode SNPs with a non-zero minor allele count.
-            if mask!=None and mask[record.POS-1]!='P': # According to description of the VCF format, positions are 1-based.
-                skipped_SNPs +=1
-                continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks.
-
-            LEGEND.append(leg_tuple('chr'+record.CHROM, record.POS, record.REF, *record.ALT)) ### Add the record to the legend list
-            alleles = itertools.chain.from_iterable(map(reverse_haplotypes,reversed_order(record.genotypes)))
-            binary = sum(v<<i for i, v in enumerate(alleles) if v) ### Encode the alleles as bits
-            HAPLOTYPES.append(binary) ### Add the record to the haplotypes list
+        LEGEND.append(leg_tuple(add_prefix(record.CHROM), record.POS, record.REF, *record.ALT)) ### Add the record to the legend list
+        alleles = itertools.chain.from_iterable(map(reverse_haplotypes,reversed_order(record.genotypes)))
+        binary = sum(v<<i for i, v in enumerate(alleles) if v) ### Encode the alleles as bits
+        HAPLOTYPES.append(binary) ### Add the record to the haplotypes list
     time1 = time.time()
     if mask!=None:
         print(f'--- Based on the genome accessibility mask, {skipped_SNPs:d} SNP records were skipped.')
@@ -228,14 +285,17 @@ def save_ref_panel(samp_filename, legend, haplotypes, samples, output_dir):
 def main(samp_filename,vcf_filename,mask,output_directory,force_module):
     """ Builds and saves the reference panel. """
 
-    if force_module=='pysam' or handle_vcf == 'pysam':
+    if force_module=='pysam' or handle_vcf+force_module == 'pysam':
         if 'pysam' not in sys.modules:
             global pysam; import pysam
         print('--- Creating the reference panel via the module pysam.')
         legend, haplotypes, samples = build_ref_panel_via_pysam(samp_filename,vcf_filename,mask)
-    else:
+    elif force_module=='cyvcf2' or handle_vcf+force_module == 'cyvcf2':
         print('--- Creating the reference panel via the module cyvcf2.')
         legend, haplotypes, samples = build_ref_panel_via_cyvcf2(samp_filename,vcf_filename,mask)
+    else:
+        print('--- Creating the reference panel via bcftools.')
+        legend, haplotypes, samples = build_ref_panel_via_bcftools(samp_filename,vcf_filename,mask)
 
     save_ref_panel(samp_filename, legend, haplotypes, samples, output_directory)
     return 0
@@ -256,8 +316,8 @@ if __name__ == "__main__":
                              'Supplying an accessibility mask file will reduce false SNPs in regions of the genome that are less accessible to NGS methods.')
     parser.add_argument('-o','--output-directory', type=str,metavar='PATH', default='',
                         help='The directory in which the reference panel would be created.')
-    parser.add_argument('-f','--force-module', type=str,metavar='cyvcf2/pysam', default='',
-                        help='By deafult cyvcf2 module would be used. This allows to use pysam instead.')
+    parser.add_argument('-f','--force-module', type=str,metavar='cyvcf2/pysam/bcftools', default='',
+                        help='By deafult cyvcf2 module would be used. This allows to use pysam or bcftools instead. In order to use bcftools, it needs to be in search path.')
     args = parser.parse_args()
     sys.exit(main(**vars(args)))
 else:
