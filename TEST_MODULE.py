@@ -10,16 +10,19 @@ Daniel Ariad (daniel@ariad.org)
 Sep 30, 2021
 """
 
-import collections, random, pickle
+import collections, random, pickle, os
+
+random.seed(a=2021,version=2)
 
 leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
 sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
 obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 
-def generate_legned(SNPs=24):
+def generate_legned(SNPs=24,depth=0.1):
     chr_id = 'chrTEST'
+    POS = sorted(random.sample(range(int(SNPs/depth)), SNPs))
     REF, ALT = zip(*(random.sample('ATCG',k=2) for i in range(SNPs)))
-    legend = tuple(leg_tuple(chr_id,pos,ref,alt) for pos,ref,alt in zip(range(SNPs),REF,ALT))
+    legend = tuple(leg_tuple(chr_id,pos,ref,alt) for pos,ref,alt in zip(POS,REF,ALT))
     return legend
 
 def generate_haplotype(SNPs=24,number_of_haplotypes=10):
@@ -43,22 +46,32 @@ def generate_sam(groups=1,number_of_haplotypes=10):
 def print_haplotypes(hap_tab,number_of_haplotypes):
     return tuple(tuple(bin(h)[2:].zfill(number_of_haplotypes)) for h in hap_tab)
 
-random.seed(a=25,version=2)
-leg_tab = generate_legned(SNPs=24)
-hap_tab, number_of_haplotypes = generate_haplotype(SNPs=24,number_of_haplotypes=10) 
-obs_tab = generate_obs(leg_tab,alleles_per_read=4)
-sam_tab = generate_sam(groups=1,number_of_haplotypes=10)
+leg_tab = generate_legned(SNPs=1000)
+hap_tab, number_of_haplotypes = generate_haplotype(SNPs=1000,number_of_haplotypes=250)  ### number of haplotypes must be even, because diploids are simulated.
+obs_tab = generate_obs(leg_tab,alleles_per_read=1)
+sam_tab = generate_sam(groups=2,number_of_haplotypes=250)
 
-with open('test.obs.p','wb') as f:
+if not os.path.exists('test'): os.makedirs('test')
+
+info = {'redo-BAQ': False,
+        'handle-multiple-observations' : 'all',
+        'min-bq': 30,
+        'min-mq' :  30,
+        'max-depth' :  0,
+        'chr_id': 'chrTEST',
+        'depth': 0.1}
+
+with open('test/test.obs.p','wb') as f:
     pickle.dump(obs_tab,f)
+    pickle.dump(info,f)
     
-with open('test.leg.p','wb') as f:
+with open('test/test.leg.p','wb') as f:
     pickle.dump(leg_tab,f)
 
-with open('test.hap.p','wb') as f:
+with open('test/test.hap.p','wb') as f:
     pickle.dump((hap_tab,number_of_haplotypes),f)
     
-with open('test.sam.p','wb') as f:
+with open('test/test.sam.p','wb') as f:
     pickle.dump(sam_tab,f)
 
 """
