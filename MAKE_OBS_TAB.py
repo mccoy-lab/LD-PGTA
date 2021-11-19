@@ -86,10 +86,10 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         pos = 0
         for pileupcolumn in samfile.pileup(**arg):
 
-            while pileupcolumn.pos > pos-1:  ### Chromosomal position starts from 1 in legend table, while it starts from 0 in the pileup iterator.
+            while pileupcolumn.reference_pos > pos-1:  ### Chromosomal position starts from 1 in legend table, while it starts from 0 in the pileup iterator.
                 chr_id,pos,ref,alt = next(leg_tab_iterator)
 
-            if pileupcolumn.pos == pos-1:
+            if pileupcolumn.reference_pos == pos-1:
 
                 rows = [obs_tuple(pos, pileupread.alignment.query_name, pileupread.alignment.query_sequence[pileupread.query_position])
                         for pileupread in pileupcolumn.pileups if pileupread.query_position!=None] # query_position is None if the base on the padded read is a deletion or a skip (e.g. spliced alignment).
