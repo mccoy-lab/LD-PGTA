@@ -144,7 +144,7 @@ def build_aux_dict(obs_tab,combined_dict):
     return aux_dict
 
 def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
-                 max_reads,minimal_score):
+                 max_reads,min_score):
     """ Returns an iterator over the genomic windows together with read IDs of
         the reads that overlap with SNPs in the genomic window. Only reads with
         a score larger than one are considered. """
@@ -164,12 +164,12 @@ def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
         if pos<first: continue
         while b<last:
             if a<=pos<b:
-                readIDs_in_window.update(read_ID for read_ID in overlapping_reads if minimal_score<=score_dict[read_ID])
+                readIDs_in_window.update(read_ID for read_ID in overlapping_reads if min_score<=score_dict[read_ID])
                 break
             elif adaptive and 0<len(readIDs_in_window)<min_reads and b-pos<=max_dist and b-a<=max_win_size:
                 b += 10000
             else:
-                yield ((a,b-1), readIDs_in_window) #the genomic window includes both endpoints.
+                yield ((a,b-1), tuple(readIDs_in_window)) #the genomic window includes both endpoints.
                 a, b, readIDs_in_window = b, b+window_size, set()
 
 def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
@@ -198,7 +198,7 @@ def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
 
 def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
               models_dict, window_size, subsamples, offset, min_reads,
-              max_reads, minimal_score, min_HF, ancestral_makeup):
+              max_reads, min_score, min_HF, ancestral_makeup):
     """ Applies a bootstrap approach in which: (i) the resample size is smaller
     than the sample size and (ii) resampling is done without replacement. """
 
@@ -209,8 +209,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     combined_dict = build_combined(leg_tab, hap_tab)
     reads_dict = build_reads_dict(obs_tab, combined_dict)
     score_dict = build_score_dict(reads_dict, combined_dict, number_of_haplotypes, min_HF)
-    windows_dict = dict(iter_windows(obs_tab, combined_dict, score_dict, window_size, offset, min_reads, max_reads, minimal_score))
-
+    windows_dict = dict(iter_windows(obs_tab, combined_dict, score_dict, window_size, offset, min_reads, max_reads, min_score))
     
     if ancestral_makeup=={}:
         print('Assuming one ancestral population: %s.' % sam_tab[0].group2)
@@ -294,7 +293,7 @@ def save_results(likelihoods,info,compress,obs_filename,output_filename,output_d
 
 def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
                     window_size,subsamples,offset,min_reads,max_reads,
-                    minimal_score,min_HF,output_filename,compress,**kwargs):
+                    min_score,min_HF,output_filename,compress,**kwargs):
     """ Returns a dictionary that lists the boundaries of approximately
     independent genomic windows. For each genomic window it gives the
     likelihood of four scenarios, namely, monosomy, disomy, SPH and BPH.
@@ -306,7 +305,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
     
-    ancestral_makeup = dict(zip(kwargs['ancestral_makeup'][0::2],kwargs['ancestral_makeup'][1::2]))
+    ancestral_makeup = dict(zip(kwargs['ancestral_makeup'][0::2],map(float,kwargs['ancestral_makeup'][1::2])))
     
     load = lambda filename: {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open)  #Adjusts the opening method according to the file extension.
 
@@ -332,7 +331,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
     with open_model(models_filename, 'rb') as model_in:
         models_dict = pickle.load(model_in)
 
-    likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF, ancestral_makeup)
+    likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, min_score, min_HF, ancestral_makeup)
 
     some_statistics = {'matched_alleles': matched_alleles,
                        'runtime': time.time()-time0}
@@ -345,7 +344,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
                  'offset': offset,
                  'min_reads': min_reads,
                  'max_reads': max_reads,
-                 'minimal_score': minimal_score,
+                 'min_score': min_score,
                  'min_HF': min_HF,
                  'statistics': {**statistics(likelihoods,windows_dict), **some_statistics}
                  })
@@ -374,9 +373,9 @@ if __name__ == "__main__":
                         help='A legend file of the reference panel.')
     parser.add_argument('hap_filename', metavar='HAP_FILENAME', type=str,
                         help='A haplotype file of the reference panel.')
-    parser.add_argument('sam_filename', metavar='SAM_FILENAME', type=str,
+    parser.add_argument('samp_filename', metavar='SAMP_FILENAME', type=str,
                         help='A samples file of the reference panel.')
-    parser.add_argument('-a', '--ancestral-makeup', metavar='STR FLOAT ...', type=str, nargs='+', default=[],
+    parser.add_argument('-a', '--ancestral-makeup', metavar='STR FLOAT ...', nargs='+', default=[],
                         help='Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8 EAS 0.1 SAS 0.1.')
     parser.add_argument('-w', '--window-size', type=int,
                         metavar='INT', default='100000',
@@ -384,8 +383,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--subsamples', type=int,
                         metavar='INT', default='32',
                         help='Sets the number of subsamples per genomic window. The default value is 32.')
-    parser.add_argument('-o', '--offset', type=int,
-                        metavar='INT', default=0,
+    parser.add_argument('-o', '--offset', type=int, metavar='INT', default=0,
                         help='Shifts all the genomic windows by the requested base pairs. The default value is 0.')
     parser.add_argument('-m', '--min-reads', type=int, metavar='INT', default=6,
                         help='Takes into account only genomic windows with at least INT reads, admitting non-zero score. The minimal value is 3, while the default is 6.')
@@ -393,7 +391,7 @@ if __name__ == "__main__":
                         help='Selects up to INT reads from each genomic windows in each bootstrap sampling. The minimal value is 2, while the default value is 4.')
     parser.add_argument('-F', '--min-HF', type=int, metavar='FLOAT', default=0.05,
                         help='Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05.')
-    parser.add_argument('-S', '--min-score', type=int, metavar='INT', default=16,
+    parser.add_argument('-S', '--min-score', type=int, metavar='INT', default=2,
                         help='Consider only reads that reach the minimal score. The default value is 2.')
     parser.add_argument('-O', '--output-filename', type=str, metavar='output_filename',  default='',
                         help='The output filename. The default is the input filename with the extension \".obs.p\" replaced by \".LLR.p\".')
@@ -424,7 +422,7 @@ def aneuploidy_test_demo(obs_filename='SWI-L-10-27-May-2020_S38.chr6.obs.p.bz2',
                 min_reads = 18,
                 max_reads = 12,
                 min_HF = 0.05,
-                minimal_score = 2,
+                min_score = 2,
                 output_dir = output_path,
                 output_filename = '',
                 compress = 'bz2',
