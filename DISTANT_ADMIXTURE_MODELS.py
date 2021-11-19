@@ -325,9 +325,9 @@ def wrapper_of_distant_admixture_for_debugging(obs_filename,leg_filename,hap_fil
     return distant_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, total_number_of_haplotypes, admixture)
 
 if __name__ != "__main__":
-    print('The module COMPLEX_ADMIXTURE_MODELS was imported.')
+    print('The module DISTANT_ADMIXTURE_MODELS was imported.')
 else:
-    print('The module COMPLEX_ADMIXTURE_MODELS was invoked directly')
+    print('The module DISTANT_ADMIXTURE_MODELS was invoked directly')
     sys.exit(0)
 
 ###############################   END OF FILE   ###############################
@@ -335,26 +335,29 @@ else:
 
 
 if __name__ != "__main__":
-    print("The module COMPLEX_ADMIXTURE_MODELS was imported.")
+    print("The module DISTANT_ADMIXTURE_MODELS was imported.")
 else:
-    print('The module COMPLEX_ADMIXTURE_MODELS was invoked directly')
+    print('The module DISTANT_ADMIXTURE_MODELS was invoked directly')
     #sys.exit(0)
     import time, random
     t0 = time.time()
-    obs_filename = 'results/SWI-L-10-27-May-2020_S38.chr6.obs.p.bz2'
-    hap_filename = '../build_reference_panel/EAS_EUR_panel.hg38.BCFtools/chr6_EAS_EUR_panel.hap.gz'
-    leg_filename = '../build_reference_panel/EAS_EUR_panel.hg38.BCFtools/chr6_EAS_EUR_panel.legend.gz'
-    sam_filename = '../build_reference_panel/samples_per_panel/EAS_EUR_panel.samples'
+    obs_filename = 'test/test.obs.p'
+    hap_filename = 'test/test.hap.p'
+    leg_filename = 'test/test.leg.p'
+    sam_filename = 'test/test.sam.p'
     models_filename = 'MODELS/MODELS16.p'
-    admixture = admix_tuple('EUR',0.8)
+    admixture = admix_tuple('group0',0.8)
 
     A = wrapper_of_distant_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename,admixture)
 
     alleles = tuple(A.hap_dict.keys())
 
-    frequencies0 = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,group2_id=0,normalize=True).items()}
-    frequencies1 = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,group2_id=1,normalize=True).items()}
-
+    ###frequencies0 = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,group2_id=0,normalize=True).items()}
+    ###frequencies1 = lambda *x: {bin(a)[2:]:b for a,b in A.joint_frequencies_combo(*x,group2_id=1,normalize=True).items()}
+    effective_frequencies = lambda *x: {bin(k0)[2:]: A.proportions[0] * v0 + A.proportions[1] * v1  
+                                       for (k0,v0),(k1,v1) in zip(A.joint_frequencies_combo(*x,group2_id=0,normalize=True).items(),
+                                                                  A.joint_frequencies_combo(*x,group2_id=1,normalize=True).items()) 
+                                                                       if k0==k1}
     likelihoods = A.likelihoods
     likelihoods2 = A.likelihoods2
     likelihoods3 = A.likelihoods3
@@ -362,35 +365,28 @@ else:
 
     random.seed(a=2021, version=2)
     x = random.randrange(len(alleles)-16)
-    haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16])
-
+    haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16]) 
     print('-----joint_frequencies_combo-----')
-    print(frequencies0(alleles[x+0]))
-    print(frequencies0(*alleles[x:x+4]))
-    print(frequencies1(alleles[x+0]))
-    print(frequencies1(*alleles[x:x+4]))
+    print(effective_frequencies(alleles[x+0]))
+    print(effective_frequencies(*alleles[x:x+4]))
     print('-----likelihoods4-haplotypes-----')
     print(haplotypes)
-    print(frequencies0(*haplotypes))
-    print(frequencies1(*haplotypes))
+    print(effective_frequencies(*haplotypes))
     print(likelihoods(*haplotypes))
     print(likelihoods4(*haplotypes))
     print('-----likelihoods2-----')
     print(alleles[x:x+2])
-    print(frequencies0(*alleles[x:x+2]))
-    print(frequencies1(*alleles[x:x+2]))
+    print(effective_frequencies(*alleles[x:x+2]))
     print(likelihoods(*alleles[x:x+2]))
     print(likelihoods2(*alleles[x:x+2]))
     print('-----likelihoods3-----')
     print(alleles[x:x+3])
-    print(frequencies0(*alleles[x:x+3]))
-    print(frequencies1(*alleles[x:x+3]))
+    print(effective_frequencies(*alleles[x:x+3]))
     print(likelihoods(*alleles[x:x+3]))
     print(likelihoods3(*alleles[x:x+3]))
     print('-----likelihoods4-----')
     print(alleles[x:x+4])
-    print(frequencies0(*alleles[x:x+4]))
-    print(frequencies1(*alleles[x:x+4]))
+    print(effective_frequencies(*alleles[x:x+4]))
     print(likelihoods(*alleles[x:x+4]))
     print(likelihoods4(*alleles[x:x+4]))
 

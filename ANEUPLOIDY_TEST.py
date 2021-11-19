@@ -198,7 +198,7 @@ def effective_number_of_subsamples(num_of_reads,min_reads,max_reads,subsamples):
 
 def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
               models_dict, window_size, subsamples, offset, min_reads,
-              max_reads, minimal_score, min_HF, ancestral_proportion):
+              max_reads, minimal_score, min_HF, ancestral_makeup):
     """ Applies a bootstrap approach in which: (i) the resample size is smaller
     than the sample size and (ii) resampling is done without replacement. """
 
@@ -211,17 +211,17 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     score_dict = build_score_dict(reads_dict, combined_dict, number_of_haplotypes, min_HF)
     windows_dict = dict(iter_windows(obs_tab, combined_dict, score_dict, window_size, offset, min_reads, max_reads, minimal_score))
 
-    ancestry = {row.group2 for row in sam_tab}
-    if len(ancestry)==2 and 0<ancestral_proportion.proportion<1 and ancestral_proportion.group2 in ancestry:
-        proportions = {i:ancestral_proportion.proportion if ancestral_proportion.group2==i else 1-ancestral_proportion.proportion for i in ancestry}
-        print('Assuming the following ancestry proportions:', proportions)
-        examine = distant_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, ancestral_proportion)
-    elif len(ancestry)==2:
-        print('Assuming recent-admixture between %s and %s.' % tuple(ancestry))
-        examine = recent_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
-    else:
-        print('Assuming one ancestral population: %s.' % tuple(ancestry))
+    
+    if ancestral_makeup=={}:
+        print('Assuming one ancestral population: %s.' % sam_tab[0].group2)
+        assert(len({i.group2 for i in sam_tab})==1), 'The samples file includes multiple groups (group2).'
         examine = homogeneous(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
+    elif [*ancestral_makeup.values()]==[0.5,0.5]:
+        print('Assuming recent-admixture between %s and %s.' % tuple(ancestral_makeup.keys()))
+        examine = recent_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
+    else:    
+        print('Assuming the following ancestral makeup:', ancestral_makeup)    
+        examine = distant_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, ancestral_makeup)
 
     likelihoods = {}
 
@@ -305,8 +305,9 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
     random.seed(a=kwargs.get('seed',None), version=2) #I should make sure that a=None after finishing to debug the code.
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
-    ancestral_proportion = (lambda x,y: admix_tuple(str(x),float(y)))(*kwargs.get('ancestral_proportion',('None','-1')))
-
+    
+    ancestral_makeup = dict(zip(kwargs['ancestral_makeup'][0::2],kwargs['ancestral_makeup'][1::2]))
+    
     load = lambda filename: {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open)  #Adjusts the opening method according to the file extension.
 
     open_hap = load(hap_filename)
@@ -331,15 +332,12 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
     with open_model(models_filename, 'rb') as model_in:
         models_dict = pickle.load(model_in)
 
-
-    ancestry = {row.group2 for row in sam_tab}
-    if len(ancestry)>2: print('warning: individuals in the sample file are associated with more than two populations.')
-
-
-    likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF, ancestral_proportion)
+    likelihoods, windows_dict, matched_alleles = bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes, models_dict, window_size, subsamples, offset, min_reads, max_reads, minimal_score, min_HF, ancestral_makeup)
 
     some_statistics = {'matched_alleles': matched_alleles,
                        'runtime': time.time()-time0}
+
+    ancestry = {row.group2 for row in sam_tab} if ancestral_makeup=={} else ancestral_makeup
 
     info.update({'ancestry': ancestry,
                  'window_size': window_size,
@@ -351,10 +349,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
                  'min_HF': min_HF,
                  'statistics': {**statistics(likelihoods,windows_dict), **some_statistics}
                  })
-
-    if len(ancestry)==2 and 0<ancestral_proportion.proportion<1 and ancestral_proportion.group2 in ancestry:
-        info['proportions'] = {i:ancestral_proportion.proportion if ancestral_proportion.group2==i else 1-ancestral_proportion.proportion for i in ancestry}
-
+    
     if output_filename!=None:
         save_results(likelihoods,info,compress,obs_filename,output_filename,kwargs.get('output_dir', 'results'))
 
@@ -381,8 +376,8 @@ if __name__ == "__main__":
                         help='A haplotype file of the reference panel.')
     parser.add_argument('sam_filename', metavar='SAM_FILENAME', type=str,
                         help='A samples file of the reference panel.')
-    parser.add_argument('-a', '--ancestral-proportion', metavar='STR FLOAT', type=str, nargs=2, default=['None','-1'],
-                        help='Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8.')
+    parser.add_argument('-a', '--ancestral-makeup', metavar='STR FLOAT ...', type=str, nargs='+', default=[],
+                        help='Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8 EAS 0.1 SAS 0.1.')
     parser.add_argument('-w', '--window-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads.')

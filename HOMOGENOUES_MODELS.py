@@ -305,9 +305,8 @@ else:
     likelihoods3 = A.likelihoods3
     likelihoods4 = A.likelihoods4
 
-    #random.seed(a=0, version=2)
-    #x = random.randrange(len(alleles)-16) #123
-    x=0
+    random.seed(a=2021, version=2)
+    x = random.randrange(len(alleles)-16) #123
     haplotypes = (alleles[x:x+4],alleles[x+4:x+8],alleles[x+8:x+12],alleles[x+12:x+16])
 
     print('-----joint_frequencies_combo-----')
