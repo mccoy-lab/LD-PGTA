@@ -118,7 +118,7 @@ In addition, the following flags are supported:
 
 `--output-directory <PATH>` _The directory in which the reference panel would be created._
 
-`--force-module cyvcf2/pysam` _By deafult cyvcf2 module would be used. This allows to use pysam instead._
+`--force-module cyvcf2/bcftools/pysam` _By deafult cyvcf2 module would be used. This allows to use pysam or bcftools instead._
 
 # Tabulation of allele observations at known SNPs #
 <a name="obs_tab"/>
@@ -158,7 +158,7 @@ As demonstration, we run the script with the following arguments and flags:
 
 where the first argument is the filename of a pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions. The second argument is the filename of the IMPUTE2 legend file, which lists the SNPs in our reference panel. The third required argument is the filename of the IMPUTE2 haplotype file, which lists the haplotypes in our reference panel. The forth required argument is the filename of the IMPUTE2 samples file, which describes the ancestral group of the individuals. In addition, the following flags are supported:
 
-`--ancestral-proportion` _Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8._
+`--ancestral-makeup <STR> <FLOAT> ...` _Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8 EAS 0.1 SAS 0.1._
 
 `--window-size <INT>` _Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads._
 
@@ -336,4 +336,3 @@ Then, we convert from BCF to hap/legend/sample format used by IMPUTE2 and SHAPEI
 `rm chr21_EUR_panel.bcf`
 
 where `--haplegendsample prefix` _converts from BCF to hap/legend/sample format used by IMPUTE2. The columns of the .legend file are ID,POS,REF,ALT. Moreover, in order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The columns of the .sample file are population, group and sex._
-
