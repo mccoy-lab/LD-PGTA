@@ -93,7 +93,7 @@ def build_obs_tab_distant(obs_dicts, chr_id, read_length, depth, scenario, trans
     obs_tab = list()
     dx, odd = divmod(read_length, 2)
 
-    number_of_haplotypes = {'monosomy':1, 'disomy':2, 'BPH': 3, 'SPH': 3}
+    number_of_haplotypes = {'monosomy':1, 'disomy':2, 'BPH': 3, 'SPH': 3, 'transitions': 3}
     rsize = chr_length(chr_id)//regions
     
     
@@ -194,8 +194,8 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
 
     for ind, (scenario, transitions) in enumerate(cases, start=1):
 
-        if len(obs_filenames) < number_of_required_obs_files[scenario] * (1+(distant_admixture==[])):
-            raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]*(1+distant_admixture):d} observation files.')
+        if len(obs_filenames) < number_of_required_obs_files[scenario] * (1+(distant_admixture!=[])):
+            raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]*(1+(distant_admixture==[]))} observation files.')
 
         if distant_admixture==[]:
             obs_tab = build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions)
