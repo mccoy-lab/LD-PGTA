@@ -85,8 +85,8 @@ def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
 
     return obs_tab
 
-def build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario):
-    """ Mixes reads of DNA sequencing to simulate various aneuploidy landscapes in complex admixtures. """
+def build_obs_tab_distant(obs_dicts, chr_id, read_length, depth, scenario):
+    """ Mixes reads of DNA sequencing to simulate various aneuploidy landscapes in distant admixtures. """
 
     num_of_reads = number_of_reads(chr_id,read_length,depth)
     regions = 40
@@ -160,7 +160,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     list_of_transitions = kwargs.get('transitions', [])
     given_output_filename = kwargs.get('output_filename','')
     output_dir = kwargs.get('output_dir', 'results')
-    complex_admixture = kwargs.get('complex_admixture', False)
+    distant_admixture = kwargs.get('distant_admixture', False)
 
 
     obs_dicts, info_dicts = [], []
@@ -182,20 +182,20 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     cases = tuple(senarios_iter(scenarios, list_of_transitions))
 
 
-    if complex_admixture:
+    if distant_admixture:
         print('mode: distant admixture (each homolog is a mosaic of haplotypes, where each haplotype is associated with one out of two possible ancestries).')
     else:
         print('mode: non-admixed/recent-admixture (each homolog is associated with a specific ancestry).')
 
     for ind, (scenario, transitions) in enumerate(cases, start=1):
 
-        if len(obs_filenames) < number_of_required_obs_files[scenario] * (1+complex_admixture):
-            raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]*(1+complex_admixture):d} observation files.')
+        if len(obs_filenames) < number_of_required_obs_files[scenario] * (1+distant_admixture):
+            raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]*(1+distant_admixture):d} observation files.')
 
-        if complex_admixture and scenario!='transitions':
-            obs_tab = build_obs_tab_complex(obs_dicts, chr_id, read_length, depth, scenario)
-        elif complex_admixture and scenario=='transitions':
-            raise Exception('error: transitions are not supported in complex admixtures.')
+        if distant_admixture and scenario!='transitions':
+            obs_tab = build_obs_tab_distant(obs_dicts, chr_id, read_length, depth, scenario)
+        elif distant_admixture and scenario=='transitions':
+            raise Exception('error: transitions are not supported in distant admixtures.')
         else:
             obs_tab = build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions)
 
@@ -210,7 +210,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
                 'transitions': transitions,
                 'sample_ids': sample_ids,
                 'handle-multiple-observations': 'all',
-                'complex': complex_admixture}
+                'distant': distant_admixture}
 
         if given_output_filename!=None:
             fn = save_results(obs_tab,info,ind,transitions,given_output_filename,output_dir)
@@ -254,8 +254,8 @@ if __name__ == "__main__":
                              'In addition, giving a list of cases, e.g. \"SPH,0.2 SPH,0.4 SPH,0.6\" would create a batch of three simulations. ')
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str,
                         help='Output filename. The default filename is a combination of both obs filenames.')
-    parser.add_argument('-c', '--complex-admixture', dest='feature', action='store_true',
-                        help='Simulates monosomy, disomy, SPH and BPH in complex-admixtures (the transitions scenario is not supported). '
+    parser.add_argument('-c', '--distant-admixture', dest='feature', action='store_true',
+                        help='Simulates monosomy, disomy, SPH and BPH in distant-admixtures (the transitions scenario is not supported). '
                              'It is assumed that probability to draw a haplotype from one of the populations is 1/2. '
                              'In addition, the order of observation tables that are given as arguments is important; '
                              'Odd positions are associated with population 1, while even positions with population 2. '
