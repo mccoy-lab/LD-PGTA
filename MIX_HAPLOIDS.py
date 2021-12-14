@@ -257,7 +257,7 @@ if __name__ == "__main__":
                              'For example a BPH-SPH-BPH transition that equally divides the chromosomes is exressed as BPH,0.333,0.666 and,'
                              'similarly, a SPH-BPH transition at the middle of the chromosome is expressed as SPH,0.5. '
                              'In addition, giving a list of cases, e.g. \"SPH,0.2 SPH,0.4 SPH,0.6\" would create a batch of three simulations. ')
-    parser.add_argument('-c', '--distant-admixture', metavar='FLOAT FLOAT', nargs='+', default=[],
+    parser.add_argument('-a', '--distant-admixture', metavar='FLOAT FLOAT', nargs='+', default=[],
                         help='Assume a distant admixture with a certain ancestry proportion, e.g, AFR 0.8 EUR 0.2. '
                              'In addition, the order of observation tables that are given as arguments is important; '
                              'Odd positions are associated with population 1, while even positions with population 2. '
