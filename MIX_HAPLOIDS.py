@@ -194,7 +194,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
 
     for ind, (scenario, transitions) in enumerate(cases, start=1):
 
-        if len(obs_filenames) < number_of_required_obs_files[scenario] * (1+distant_admixture):
+        if len(obs_filenames) < number_of_required_obs_files[scenario] * (1+(distant_admixture==[])):
             raise Exception(f'error: The {scenario:s} scenario requires at least {number_of_required_obs_files[scenario]*(1+distant_admixture):d} observation files.')
 
         if distant_admixture==[]:
