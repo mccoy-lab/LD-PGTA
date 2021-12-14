@@ -305,8 +305,8 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
     
-    ancestral_makeup = dict(zip(kwargs['ancestral_makeup'][0::2],map(float,kwargs['ancestral_makeup'][1::2])))
-    
+    ancestral_makeup = kwargs.get('ancestral_makeup',{})
+     
     load = lambda filename: {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open)  #Adjusts the opening method according to the file extension.
 
     open_hap = load(hap_filename)
@@ -397,10 +397,12 @@ if __name__ == "__main__":
                         help='The output filename. The default is the input filename with the extension \".obs.p\" replaced by \".LLR.p\".')
     parser.add_argument('-C', '--compress', metavar='gz/bz2/unc', type=str, default='unc',  choices=['gz','bz2','unc'],
                         help='Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed.')
-    args = parser.parse_args()
+    args = vars(parser.parse_args())
 
 
-    LLR_dict, info = aneuploidy_test(**vars(args))
+    args['ancestral_makeup'] = dict(zip(args['ancestral_makeup'][0::2],map(float,args['ancestral_makeup'][1::2])))
+
+    LLR_dict, info = aneuploidy_test(**args)
 
     sys.exit(0)
 else:
