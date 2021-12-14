@@ -376,7 +376,7 @@ if __name__ == "__main__":
     parser.add_argument('samp_filename', metavar='SAMP_FILENAME', type=str,
                         help='A samples file of the reference panel.')
     parser.add_argument('-a', '--ancestral-makeup', metavar='STR FLOAT ...', nargs='+', default=[],
-                        help='Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8 EAS 0.1 SAS 0.1.')
+                        help='Assume an ancestral makeup with a certain proportions, e.g, EUR 0.8 EAS 0.1 SAS 0.1. When the ancestral makeup includes only two populations with equal proportions then the recent-admixture algorithm would be applied, otherwise distant-admixture algoirthm would be applied.')
     parser.add_argument('-w', '--window-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads.')
