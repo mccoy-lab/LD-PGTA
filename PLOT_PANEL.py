@@ -277,6 +277,7 @@ def single_plot(likelihoods,info,**kwargs):
     z_score = kwargs.get('z_score', 1)
     num_of_buckets = kwargs.get('num_of_buckets', 10)
     save = kwargs.get('save', '')
+    pairs = kwargs.get('pairs', (('BPH','DISOMY'),('DISOMY','SPH'),('SPH','MONOSOMY')))
     
     if save!='':
         mpl.use('Agg')
@@ -286,7 +287,7 @@ def single_plot(likelihoods,info,**kwargs):
     
     
     fs = 24 * scale
-    pairs = [('BPH','DISOMY'),('DISOMY','SPH'),('SPH','MONOSOMY')]
+    
     colors = {('BPH','DISOMY'):(177/255,122/255,162/255),
               ('DISOMY','SPH'):(242/255,142/255,44/255),
               ('SPH','MONOSOMY'):(239/255,106/255,92/255),
@@ -379,18 +380,25 @@ def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),), num_of_buckets_in_chr21=5
     panel_plot(DATA.values(),num_of_buckets_in_chr21=num_of_buckets_in_chr21,pairs=pairs,title=f'{identifier:s}',save=save)
     return 0
 
-def wrap_single_plot(llr_filename):
+def wrap_single_plot(llr_filename,pairs):
     """ Wraps the function single_plot. """
     likelihoods,info =  load_likelihoods(llr_filename)
-    single_plot(likelihoods,info)
+    single_plot(likelihoods,info,pairs=pairs)
     return 0
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Plots log-likelihood ratios vs. chromosomal position from a LLR file.')
+        description='Plots log-likelihood ratios (LLR) vs. chromosomal position from a LLR file.')
     parser.add_argument('llr_filename', metavar='LLR_FILENAME', type=str,
                         help='A pickle file created by ANEUPLOIDY_TEST, containing likelihoods to observese reads under various aneuploidy landscapes .')
-    wrap_single_plot(**vars(parser.parse_args()))
+    parser.add_argument('-p', '--pairs', type=str, nargs='+', metavar='scenario_A,scenario_B scenario_C,scenario_D', default='BPH,SPH' ,
+                        help='Plots the LLR between scenario A and scenario B along the chromosome.'
+                             'In addition, giving a list of cases, e.g. \"BPH,SPH SPH,MONOSOMY\" would plot the LLR of each pair. ')
+    
+    kwargs = vars(parser.parse_args())
+    kwargs['pairs'] = [j.split(',') for j in kwargs.get('pairs','').strip().split()]
+    
+    wrap_single_plot(**kwargs)
     sys.exit(0)
 
 else:

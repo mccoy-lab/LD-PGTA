@@ -16,7 +16,7 @@ Daniel Ariad (daniel@ariad.org)
 Jan 14th, 2021
 
 """
-import argparse, sys, os, collections
+import argparse, sys, os, collections, bz2, gzip
 from random import choices, randrange, seed
 from collections import defaultdict
 from operator import itemgetter
@@ -136,20 +136,24 @@ def senarios_iter(scenarios, list_of_transitions):
         else:
             yield s, None
 
-def save_results(obs_tab,info,ind,transitions,given_output_filename,output_dir):
+def save_results(obs_tab,info,ind,transitions,given_output_filename,output_dir,compress):
     """ Saves the simulated observation table togther with the
-        supplementary information. """
+        supplementary information.  Also, data compression is supported in gzip
+        and bzip2 formats. """
+
+    Open = {'bz2': bz2.open, 'gz': gzip.open}.get(compress, open)
+    ext = ('.'+compress) * (compress in ('bz2','gz'))
 
     suffix = f'.{ind:d}' if ind else ''
     T = '.trans_'+transitions[0]+'_'+'_'.join(f'{i:.1f}' for i in transitions[1:]) if info['scenario']=='transitions' else ''
 
-    default_output_filename = f"simulated.{info['scenario']:s}.{info['chr_id']:s}.x{info['depth']:.3f}.{'.'.join(info['sample_ids']):s}{T:s}.obs.p"
+    default_output_filename = f"simulated.{info['scenario']:s}.{info['chr_id']:s}.x{info['depth']:.3f}.{'.'.join(info['sample_ids']):s}{T:s}.obs.p{ext:s}"
     output_filename = default_output_filename if given_output_filename=='' else given_output_filename.rsplit('/', 1).pop()+suffix
 
     output_dir += '/' if output_dir[-1:]!='/' else ''
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
 
-    with open(  output_dir + output_filename , 'wb' ) as f:
+    with Open(  output_dir + output_filename , 'wb' ) as f:
             dump(obs_tab, f, protocol=4)
             dump(info, f, protocol=4)
 
@@ -166,6 +170,8 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
     given_output_filename = kwargs.get('output_filename','')
     output_dir = kwargs.get('output_dir', 'results')
     distant_admixture = kwargs.get('distant_admixture', [])
+    compress = kwargs.get('compress', None)
+
 
 
     obs_dicts, info_dicts = [], []
@@ -216,7 +222,7 @@ def MixHaploids(obs_filenames, read_length, depth, scenarios, **kwargs):
                 'distant': distant_admixture}
 
         if given_output_filename!=None:
-            fn = save_results(obs_tab,info,ind,transitions,given_output_filename,output_dir)
+            fn = save_results(obs_tab,info,ind,transitions,given_output_filename,output_dir,compress)
             output_filenames.append(fn)
 
         sys.stdout.write(f"\r[{'=' * int(ind):{len(cases)}s}] {int(100*ind/len(cases))}% "); sys.stdout.flush()
@@ -251,6 +257,8 @@ if __name__ == "__main__":
                              "Giving a list of scenarios, e.g. \"SPH BPH\" would create a batch of simulations.")
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str,
                         help='Output filename. The default filename is a combination of both obs filenames.')
+    parser.add_argument('-c', '--compress', metavar='gz/bz2/unc', type=str, default='unc',  choices=['gz','bz2','unc'],
+                        help='Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed.')
     parser.add_argument('-t', '--transitions', type=str, nargs='+', metavar='STR,FLOAT,...,FLOAT',
                         help='Relevant only for the transitions scenario. Introduces transitions between SPH and BPH along the chromosome. '
                              'The locations of the transition is determined by a fraction of chromosome length, ranging between 0 to 1. '
