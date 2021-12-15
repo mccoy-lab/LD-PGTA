@@ -393,7 +393,7 @@ if __name__ == "__main__":
                         help='A pickle file created by ANEUPLOIDY_TEST, containing likelihoods to observese reads under various aneuploidy landscapes .')
     parser.add_argument('-p', '--pairs', type=str, nargs='+', metavar='scenario_A,scenario_B scenario_C,scenario_D', default='BPH,SPH' ,
                         help='Plots the LLR between scenario A and scenario B along the chromosome. The possible pairs are: BPH,DISOMY; DISOMY,SPH; SPH,MONOSOMY; DISOMY,MONOSOMY; BPH,SPH.'
-                             'In addition, giving a list of pairs would plot the LLR of each pair, e.g. \"BPH,SPH SPH,MONOSOMY\". The default value is BPH,SPH.')
+                             'In addition, giving a list of pairs would plot the LLR of each pair in the same figure, e.g. \"BPH,SPH SPH,MONOSOMY\". The default value is BPH,SPH.')
     parser.add_argument('-b', '--bins', type=int, metavar='INT', default=10,
                         help='The numbers of bins the chromosome is divided into. The default value is 10.')
 
