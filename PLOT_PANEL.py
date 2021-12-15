@@ -380,10 +380,10 @@ def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),), num_of_buckets_in_chr21=5
     panel_plot(DATA.values(),num_of_buckets_in_chr21=num_of_buckets_in_chr21,pairs=pairs,title=f'{identifier:s}',save=save)
     return 0
 
-def wrap_single_plot(llr_filename,pairs):
+def wrap_single_plot(llr_filename,pairs,bins):
     """ Wraps the function single_plot. """
     likelihoods,info =  load_likelihoods(llr_filename)
-    single_plot(likelihoods,info,pairs=pairs)
+    single_plot(likelihoods,info,pairs=pairs,num_of_buckets=bins)
     return 0
 
 if __name__ == "__main__":
@@ -392,11 +392,13 @@ if __name__ == "__main__":
     parser.add_argument('llr_filename', metavar='LLR_FILENAME', type=str,
                         help='A pickle file created by ANEUPLOIDY_TEST, containing likelihoods to observese reads under various aneuploidy landscapes .')
     parser.add_argument('-p', '--pairs', type=str, nargs='+', metavar='scenario_A,scenario_B scenario_C,scenario_D', default='BPH,SPH' ,
-                        help='Plots the LLR between scenario A and scenario B along the chromosome.'
-                             'In addition, giving a list of cases, e.g. \"BPH,SPH SPH,MONOSOMY\" would plot the LLR of each pair. ')
-    
+                        help='Plots the LLR between scenario A and scenario B along the chromosome. The possible pairs are: BPH,DISOMY; DISOMY,SPH; SPH,MONOSOMY; DISOMY,MONOSOMY; BPH,SPH.'
+                             'In addition, giving a list of pairs would plot the LLR of each pair, e.g. \"BPH,SPH SPH,MONOSOMY\".')
+    parser.add_argument('-b', '--bins', type=int, metavar='INT', default=10,
+                        help='The numbers of bins the chromosome is divided into. The default value is 10.')
+
     kwargs = vars(parser.parse_args())
-    kwargs['pairs'] = [j.split(',') for j in kwargs.get('pairs','').strip().split()]
+    kwargs['pairs'] = [j.split(',') for j in kwargs.get('pairs','')]
     
     wrap_single_plot(**kwargs)
     sys.exit(0)
