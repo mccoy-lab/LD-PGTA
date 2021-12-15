@@ -1,17 +1,29 @@
 ## Table of Contents  
 
+#### Introduction
+[What is LD-PGTA?](#background)
+
 #### Tutorial
-[Sequence alignment](#seq_alignment) \
-[Construction of the reference panel](#ref_panel) \
-[Tabulation of allele observations at known SNPs](#obs_tab) \
-[Model comparison with log likelihood ratios](#aneuploidy_test)
+[Stage 1: Sequence alignment](#seq_alignment) \
+[Stage 2: Construction of the reference panel](#ref_panel) \
+[Stage 3: Tabulation of allele observations at known SNPs](#obs_tab) \
+[Stage 4: Model comparison with log likelihood ratios](#aneuploidy_test) \
+[Stage 5: Plot log-likelihood ratio vs. chromosomal position](#plot_llr)
 
 #### Additional documentation
 [Simulating various forms of trisomy](#simulate) \
 [Description of the IMPUTE2 format for reference panels](#IMPUTE2) \
 [Generating IMPUTE2 reference panels from a VCF file](#"VCF2IMPUTE")
 
-# Sequence alignment #
+# What is LD-PGTA? #
+<a name="background"/>
+
+Extra or missing chromosomes—a phenomenon termed aneuploidy—frequently arises during human meiosis and embryonic mitosis and is the leading cause of pregnancy loss, including in the context of *in vitro* fertilization (IVF). While meiotic aneuploidies affect all cells and are deleterious, mitotic errors generate mosaicism, which may be compatible with healthy live birth. Large-scale abnormalities such as triploidy and haploidy also contribute to adverse pregnancy outcomes, but remain hidden from standard sequencing-based approaches to preimplantation genetic testing (PGT-A). The ability to reliably distinguish meiotic and mitotic aneuploidies, as well as abnormalities in genome-wide ploidy may thus prove valuable for enhancing IVF outcomes. Here, we describe a statistical method for distinguishing these forms of aneuploidy based on analysis of low-coverage whole-genome sequencing data, which is the current standard in the field. Our approach overcomes the sparse nature of the data by leveraging allele frequencies and linkage disequilibrium (LD) measured in a population reference panel. The method, which we term LD-informed PGT-A (LD-PGTA), retains high accuracy down to coverage as low as 0.05x and at higher coverage can also distinguish between meiosis I and meiosis II errors based on signatures spanning the centromeres. LD-PGTA provides fundamental insight into the origins of human chromosome abnormalities, as well as a practical tool with the potential to improve genetic testing during IVF.
+
+**For more information:**
+> Daniel Ariad, Stephanie M. Yan, Andrea R. Victor, Frank L. Barnes, Christo G. Zouves, Manuel Viotti, Rajiv C. McCoy. “Haplotype-aware inference of human chromosome abnormalities” | [PNAS November 16, 2021 118 (46) e2109307118](https://doi.org/10.1073/pnas.2109307118) | [bioRxiv:10.1101/2021.05.18.444721](https://www.biorxiv.org/content/10.1101/2021.05.18.444721v3) | [The study is summarized in this poster](http://ariad.org/_media/research/posters/ld_pgta_poster.pdf) 
+
+# Stage 1: Sequence alignment #
 <a name="seq_alignment"/>
 
 ## Convert the sequence SRR6676163 from SRA to FASTQ ##
@@ -82,7 +94,7 @@ Next, we create an index from the BAM file with the samtools index subcommand:
 
 Source: http://bioinformatics-core-shared-training.github.io/cruk-bioinf-sschool/Day1/Sequence%20Alignment_July2015_ShamithSamarajiwa.pdf and http://genomeintelligence.org/?p=1486
 
-# Construction of the reference panel #
+# Stage 2: Construction of the reference panel #
 <a name="ref_panel"/>
 As described in our manuscript, LD-PGTA overcomes the sparse nature of low-coverage data by using information about allele frequencies and haplotype structure as measured in a population reference panel. Here we demonstrate the construction of such a reference panel using data from the 1000 Genomes Project.
 
@@ -116,11 +128,12 @@ where the first argument is the IMPUTE2 SAMPLE file. The second required argumen
 
 In addition, the following flags are supported:
 
-`--output-directory <PATH>` _The directory in which the reference panel would be created._
+| Optional argument  | Description |
+| --- | --- |
+| `--output-directory <PATH>` | _The directory in which the reference panel would be created._ |
+| `--force-module cyvcf2/bcftools/pysam`| _By deafult cyvcf2 module would be used. This allows to use pysam or bcftools instead._ |
 
-`--force-module cyvcf2/bcftools/pysam` _By deafult cyvcf2 module would be used. This allows to use pysam or bcftools instead._
-
-# Tabulation of allele observations at known SNPs #
+# Stage 3: Tabulation of allele observations at known SNPs #
 <a name="obs_tab"/>
 
 The script `MAKE_OBS_TAB.py` uses a BAM file, which is aligned and sorted, as well as an IMPUTE2 legend file.
@@ -132,22 +145,19 @@ We run the script with the following arguments and flags:
 
 where the first argument is the filename of the BAM file, containing reads mapped to a reference sequence. The second required argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. In addition, the following flags are supported:
 
-`--fasta_filename <FILENAME>` _The faidx-indexed reference file in the FASTA format. Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8._
-
-`--handle-multiple-observations <all/first/random/skip>` _We expect to observe at most a single base per SNP. When encountering an exception, the default behavior is to skip the SNP. However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) randomly pick an observed base and (c) keep all the observed bases._
-
-`--min-bq  <INT>` _Minimum base quaility for observations. Default value is 30._
-
-`--min-mq <INT>` _Minimum mapping quaility for observations. Default value 30._
-
-`--max-depth <FLOAT>` _Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit._
-
-`--output-filename <FILENAME>` _Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p ._
+| Optional argument  | Description |
+| --- | --- |
+| `--fasta_filename <FILENAME>` | _The faidx-indexed reference file in the FASTA format. Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8._ |
+| `--handle-multiple-observations <all/first/random/skip>` | _We expect to observe at most a single base per SNP. When encountering an exception, the default behavior is to skip the SNP. However, a few alternative options to handle multiple observations are available: (a) take the first observed base, (b) randomly pick an observed base and (c) keep all the observed bases._ |
+| `--min-bq  <INT>` | _Minimum base quaility for observations. Default value is 30._ |
+| `--min-mq <INT>` | _Minimum mapping quaility for observations. Default value 30._ |
+| `--max-depth <FLOAT>` | _Maximum depth coverage to be considered (inclusive). Default value is 0, effectively removing the depth limit._ |
+| `--output-filename <FILENAME>` | _Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p ._ |
     
 
 * In order to use the script, the Python module Pysam (v0.15.4) must be installed. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
 
-# Model comparison with log likelihood ratios #
+# Stage 4: Model comparison with log likelihood ratios #
 <a name="aneuploidy_test"/>
 
 The script `ANEUPLOIDY_TEST.py` builds a dictionary that lists linkage disequilibrium (LD) blocks that contain at least two meaningful reads and gives the associated log-likelihood BPH/SPH ratio (LLR). BPH (Both Parental Homologs) describes to the presence of three unmatched haplotypes, while SPH (Single Parental Homolog) describes the presence of two identical haplotypes, with an additional unmatched haplotype. Finally, the script analyzes the dictionary and reports summary statistics, including the mean LLR, the standard error, the number of informative genomic windows and the fraction of genomic windows with a negative LLR.
@@ -158,25 +168,36 @@ As demonstration, we run the script with the following arguments and flags:
 
 where the first argument is the filename of a pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions. The second argument is the filename of the IMPUTE2 legend file, which lists the SNPs in our reference panel. The third required argument is the filename of the IMPUTE2 haplotype file, which lists the haplotypes in our reference panel. The forth required argument is the filename of the IMPUTE2 samples file, which describes the ancestral group of the individuals. In addition, the following flags are supported:
 
-`--ancestral-makeup <STR> <FLOAT> ...` _Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8 EAS 0.1 SAS 0.1._
-
-`--window-size <INT>` _Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads._
-
-`--offset <INT>` _Shifts all the genomic windows by the requested base pairs. The default value is 0._
-
-`--min-reads <INT>` _Takes into account only genomic windows with at least INT reads, admitting non-zero score. The minimal value is 3, while the default is 6._
-
-`--max-reads <INT>` _Selects up to INT reads from each genomic windows in each bootstrap sampling. The minimal value is 2, while the default value is 4._
-
-`--min-HF <INT>` _Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05._
-
-`--min-score <INT>` _Consider only reads that reach the minimal score. The default value is 2._
-
-`--output-filename <FILENAME>` _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._
-
-`--compress gz/bz2/unc` _Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed._
+| Optional argument  | Description |
+| --- | --- |
+|`--ancestral-makeup <STR> <FLOAT> ...` | _Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8 EAS 0.1 SAS 0.1._ |
+| `--window-size <INT>` | _Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads._ |
+| `--offset <INT>` | _Shifts all the genomic windows by the requested base pairs. The default value is 0._
+| `--min-reads <INT>` | _Takes into account only genomic windows with at least INT reads, admitting non-zero score. The minimal value is 3, while the default is 6._ |
+| `--max-reads <INT>` | _Selects up to INT reads from each genomic windows in each bootstrap sampling. The minimal value is 2, while the default value is 4._ |
+| `--min-HF <INT>`  | _Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05._ |
+| `--min-score <INT>` | _Consider only reads that reach the minimal score. The default value is 2._ |
+| `--output-filename <FILENAME>` | _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._ |
+|`--compress gz/bz2/unc` | _Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed._ |
 
 * The presence of the Python module gmpy2 accelerates performance of this script. gmpy2 is an implementation of a standard GMP (GNU Multiple Precision Arithmetic Library) and supports arbitrary precision integers. For more information check [ gmpy2 ](https://pypi.org/project/gmpy2/) and also [gmpy2’s documentation](https://gmpy2.readthedocs.io/).
+
+# Stage 5: Plot log-likelihood ratios vs. chromosomal position. #
+<a name="plot_llr"/>
+
+The script `PLOT_PANEL.py` plots log-likelihood ratio vs. chromosomal position from a LLR file.
+
+As demonstration, we run the script with the following arguments and flags:
+
+`python3 PLOT_PANEL.py SRR6676163.LLR.p`,
+
+where the first argument is the filename of a pickle file created by ANEUPLOIDY_TEST, containing likelihoods to observese various
+aneuploidy landscapes.  In addition, the following flags are supported:
+
+| Optional argument  | Description |
+| --- | --- |
+| `--pairs` | _Plots the LLR between scenario A and scenario B along the chromosome. The possible pairs are: BPH,DISOMY; DISOMY,SPH; SPH,MONOSOMY; DISOMY,MONOSOMY; BPH,SPH. In addition, giving a list of pairs would plot the LLR of each pair in the same figure, e.g. "BPH,SPH SPH,MONOSOMY". The default value is BPH,SPH._ |
+| `--bins` | _The numbers of bins the chromosome is divided into. The default value is 10._ |
 
 # Simulating various forms of trisomy #
 <a name="simulate"/>
@@ -198,15 +219,15 @@ We demonstrate the script with the following arguments and flags:
 
 where the three first arguments are the filenames of observation tables created by MAKE_OBS_TAB for each haploid sequence. In addition, some of the following optional flags were used:
 
-`--depth <FLOAT>` _The average coverage for the whole chromosome.  Default value 0.01_
-
-`--read-length <INT>` _The number of base pairs (bp) sequenced from a DNA fragment. Default value 150._
-
-`--recombination-spots <LIST OF FLOATS>` _Relevant only for the BPH scenario. Introduces a transition between SPH and BPH along the chromosome. The location of the recombination spot is determined by a fraction, ranging between 0 to 1. Giving 0 and 1 as arguments means having the SPH and BPH senarios along the entire chromosome, respectively. In addition, giving a list of fractions, e.g. 0.2,0.4,0.6, would create a batch of simulations._
-
-`--scenarios <LIST OF STRINGS>` _The simulation supports four scenarios: monosomy/disomy/SPH/BPH. Giving a list of scenarios, e.g. SPH,BPH would create a batch of simulations._
-
-`--output-filename <FILENAME>` _The output filename. The default filename is a combination of three obs filenames._
+| Optional argument  | Description |
+| --- | --- |
+| `--depth <FLOAT>` | _The average coverage for the whole chromosome.  Default value 0.1_ |
+| `--read-length <INT>` | _The number of base pairs (bp) sequenced from a DNA fragment. Default value 36._ |
+| `--scenarios <LIST OF STRINGS>` | _The simulation supports five scenarios: monosomy/disomy/SPH/BPH/transitions. Default scenario is disomy. Giving a list of scenarios, e.g. \"SPH BPH\" would create a batch of simulations._ |
+| `--output-filename <FILENAME>` | _The output filename. The default filename is a combination of three obs filenames._ |
+| `--compress <gz/bz2/unc>` | _Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed._ |
+| `--transitions <STR,FLOAT,FLOAT,...,FLOAT,>` | _Relevant only for transitions scenario. Introduces transitions between SPH and BPH along the chromosome. The locations of the transition is determined by a fraction of chromosome length, ranging between 0 to 1. For example a BPH-SPH-BPH transition that equally divides the chromosomes is exressed as BPH,0.333,0.666 and, similarly, a SPH-BPH transition at the middle of the chromosome is expressed as SPH,0.5. In addition, giving a list of cases, e.g. \"SPH,0.2 SPH,0.4 SPH,0.6\" would create a batch of three simulations._ |
+|`--distant-admixture <FLOAT FLOAT>` | _Assume a distant admixture with a certain ancestry proportion, e.g, AFR 0.8 EUR 0.2. In addition, the order of observation tables that are given as arguments is important; Odd positions are associated with population 1, while even positions with population 2. For example, in order to simulate a SPH case the observation tables should be given as follows: \"python MIX_HAPLOIDS -s SPH HAPLOID1_AFR.obs.p HAPLOID2_EUR.obs.p HAPLOID3_AFR.obs.p HAPLOID4_EUR.obs.p\". When simulating SPH, the first two observation tables would be associated with the duplicated homolog._ |
 
 ## Create haploid-like observation table using phased genotypes from VCF files.
 
@@ -318,21 +339,21 @@ The next step is to convert the reference panel VCF to BCF format:
 
 The arguments that were used:
 
-`--samples-file EUR_indv_phase3.txt` _File of sample names to include with one sample per line. The sample order is updated to reflect that given in the input file._
 
-`--exclude-types indels,mnps,ref,bnd,other` _Select only sites with SNP variants across all samples, by excluding any other type. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags._
-
-`--min-alleles 2 --max-alleles 2` _Select only biallelic SNPs, by selecting sites with (at least and at most) two alleles listed in REF and ALT columns._
-
-`--min-ac 1:minor` _Select only SNPs with a minor allele count that reaches a defined threshold._
-
-`--phased --exclude 'AN!=2*N_SAMPLES'` _An IMPUTE reference-panel format requires phased data and bi-allelic sites. In order to make sure that no data is missing, sites where the total number of alleles across all samples is not equal to twice the number of samples are excluded._
-
-`--output-file chr21_EUR_panel.bcf --output-type u` _Here we specify the output file name and format. We choose an uncompressed BCF in order to speed up performance by removing unnecessary compression/decompression and BCF → IMPUTE2 conversion._
+| Argument  | Description |
+| --- | --- |
+| `--samples-file EUR_indv_phase3.txt` | _File of sample names to include with one sample per line. The sample order is updated to reflect that given in the input file._ |
+| `--exclude-types indels,mnps,ref,bnd,other` | _Select only sites with SNP variants across all samples, by excluding any other type. Types are determined by comparing the REF and ALT alleles in the VCF record not INFO tags._ |
+| `--min-alleles 2 --max-alleles 2` | _Select only biallelic SNPs, by selecting sites with (at least and at most) two alleles listed in REF and ALT columns._ |
+| `--min-ac 1:minor` | _Select only SNPs with a minor allele count that reaches a defined threshold._ |
+| `--phased --exclude 'AN!=2*N_SAMPLES'` | _An IMPUTE reference-panel format requires phased data and bi-allelic sites. In order to make sure that no data is missing, sites where the total number of alleles across all samples is not equal to twice the number of samples are excluded._ |
+| `--output-file chr21_EUR_panel.bcf --output-type u` | _Here we specify the output file name and format. We choose an uncompressed BCF in order to speed up performance by removing unnecessary compression/decompression and BCF → IMPUTE2 conversion._ |
 
 Then, we convert from BCF to hap/legend/sample format used by IMPUTE2 and SHAPEIT:
 
 `bcftools convert chr21_EUR_panel.bcf --haplegendsample chr21_EUR_panel`\
 `rm chr21_EUR_panel.bcf`
 
-where `--haplegendsample prefix` _converts from BCF to hap/legend/sample format used by IMPUTE2. The columns of the .legend file are ID,POS,REF,ALT. Moreover, in order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The columns of the .sample file are population, group and sex._
+where `--haplegendsample prefix`  _converts from BCF to hap/legend/sample format used by IMPUTE2. The columns of the .legend file are ID,POS,REF,ALT. Moreover, in order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The columns of the .sample file are population, group and sex._ 
+
+
