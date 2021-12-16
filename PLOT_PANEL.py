@@ -391,7 +391,7 @@ if __name__ == "__main__":
         description='Plots log-likelihood ratios (LLR) vs. chromosomal position from a LLR file.')
     parser.add_argument('llr_filename', metavar='LLR_FILENAME', type=str,
                         help='A pickle file created by ANEUPLOIDY_TEST, containing likelihoods to observese reads under various aneuploidy landscapes .')
-    parser.add_argument('-p', '--pairs', type=str, nargs='+', metavar='scenario_A,scenario_B scenario_C,scenario_D', default='BPH,SPH' ,
+    parser.add_argument('-p', '--pairs', type=str, nargs='+', metavar='scenario_A,scenario_B scenario_C,scenario_D', default=['BPH,SPH'],
                         help='Plots the LLR between scenario A and scenario B along the chromosome. The possible pairs are: BPH,DISOMY; DISOMY,SPH; SPH,MONOSOMY; DISOMY,MONOSOMY; BPH,SPH.'
                              'In addition, giving a list of pairs would plot the LLR of each pair in the same figure, e.g. \"BPH,SPH SPH,MONOSOMY\". The default value is BPH,SPH.')
     parser.add_argument('-b', '--bins', type=int, metavar='INT', default=10,
@@ -399,7 +399,6 @@ if __name__ == "__main__":
 
     kwargs = vars(parser.parse_args())
     kwargs['pairs'] = [j.split(',') for j in kwargs.get('pairs','')]
-    
     wrap_single_plot(**kwargs)
     sys.exit(0)
 
@@ -421,4 +420,3 @@ for identifier in identifiers:
             wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=identifier,work_dir=work_dir, num_of_buckets_in_chr21=20)
     except Exception as e:
         print(identifier,e)
-
