@@ -5,7 +5,7 @@
 DISTANT_ADMIXTURE_MODELS
 
 Given reads that originated form the same genomic window and a reference panel
-of two populations, the likelihood of observed reads under four scenarios,
+of two or more populations, the likelihood of observed reads under four scenarios,
 namely, monosomy, disomy, SPH and BPH is calculated. This module is for distant
 admixtures, where each descendant haplotype has a certain probability to
 originate from one of two ancestral populations.
@@ -340,7 +340,7 @@ else:
     leg_filename = 'test/test.leg.p'
     sam_filename = 'test/test.sam.p'
     models_filename = 'MODELS/MODELS16.p'
-    admixture = {'group0': 1}
+    admixture = {'group0': 0.8, 'group1': 0.2}
 
     A = wrapper_of_distant_admixture_for_debugging(obs_filename,leg_filename,hap_filename,sam_filename,models_filename,admixture)
 
