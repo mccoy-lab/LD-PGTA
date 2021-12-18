@@ -254,7 +254,8 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--scenarios', type=str, nargs='+',
                         metavar='monosomy/disomy/SPH/BPH/transitions', default='disomy', choices=['monosomy','disomy','SPH','BPH','transitions'],
                         help="The simulation supports five scenarios: monosomy/disomy/SPH/BPH/transitions. Default scenario is disomy."
-                             "Giving a list of scenarios, e.g. \"SPH BPH\" would create a batch of simulations.")
+                             "Giving a list of scenarios, e.g. \"SPH BPH\" would create a batch of simulations."
+                             "In batch mode, the first observation table would be used to simulate monosomy (and the first two tables for disomy).")
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str,
                         help='Output filename. The default filename is a combination of both obs filenames.')
     parser.add_argument('-c', '--compress', metavar='gz/bz2/unc', type=str, default='unc',  choices=['gz','bz2','unc'],
@@ -271,8 +272,7 @@ if __name__ == "__main__":
                              'Odd positions are associated with population 1, while even positions with population 2. '
                              'For example, in order to simulate a SPH case the observation tables should be given '
                              'as follows: \"python MIX_HAPLOIDS -s SPH HAPLOID1_AFR.obs.p HAPLOID2_EUR.obs.p HAPLOID3_AFR.obs.p HAPLOID4_EUR.obs.p\". '
-                             'When simulating SPH, the first two observation tables would be associated with the duplicated homolog.'
-                             )
+                             'When simulating SPH, the first two observation tables would be associated with the duplicated homolog.')
 
     kwargs = vars(parser.parse_args())
     kwargs['transitions'] = [[float(i) if i.isdigit() else i for i in j.split(',')] for j in kwargs.get('transitions','')]
