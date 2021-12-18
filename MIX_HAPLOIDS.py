@@ -50,7 +50,7 @@ def inBPHregion(x,transitions):
 
 def build_obs_tab(obs_dicts, chr_id, read_length, depth, scenario, transitions):
     """ Mixes reads of DNA sequencing to simulate various aneuploidy landscapes
-        in non-admixtures as well as F1-admixtures. """
+        in non-admixtures as well as recent-admixtures. """
 
     num_of_reads = number_of_reads(chr_id,read_length,depth)
     L = len(obs_dicts)
