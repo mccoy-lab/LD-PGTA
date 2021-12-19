@@ -172,7 +172,7 @@ def iter_windows(obs_tab,combined_dict,score_dict,window_size,offset,min_reads,
                 yield ((a,b-1), tuple(readIDs_in_window)) #the genomic window includes both endpoints.
                 a, b, readIDs_in_window = b, b+window_size, set()
 
-def pick_reads(reads_dict,score_dict,read_IDs,max_reads):
+def pick_reads(reads_dict,read_IDs,max_reads):
     """ Draws up to max_reads reads from a given genomic window. The reads are
         randomly sampled without replacement to meet the assumptions of the
         statistical models."""
@@ -229,7 +229,7 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
 
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
         if effN>0: ### Ensures that the genomic windows contains enough reads for sampling.
-            likelihoods[window] = tuple(examine.get_likelihoods(*pick_reads(reads_dict,score_dict,read_IDs,max_reads)) for _ in range(effN))
+            likelihoods[window] = tuple(examine.get_likelihoods(*pick_reads(reads_dict,read_IDs,max_reads)) for _ in range(effN))
 
     return likelihoods, windows_dict, examine.fraction_of_matches
 
@@ -263,6 +263,8 @@ def statistics(likelihoods,windows_dict):
 def print_summary(obs_filename,info):
     S = info['statistics']
     print('\nFilename: %s' % obs_filename)
+    print('\nSummary statistics')
+    print('------------------')
     print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S.get('reads_mean',0), S.get('reads_std',0)))
     print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
     print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (', '.join(info['ancestry']),info['statistics']['matched_alleles']))
