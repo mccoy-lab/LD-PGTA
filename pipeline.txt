@@ -13,7 +13,8 @@
 #### Additional documentation
 [Simulating various forms of trisomy](#simulate) \
 [Description of the IMPUTE2 format for reference panels](#IMPUTE2) \
-[Generating IMPUTE2 reference panels from a VCF file](#"VCF2IMPUTE")
+[Generating IMPUTE2 reference panels from a VCF file](#"VCF2IMPUTE") \
+[Dependencies](#"Dependencies")
 
 # What is LD-PGTA? #
 <a name="background"/>
@@ -155,7 +156,7 @@ where the first argument is the filename of the BAM file, containing reads mappe
 | `--output-filename <FILENAME>` | _Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p ._ |
     
 
-* In order to use the script, the Python module Pysam (v0.15.4) must be installed. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
+* In order to use the script, the Python module Pysam (v0.18.0) must be installed. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
 
 # Stage 4: Model comparison with log likelihood ratios #
 <a name="aneuploidy_test"/>
@@ -355,3 +356,12 @@ Then, we convert from BCF to hap/legend/sample format used by IMPUTE2 and SHAPEI
 `rm chr21_EUR_panel.bcf`
 
 where `--haplegendsample prefix`  _converts from BCF to hap/legend/sample format used by IMPUTE2. The columns of the .legend file are ID,POS,REF,ALT. Moreover, in order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The columns of the .sample file are population, group and sex._ 
+
+# Dependencies #
+<a name="Dependencies"/>
+
+* All scripts require `Python` v3.7 or above. The `CPython` and `PyPy` implementation are supported. 
+* The script `MAKE_REF_PANEL.py` requires one of the following: (a) `bcftools` v1.14 or above, (b) `cyvcf2` v0.30.12 or above, (c) `pysam` v0.18.0 or above.
+* The script `MAKE_OBS_TAB.py` requires `pysam` v0.18.0 or above.
+* The script `ANEUPLOIDY_TEST.py` would perform faster when `gmpy2` v2.1.0rc1 is present.
+* The script `PLOT_PANEL.py` requires `matplotlib` v3.5.1 or above.
