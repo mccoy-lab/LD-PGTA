@@ -54,7 +54,7 @@ except ImportError:
             b //= t+1
             n -= 1
         return b
-
+    
 def mean_and_var(x):
     """ Calculates the mean and variance. """
     cache = tuple(x)
@@ -116,8 +116,8 @@ class supporting_dictionaries:
         panel. """
         cache = {leg.pos: comb_tuple(leg.ref,leg.alt,hap) 
                         for leg,hap in zip(leg_tab, hap_tab)}
-        combined = {obs.pos: comb for obs in obs_tab 
-                        if (comb:=cache.pop(obs.pos, None))}
+        combined = {obs.pos: cache.pop(obs.pos) for obs in obs_tab 
+                        if obs.pos in cache}
         return combined
     
     def build_reads_dict(self, obs_tab, combined):
