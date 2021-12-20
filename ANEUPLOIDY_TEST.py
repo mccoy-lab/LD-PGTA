@@ -114,10 +114,9 @@ class supporting_dictionaries:
         """  Returns a dictionary that lists chromosomal positions of SNPs and
         gives their associated reference alleles, alternative alleles and reference
         panel. """
-        positions = (*map(attrgetter('pos'),obs_tab),)
-        combined = {leg.pos: comb_tuple(leg.ref,leg.alt,hap) 
-                        for leg,hap in zip(leg_tab, hap_tab)
-                            if leg.pos in positions}
+        cache = {leg.pos: comb_tuple(leg.ref,leg.alt,hap) 
+                        for leg,hap in zip(leg_tab, hap_tab)}
+        combined = {obs.pos:cache[obs.pos] for obs in obs_tab if obs.pos in cache}
         return combined
     
     def build_reads_dict(self, obs_tab, combined):
