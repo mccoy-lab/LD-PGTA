@@ -328,7 +328,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
 
     time0 = time.time()
 
-    random.seed(a=kwargs.get('seed', 0), version=2) #I should make sure that a=None after finishing to debug the code.
+    random.seed(a=kwargs.get('seed', None), version=2) #I should make sure that a=None after finishing to debug the code.
     path = os.path.realpath(__file__).rsplit('/', 1)[0] + '/MODELS/'
     models_filename = kwargs.get('model', path + ('MODELS18.p' if max_reads>16 else ('MODELS16.p' if max_reads>12 else 'MODELS12.p')))
     
