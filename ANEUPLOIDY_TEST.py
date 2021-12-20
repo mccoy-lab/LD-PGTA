@@ -234,12 +234,12 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
     
     genomic_windows = build_gw_dict(obs, window_size, offset, min_reads, max_reads, min_score)
     
-    if ancestral_makeup=={}:
+    groups_in_ref_panel = {i.group2 for i in sam_tab}
+    if ancestral_makeup=={} and len(groups_in_ref_panel)==1:
         print('Assuming one ancestral population: %s.' % sam_tab[0].group2)
-        assert(len({i.group2 for i in sam_tab})==1), 'The samples file includes multiple groups (group2).'
         examine = homogeneous(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
-    elif [*ancestral_makeup.values()]==[0.5,0.5]:
-        print('Assuming recent-admixture between %s and %s.' % tuple(ancestral_makeup.keys()))
+    elif ancestral_makeup=={} and len(groups_in_ref_panel)==2:
+        print('Assuming recent-admixture between %s and %s.' % tuple(groups_in_ref_panel))
         examine = recent_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes)
     else:    
         print('Assuming the following ancestral makeup:', ancestral_makeup)    
@@ -400,9 +400,9 @@ if __name__ == "__main__":
     parser.add_argument('hap_filename', metavar='HAP_FILENAME', type=str,
                         help='A haplotype file of the reference panel.')
     parser.add_argument('samp_filename', metavar='SAMP_FILENAME', type=str,
-                        help='A samples file of the reference panel.')
+                        help='A samples file of the reference panel. When two populations are reported in the sample file and the ancestral makeup is not specified then the recent-admixture algorithm would be applied.')
     parser.add_argument('-a', '--ancestral-makeup', metavar='STR FLOAT ...', nargs='+', default=[],
-                        help='Assume an ancestral makeup with a certain proportions, e.g, EUR 0.8 EAS 0.1 SAS 0.1. When the ancestral makeup includes only two populations with equal proportions then the recent-admixture algorithm would be applied, otherwise distant-admixture algoirthm would be applied.')
+                        help='Assume an ancestral makeup with a certain proportions, e.g, EUR 0.8 EAS 0.1 SAS 0.1.')
     parser.add_argument('-w', '--window-size', type=int,
                         metavar='INT', default='100000',
                         help='Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads.')
