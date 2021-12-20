@@ -170,7 +170,7 @@ where the first argument is the filename of a pickle file created by MAKE_OBS_TA
 
 | Optional argument  | Description |
 | --- | --- |
-|`--ancestral-makeup <STR> <FLOAT> ...` | _Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8 EAS 0.1 SAS 0.1._ |
+|`--ancestral-makeup <STR> <FLOAT> ...` | _Assume a distant admixture with a certain ancestry proportion, e.g, EUR 0.8 EAS 0.1 SAS 0.1. When two populations are reported in the sample file and the ancestral makeup is not specified then the recent-admixture algorithm would be applied._ |
 | `--window-size <INT>` | _Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads._ |
 | `--offset <INT>` | _Shifts all the genomic windows by the requested base pairs. The default value is 0._
 | `--min-reads <INT>` | _Takes into account only genomic windows with at least INT reads, admitting non-zero score. The minimal value is 3, while the default is 6._ |
@@ -355,5 +355,3 @@ Then, we convert from BCF to hap/legend/sample format used by IMPUTE2 and SHAPEI
 `rm chr21_EUR_panel.bcf`
 
 where `--haplegendsample prefix`  _converts from BCF to hap/legend/sample format used by IMPUTE2. The columns of the .legend file are ID,POS,REF,ALT. Moreover, in order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The columns of the .sample file are population, group and sex._ 
-
-
