@@ -115,8 +115,9 @@ class supporting_dictionaries:
         gives their associated reference alleles, alternative alleles and reference
         panel. """
         positions = (*map(attrgetter('pos'),obs_tab),)
-        combined = {pos: comb_tuple(ref,alt,hap) for (chr_id,pos,ref,alt),hap in zip(leg_tab, hap_tab)
-                    if pos in positions}
+        combined = {leg.pos: comb_tuple(leg.ref,leg.alt,hap) 
+                        for leg,hap in zip(leg_tab, hap_tab)
+                            if leg.pos in positions}
         return combined
     
     def build_reads_dict(self, obs_tab, combined):
@@ -291,7 +292,7 @@ def print_summary(obs_filename,info):
     print('Chromosome ID: %s, Depth: %.2f.' % (info['chr_id'],info['depth']))
     print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
     print('Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (S.get('reads_mean',0), S.get('reads_std',0)))
-    print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (', '.join(info['ancestry']),info['statistics']['matched_alleles']))
+    print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (str(info['ancestry']),info['statistics']['matched_alleles']))
 
     if S.get('LLRs_per_chromosome',None):
         for (i,j), L in S['LLRs_per_chromosome'].items():
