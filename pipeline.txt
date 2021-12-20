@@ -360,8 +360,8 @@ where `--haplegendsample prefix`  _converts from BCF to hap/legend/sample format
 # Dependencies #
 <a name="Dependencies"/>
 
-* All scripts require `Python` v3.7 or above. The `CPython` and `PyPy` implementation are supported. 
-* The script `MAKE_REF_PANEL.py` requires one of the following: (a) `bcftools` v1.14 or above, (b) `cyvcf2` v0.30.12 or above, (c) `pysam` v0.18.0 or above.
-* The script `MAKE_OBS_TAB.py` requires `pysam` v0.18.0 or above.
-* The script `ANEUPLOIDY_TEST.py` would perform faster when `gmpy2` v2.1.0rc1 is present.
-* The script `PLOT_PANEL.py` requires `matplotlib` v3.5.1 or above.
+* All scripts require Python v3.7 or above. The CPython and PyPy implementation are supported. 
+* The script `MAKE_REF_PANEL.py` requires one of the following: (a) bcftools v1.14 or above, (b) cyvcf2 v0.30.12 or above, (c) pysam v0.18.0 or above.
+* The script `MAKE_OBS_TAB.py` requires pysam v0.18.0 or above.
+* The script `ANEUPLOIDY_TEST.py` would perform faster when gmpy2 v2.1.0rc1 is present.
+* The script `PLOT_PANEL.py` requires matplotlib v3.5.1 or above.
