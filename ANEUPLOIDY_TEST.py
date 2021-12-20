@@ -116,7 +116,8 @@ class supporting_dictionaries:
         panel. """
         cache = {leg.pos: comb_tuple(leg.ref,leg.alt,hap) 
                         for leg,hap in zip(leg_tab, hap_tab)}
-        combined = {obs.pos:cache[obs.pos] for obs in obs_tab if obs.pos in cache}
+        combined = {obs.pos: comb for obs in obs_tab 
+                        if (comb:=cache.pop(obs.pos, None))}
         return combined
     
     def build_reads_dict(self, obs_tab, combined):
