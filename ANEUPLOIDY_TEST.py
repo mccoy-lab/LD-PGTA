@@ -55,16 +55,18 @@ except ImportError:
             n -= 1
         return b
 
-def mean_and_var(data):
+def mean_and_var(x):
     """ Calculates the mean and variance. """
-    m = mean(data)
-    var = variance(data, xbar=m)
+    cache = tuple(x)
+    m = mean(cache)
+    var = variance(cache, xbar=m)
     return m, var
 
-def mean_and_std(data):
+def mean_and_std(x):
     """ Calculates the mean and population standard deviation. """
-    m = mean(data)
-    std = pstdev(data, mu=m)
+    cache = tuple(x)
+    m = mean(cache)
+    std = pstdev(cache, mu=m)
     return m, std
 
 def summarize(M,V):
@@ -259,13 +261,13 @@ def statistics(likelihoods,genomic_windows):
     useful information about the genmoic windows. """
 
     if likelihoods:
-        window_size_mean, window_size_std = mean_and_std([j-i+1 for (i,j) in likelihoods])
-        reads_mean, reads_std = mean_and_std([len(read_IDs) for window,read_IDs in genomic_windows.items() if window in likelihoods])
+        window_size_mean, window_size_std = mean_and_std((j-i+1 for (i,j) in likelihoods))
+        reads_mean, reads_std = mean_and_std((len(read_IDs) for window,read_IDs in genomic_windows.items() if window in likelihoods))
         num_of_windows = len(likelihoods)
 
 
         pairs = (('BPH','SPH'), ('BPH','disomy'), ('disomy','SPH'), ('SPH','monosomy')); _ = {};
-        LLRs_per_genomic_window = {(i,j): {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['monosomy'], _['disomy'], _['SPH'], _['BPH'] in L))])
+        LLRs_per_genomic_window = {(i,j): {window:  mean_and_var((starmap(LLR, ((_[i], _[j]) for _['monosomy'], _['disomy'], _['SPH'], _['BPH'] in L))))
                            for window,L in likelihoods.items()} for i,j in pairs}
 
         LLRs_per_chromosome = {pair: summarize(*zip(*stat.values())) for pair,stat in LLRs_per_genomic_window.items()}
@@ -285,14 +287,15 @@ def print_summary(obs_filename,info):
     S = info['statistics']
     print('\nFilename: %s' % obs_filename)
     print('\nSummary statistics')
-    print('------------------')
-    print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S.get('reads_mean',0), S.get('reads_std',0)))
+    print('------------------')    
+    print('Chromosome ID: %s, Depth: %.2f.' % (info['chr_id'],info['depth']))
     print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
+    print('Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (S.get('reads_mean',0), S.get('reads_std',0)))
     print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (', '.join(info['ancestry']),info['statistics']['matched_alleles']))
 
     if S.get('LLRs_per_chromosome',None):
         for (i,j), L in S['LLRs_per_chromosome'].items():
-            print(f"--- LLR between {i:s} and {j:s} ----")
+            print(f"--- Chromosome-wide LLR between {i:s} and {j:s} ----")
             print(f"Mean LLR: {L['mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
             print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
 
