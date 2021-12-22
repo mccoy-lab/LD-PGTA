@@ -18,7 +18,7 @@ Daniel Ariad (daniel@ariad.org)
 Dec 21, 2020
 """
 
-import pickle, os, sys, bz2, collections, gzip
+import pickle, os, sys, bz2, collections, gzip, platform
 
 from functools import reduce
 from operator import and_, itemgetter
@@ -27,14 +27,26 @@ from itertools import combinations
 leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
 sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
 obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+likelihoods_tuple = collections.namedtuple('likelihoods_tuple', ('monosomy', 'disomy', 'SPH', 'BPH')) #Encodes the likelihoods for four scenarios, namely, monosomy, disomy, SPH and BPH.
 
-try:
-    from gmpy2 import popcount
-except ModuleNotFoundError:
-    print('caution: the module gmpy2 is missing.')
-    def popcount(x):
-        """ Counts non-zero bits in positive integer. """
-        return bin(x).count('1')
+if platform.python_implementation()=='PyPy':
+    class PopCount:
+        def __init__(self):
+            self.A = bytes((bin(i).count('1') for i in range(1<<20)))
+    
+        def __call__(self,x):
+            result = 0
+            while(x): result += self.A[x & 1048575]; x >>= 20
+            return result
+    popcount = PopCount()
+else:
+    try: 
+        from gmpy2 import popcount
+    except ModuleNotFoundError: 
+        print('caution: the module gmpy2 is missing.')
+        def popcount(x):
+            """ Counts non-zero bits in positive integer. """
+            return bin(x).count('1')
 
 class recent_admixture:
     """ Based on the statisitcal models (models_dict) and the reference panel
@@ -215,9 +227,7 @@ class recent_admixture:
         ((B0,),) = models['MONOSOMY'][1][(1,1)]
         MONOSOMY = ( F[B0] / M + G[B0] / N ) / 2
 
-
-        result = (MONOSOMY, DISOMY, SPH, BPH)
-        return result
+        return likelihoods_tuple(MONOSOMY, DISOMY, SPH, BPH)
 
     def likelihoods2(self, *alleles):
         """ Calculates the likelihood to observe two alleles/haplotypes
@@ -227,11 +237,13 @@ class recent_admixture:
         G = self.joint_frequencies_combo(*alleles, group2_id=1, normalize=True)
         a, b, ab = F[1], F[2], F[3]
         A, B, AB = G[1], G[2], G[3]
+        
         BPH = (2*(b*a+B*A)+3*(AB+ab)+4*(b*A+B*a))/18 #The likelihood of three unmatched haplotypes. #V
         SPH = (4*(b*A+B*a)+5*(AB+ab))/18 #The likelihood of two identical haplotypes out three. #V
         DISOMY = (ab+A*b+AB+a*B)/4 #The likelihood of diploidy. #V
         MONOSOMY = (ab+AB)/2 #The likelihood of monosomy. #V
-        return MONOSOMY, DISOMY, SPH, BPH
+        
+        return likelihoods_tuple(MONOSOMY, DISOMY, SPH, BPH)
 
     def likelihoods3(self, *alleles):
         """ Calculates the likelihood to observe three alleles/haplotypes
@@ -242,12 +254,12 @@ class recent_admixture:
         a, b, ab, c, ac, bc, abc = F[1], F[2], F[3], F[4], F[5], F[6], F[7]
         A, B, AB, C, AC, BC, ABC = G[1], G[2], G[3], G[4], G[5], G[6], G[7]
 
-
         BPH = (2*(b*c*A+B*a*C+B*a*c+b*C*A+ab*c+AB*C+b*a*C+B*c*A+b*ac+B*AC+a*bc+BC*A)+3*(ABC+abc)+4*(AB*c+ab*C+b*AC+B*ac+bc*A+a*BC))/54 #The likelihood of three unmatched haplotypes. #V
         SPH = (6*(AB*c+ab*C+b*AC+B*ac+bc*A+a*BC)+9*(ABC+abc))/54  #The likelihood of two identical haplotypes out three. #V
         DISOMY = (abc+ab*C+ac*B+bc*A+ABC+AB*c+AC*b+BC*a)/8 #The likelihood of diploidy. #V
         MONOSOMY = (abc+ABC)/2 #The likelihood of monosomy. #V
-        return MONOSOMY, DISOMY, SPH, BPH
+        
+        return likelihoods_tuple(MONOSOMY, DISOMY, SPH, BPH)
 
     def likelihoods4(self, *alleles):
         """ Calculates the likelihood to observe four alleles/haplotypes
@@ -279,7 +291,8 @@ class recent_admixture:
         SPH = (8*(AB*cd+ab*CD+AC*bd+ac*BD+bc*AD+ad*BC)+10*(ABC*d+abc*D+c*ABD+abd*C+b*ACD+B*acd+bcd*A+a*BCD)+17*(ABCD+abcd))/162  #The likelihood of two identical haplotypes out three. #V
         DISOMY = (abcd+abc*D+bcd*A+acd*B+abd*C+ab*CD+ad*BC+ac*BD+ABCD+ABC*d+BCD*a+ACD*b+ABD*c+AB*cd+AD*bc+AC*bd)/16 #The likelihood of diploidy. #V
         MONOSOMY = (abcd+ABCD)/2 #The likelihood of monosomy. #V
-        return MONOSOMY, DISOMY, SPH, BPH
+        
+        return likelihoods_tuple(MONOSOMY, DISOMY, SPH, BPH)
 
     def get_likelihoods(self, *x):
         """ Uses the optimal function to calculate the likelihoods.

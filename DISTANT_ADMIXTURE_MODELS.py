@@ -18,7 +18,7 @@ Daniel Ariad (daniel@ariad.org)
 Aug 10, 2021
 """
 
-import pickle, os, sys, bz2, collections, gzip
+import pickle, os, sys, bz2, collections, gzip, platform
 
 from functools import reduce
 from operator import and_, itemgetter
@@ -28,13 +28,26 @@ leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt'))
 sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
 obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 spanel_tuple = collections.namedtuple('spanel_tuple', ('group2', 'flag', 'hap_number', 'proportion')) #Encodes the rows of the observations table
-try:
-    from gmpy2 import popcount
-except ModuleNotFoundError:
-    print('caution: the module gmpy2 is missing.')
-    def popcount(x):
-        """ Counts non-zero bits in positive integer. """
-        return bin(x).count('1')
+likelihoods_tuple = collections.namedtuple('likelihoods_tuple', ('monosomy', 'disomy', 'SPH', 'BPH')) #Encodes the likelihoods for four scenarios, namely, monosomy, disomy, SPH and BPH.
+
+if platform.python_implementation()=='PyPy':
+    class PopCount:
+        def __init__(self):
+            self.A = bytes((bin(i).count('1') for i in range(1<<20)))
+    
+        def __call__(self,x):
+            result = 0
+            while(x): result += self.A[x & 1048575]; x >>= 20
+            return result
+    popcount = PopCount()
+else:
+    try: 
+        from gmpy2 import popcount
+    except ModuleNotFoundError: 
+        print('caution: the module gmpy2 is missing.')
+        def popcount(x):
+            """ Counts non-zero bits in positive integer. """
+            return bin(x).count('1')
 
 class distant_admixture:
     """ Based on the statisitcal models (models_dict) and the reference panel
@@ -219,7 +232,7 @@ class distant_admixture:
         ((B0,),) = models['MONOSOMY'][1][(1,1)]
         MONOSOMY = F[B0]
 
-        result = (MONOSOMY, DISOMY, SPH, BPH)
+        result = likelihoods_tuple(MONOSOMY, DISOMY, SPH, BPH)
         return result
 
     def likelihoods2(self, *alleles):
@@ -234,7 +247,7 @@ class distant_admixture:
         DISOMY = (ab+a*b)/2 #The likelihood of diploidy.
         MONOSOMY = ab #The likelihood of monosomy.
 
-        return MONOSOMY, DISOMY, SPH, BPH
+        return likelihoods_tuple(MONOSOMY, DISOMY, SPH, BPH)
 
     def likelihoods3(self, *alleles):
         """ Calculates the likelihood to observe three alleles/haplotypes
@@ -248,7 +261,7 @@ class distant_admixture:
         DISOMY = (abc+ab*c+ac*b+bc*a)/4 #The likelihood of diploidy.
         MONOSOMY = abc #The likelihood of monosomy.
 
-        return MONOSOMY, DISOMY, SPH, BPH
+        return likelihoods_tuple(MONOSOMY, DISOMY, SPH, BPH)
 
     def likelihoods4(self, *alleles):
         """ Calculates the likelihood to observe four alleles/haplotypes
@@ -262,7 +275,7 @@ class distant_admixture:
         DISOMY = (abcd+abc*d+bcd*a+acd*b+abd*c+ab*cd+ad*bc+ac*bd)/8 #The likelihood of diploidy.
         MONOSOMY = abcd #The likelihood of monosomy.
 
-        return MONOSOMY, DISOMY, SPH, BPH
+        return likelihoods_tuple(MONOSOMY, DISOMY, SPH, BPH)
 
     def get_likelihoods(self, *x):
         """ Uses the optimal function to calculate the likelihoods.
