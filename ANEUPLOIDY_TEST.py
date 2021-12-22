@@ -20,7 +20,7 @@ from RECENT_ADMIXTURE_MODELS import recent_admixture
 from DISTANT_ADMIXTURE_MODELS import distant_admixture
 
 
-from itertools import product, starmap
+from itertools import product
 from functools import reduce
 from operator import and_, attrgetter
 from statistics import mean, variance, pstdev
