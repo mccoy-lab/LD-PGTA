@@ -30,7 +30,7 @@ leg_tuple = collections.namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt'))
 sam_tuple = collections.namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
 obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
 comb_tuple = collections.namedtuple('comb_tuple', ('ref','alt','hap'))
-admix_tuple = collections.namedtuple('admix_tuple', ('group2', 'proportion'))
+likelihoods_tuple = collections.namedtuple('likelihoods_tuple', ('monosomy', 'disomy', 'SPH', 'BPH'))
 
 try:
     from gmpy2 import popcount
@@ -69,12 +69,26 @@ def mean_and_std(x):
     std = pstdev(cache, mu=m)
     return m, std
 
-def summarize(M,V):
-    """ Calculates chromosome-wide statistics of the LLRs """
-    result =  {'mean': mean(M),
-               'std_of_mean': sum(V)**.5/len(V),  #The standard deviation is calculated according to the Bienaymé formula.
-               'fraction_of_negative_LLRs': [i<0 for i in M].count(1)/len(M)}
-    return result
+def mean_and_std_of_mean_of_rnd_var(A):
+    """ Calculates the mean and population standard deviation of the mean of random variables.
+        Each row of A represents a random variable, with observations in the columns."""
+    if type(A)==dict:
+        A = tuple(tuple(i) for i in A.values()) 
+    
+    M, N = len(A), len(A[0])
+    mu = sum(sum(likelihoods_in_window)/N for likelihoods_in_window in A)
+    arg = ((sum(sampled_likelihoods) - mu)**2 for sampled_likelihoods in zip(*A))
+    std = (sum(arg) / (N - 1))**.5 / M
+    mean = mu / M
+    return mean, std
+
+### DEPRECATED. ###
+#def summarize(M,V):
+#    """ Calculates chromosome-wide statistics of the LLRs """
+#    result =  {'mean': mean(M),
+#               'std_of_mean': sum(V)**.5/len(V),  #The standard deviation is calculated according to the Bienaymé formula.
+#               'fraction_of_negative_LLRs': [i<0 for i in M].count(1)/len(M)}
+#    return result
 
 def LLR(y,x):
     """ Calculates the logarithm of y over x and deals with edge cases. """
@@ -247,14 +261,17 @@ def bootstrap(obs_tab, leg_tab, hap_tab, sam_tab, number_of_haplotypes,
         examine = distant_admixture(obs_tab, leg_tab, hap_tab, sam_tab, models_dict, number_of_haplotypes, ancestral_makeup)
 
     likelihoods = {}
-
+                    
     for k,(window,read_IDs) in enumerate(genomic_windows.items()):
-        sys.stdout.write(f"\r[{'=' * (33*(k+1)//len(genomic_windows)):{33}s}] {int(100*(k+1)/len(genomic_windows))}%"); sys.stdout.flush()
 
         effN = effective_number_of_subsamples(len(read_IDs),min_reads,max_reads,subsamples)
-        if effN>0: ### Ensures that the genomic windows contains enough reads for sampling.
-            likelihoods[window] = tuple(examine.get_likelihoods(*pick_reads(obs.reads,read_IDs,max_reads)) for _ in range(effN))
-
+        if effN: ### Adds a genomic window only if it contains enough reads for sampling.
+            cache = []
+            for i in range(effN):
+                sys.stdout.write(f"\r{chr(10633)+' ':s}{chr(10495) * (32*(k+1)//len(genomic_windows)) + chr(10240+(256-effN+i)%256):{33}s}{' '+chr(10634):s} {int(100*(k+1)/len(genomic_windows))}%"); sys.stdout.flush()
+                sampled_reads = pick_reads(obs.reads,read_IDs,max_reads)
+                cache.append(examine.get_likelihoods(*sampled_reads))
+            likelihoods[window] = tuple(cache)
     return likelihoods, genomic_windows, examine.fraction_of_matches
 
 def statistics(likelihoods,genomic_windows):
@@ -266,13 +283,27 @@ def statistics(likelihoods,genomic_windows):
         reads_mean, reads_std = mean_and_std((len(read_IDs) for window,read_IDs in genomic_windows.items() if window in likelihoods))
         num_of_windows = len(likelihoods)
 
-
-        pairs = (('BPH','SPH'), ('BPH','disomy'), ('disomy','SPH'), ('SPH','monosomy')); _ = {};
-        LLRs_per_genomic_window = {(i,j): {window:  mean_and_var((starmap(LLR, ((_[i], _[j]) for _['monosomy'], _['disomy'], _['SPH'], _['BPH'] in L))))
-                           for window,L in likelihoods.items()} for i,j in pairs}
-
-        LLRs_per_chromosome = {pair: summarize(*zip(*stat.values())) for pair,stat in LLRs_per_genomic_window.items()}
-
+        pairs = (('BPH','SPH'), ('disomy','monosomy'), ('BPH','disomy'), ('disomy','SPH'), ('SPH','monosomy'));
+        
+        LLRs = {(i,j): 
+                {window: tuple(LLR(attrgetter(i)(l), attrgetter(j)(l)) for l in likelihoods_in_window)
+                           for window,likelihoods_in_window in likelihoods.items()} 
+                                                            for i,j in pairs}
+            
+        LLRs_per_genomic_window = {pair: 
+                {window: mean_and_var(LLRs_in_window) for window, LLRs_in_window in LLRs[pair].items()}
+                                                            for pair in pairs}
+            
+        cache = {pair: mean_and_std_of_mean_of_rnd_var(LLRs[pair]) for pair in pairs}
+        
+        LLRs_per_chromosome = {pair: {'mean_of_mean': cache[pair][0], 
+                                      'std_of_mean': cache[pair][1], 
+                                      'fraction_of_negative_LLRs': mean(m<0 for m,v in LLRs_per_genomic_window[pair].values())}
+                                           for pair in pairs}
+        
+        #LLRs_per_chromosome = {pair: summarize(*zip(*LLRs_per_genomic_window[pair].values()))
+        #                              for pair in pairs}
+        
         result = {'num_of_windows': num_of_windows,
                   'reads_mean': reads_mean,
                   'reads_std': reads_std,
@@ -297,7 +328,7 @@ def print_summary(obs_filename,info):
     if S.get('LLRs_per_chromosome',None):
         for (i,j), L in S['LLRs_per_chromosome'].items():
             print(f"--- Chromosome-wide LLR between {i:s} and {j:s} ----")
-            print(f"Mean LLR: {L['mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
+            print(f"Mean LLR: {L['mean_of_mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
             print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
 
 def save_results(likelihoods,info,compress,obs_filename,output_filename,output_dir):
