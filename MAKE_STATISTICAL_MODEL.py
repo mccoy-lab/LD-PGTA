@@ -87,7 +87,7 @@ def SPH(number_of_reads):
     return COMPACT(model,number_of_reads,degeneracies)
 
 def DISOMY(number_of_reads):
-    """ Builds a statistical model for n-reads under the diploidy scenario. """
+    """ Builds a statistical model for n-reads under the disomy scenario. """
 
     degeneracies = (1, 1)
     model = ENGINE(number_of_reads,degeneracies)
@@ -107,7 +107,7 @@ def representationA(model):
     for partition,weight in model.items():
         if result!='':
             result += '+'
-        l = [''.join((chr(read+65) for read in hap)) for hap in partition if len(hap)] 
+        l = [''.join((chr(read+65) for read in hap)) for hap in partition if len(hap)]
         sandwitch = ''.join('f('+hap+')' for hap in l)
         if weight!=1:
             result += f'{weight:d}'
@@ -120,7 +120,7 @@ def representationB(model):
     for partition,weight in model.items():
         if result!='':
             result += '+'
-        l = [''.join((chr(65+read_ind) for read_ind in hap)) for hap in partition if len(hap)] 
+        l = [''.join((chr(65+read_ind) for read_ind in hap)) for hap in partition if len(hap)]
         if weight!=1:
             result += f'{weight:d}*'
         result += f"{'*'.join(l):s}"
