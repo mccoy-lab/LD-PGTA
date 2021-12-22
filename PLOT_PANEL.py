@@ -8,11 +8,13 @@ Plots log-likelihood ratio vs. chromosomal position from a LLR file.
 May 20, 2020
 """
 
-import pickle, bz2, gzip
+import pickle, bz2, gzip, collections
 from statistics import mean, variance
 from math import log
-from itertools import starmap
+from operator import attrgetter
 import argparse, sys
+
+likelihoods_tuple = collections.namedtuple('likelihoods_tuple', ('monosomy', 'disomy', 'SPH', 'BPH'))
 
 def chr_length(chr_id):
     """ Return the chromosome length for a given chromosome, based on the reference genome hg38.""" 
@@ -24,16 +26,25 @@ def chr_length(chr_id):
                   'chr21': 46709983, 'chr22': 50818468, 'chrX': 156040895, 'chrY': 57227415}
     return length_dict[chr_id]
 
-def std_of_mean(variances):
-    """ Standard error of the mean of uncorrelated variables, based on the
-        Bienaymé formula. """
-    return sum(variances)**.5/len(variances)
-
-def mean_and_var(data):
+def mean_and_var(x):
     """ Calculates the mean and variance. """
-    m = mean(data)
-    var = variance(data, xbar=m)
-    return m, var 
+    cache = tuple(x)
+    m = mean(cache)
+    var = variance(cache, xbar=m)
+    return m, var
+
+def mean_and_std_of_mean_of_rnd_var(A):
+    """ Calculates the mean and population standard deviation of the mean of random variables.
+        Each row of A represents a random variable, with observations in the columns."""
+    if type(A)==dict:
+        A = tuple(tuple(i) for i in A.values()) 
+    
+    M, N = len(A), len(A[0])
+    mu = sum(sum(likelihoods_in_window)/N for likelihoods_in_window in A)
+    arg = ((sum(sampled_likelihoods) - mu)**2 for sampled_likelihoods in zip(*A))
+    std = (sum(arg) / (N - 1))**.5 / M
+    mean = mu / M
+    return mean, std
 
 def LLR(y,x):
     """ Calculates the logarithm of y over x and deals with edge cases. """
@@ -61,60 +72,74 @@ def load_likelihoods(filename):
         info = pickle.load(f)
     return likelihoods, info
 
-def show_info(filename,info,pair):
+def show_info(obs_filename, info, pairs):
     S = info['statistics']
-    X = info['statistics']['LLRs_per_chromosome'][pair]
-    print('\nFilename: %s' % filename)
-    print('Depth: %.2f, Chromosome ID: %s, Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (info['depth'], info['chr_id'], S['reads_mean'], S['reads_std']))
-    print('Number of genomic windows: %d, Mean and standard error of genomic window size:  %d, %d.' % (S['num_of_windows'],S['window_size_mean'],S['window_size_std']))
-    print('Mean LLR: %.3f, Standard error of the mean LLR: %.3f' % ( X['mean'],  X['std_of_mean']))
-    print('Fraction of genomic windows with a negative LLR: %.3f' % (X['fraction_of_negative_LLRs']))
-    try:
-        print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (', '.join(info['ancestry']),info['statistics']['matched_alleles']))
-        print('The calculation was done in %.3f sec.' % info['statistics']['runtime'] )
-    except Exception as excep:
-        print('caution: could not find the entry', excep, '\b.')
+    print('\nFilename: %s' % obs_filename)
+    print('\nSummary statistics')
+    print('------------------')    
+    print('Chromosome ID: %s, Depth: %.2f.' % (info['chr_id'],info['depth']))
+    print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
+    print('Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (S.get('reads_mean',0), S.get('reads_std',0)))
+    print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (str(info['ancestry']),info['statistics']['matched_alleles']))
+
+    for pair in pairs:
+        if 'LLRs_per_chromosome' in S and tuple(pair) in S['LLRs_per_chromosome']:
+            L = S['LLRs_per_chromosome'][tuple(pair)]
+            print(f"--- Chromosome-wide LLR between {pair[0]:s} and {pair[1]:s} ----")
+            print(f"Mean LLR: {L['mean_of_mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
+            print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
+
         
     
 
-def coordinates(windows,chr_id,num_of_buckets):
-    """ Lists the buckets and gives the genomic windows that they contain. """
-    bin_size = chr_length(chr_id) / num_of_buckets
+def bin_genomic_windows(windows,chr_id,num_of_bins):
+    """ Lists the bins and gives the genomic windows that they contain. """
+    bin_size = chr_length(chr_id) / num_of_bins
     result = {}
     j = 0
     
-    for i in range(num_of_buckets): ### All buckets before the first the genomic window are filled with Nones.
+    for i in range(num_of_bins): ### All bins before the first the genomic window are filled with Nones.
         if sum(windows[0])/2 < (i+1)*bin_size:
             break
-        result[i/num_of_buckets,(i+1)/num_of_buckets] = None
+        result[i/num_of_bins,(i+1)/num_of_bins] = None
     
     for k,(a,b) in enumerate(windows):
         if not bin_size*i <= (a+b)/2 < bin_size*(i+1):
-            result[i/num_of_buckets,(i+1)/num_of_buckets] = (j,k)
+            result[i/num_of_bins,(i+1)/num_of_bins] = (j,k)
             j = k
-            for i in range(i+1,num_of_buckets): #Proceed to the next non-empty bucket; Empty buckets are filled with Nones.
+            for i in range(i+1,num_of_bins): #Proceed to the next non-empty bin; Empty bins are filled with Nones.
                 if (a+b)/2 < (i+1)*bin_size:
                     break
-                result[i/num_of_buckets,(i+1)/num_of_buckets] = None
+                result[i/num_of_bins,(i+1)/num_of_bins] = None
     
-    for i in range(i,num_of_buckets): ### All buckets after the last the genomic window are filled with Nones.
-        result[i/num_of_buckets,(i+1)/num_of_buckets] = (j,k) if j != k else None
+    for i in range(i,num_of_bins): ### All bins after the last the genomic window are filled with Nones.
+        result[i/num_of_bins,(i+1)/num_of_bins] = (j,k) if j != k else None
         j = k 
     return result
 
-def confidence(LLR_stat,info,num_of_buckets,z_score):
-    """ Binning is applied by aggregating the mean LLR of a window across N
-        consecutive windows. The boundaries of the bins as well as the mean LLR
-        and the standard-error per bin are returned. """
+def binning(LLRs_per_window,info,num_of_bins):
+    """ Genomic windows are distributed into bins. The LLRs in a genomic windows
+    are regarded as samples of a random variable. Within each bin, we calculate
+    the mean and population standard deviation of the mean of random variables. 
+    The boundaries of the bins as well as the mean LLR and the standard-error
+    per bin are returned. """
              
-    K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
-            
-    buckets = coordinates(windows=K,chr_id=info['chr_id'],num_of_buckets=num_of_buckets)
+    #K,M,V = tuple(LLR_stat.keys()), *zip(*LLR_stat.values())
+    list_of_windows = [*LLRs_per_window.keys()]
+    bins = bin_genomic_windows(list_of_windows, info['chr_id'], num_of_bins)
+    X = [*bins]
     
-    X = [*buckets]
-    Y = [mean(M[P[0]:P[1]]) if P else None for P in buckets.values()]
-    E = [z_score * std_of_mean(V[P[0]:P[1]]) if P else None for P in buckets.values()] 
-
+    LLR_matrix = [*LLRs_per_window.values()]
+    Y, E = [], []
+    for C in bins.values():
+        if C:
+            mean, std = mean_and_std_of_mean_of_rnd_var(LLR_matrix[C[0]:C[1]])
+        else:
+            mean, std = None, None
+        
+        Y.append(mean)
+        E.append(std)
+    
     return X,Y,E
 
 def detect_transition(X,Y,E):
@@ -134,7 +159,7 @@ def detect_transition(X,Y,E):
 def capitalize(x):
     return x[0].upper() + x[1:]
     
-def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
+def panel_plot(DATA,num_of_bins_in_chr21,pairs,**kwargs):
     """ Creates a multi-panel figure. For each numbered chromosome, a figure 
         depicts the log-likelihood ratio vs. chromosomal position for BPH over
         SPH. """
@@ -154,7 +179,7 @@ def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
     mpl.rcParams.update({'figure.max_open_warning': 0})
     import matplotlib.pyplot as plt
     #from scipy.interpolate import interp1d
-    num_of_buckets = {'chr'+str(i): num_of_buckets_in_chr21*chr_length('chr'+str(i))//chr_length('chr21') for i in [*range(1,23)]+['X','Y']}
+    num_of_bins = {'chr'+str(i): num_of_bins_in_chr21*chr_length('chr'+str(i))//chr_length('chr21') for i in [*range(1,23)]+['X','Y']}
 
     colors = {frozenset(('BPH','disomy')):(177/255,122/255,162/255),
               frozenset(('disomy','SPH')):(242/255,142/255,44/255),
@@ -163,7 +188,7 @@ def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
               frozenset(('BPH','SPH')):(104/255,162/255,104/255)}
 
 
-    fig,axs =plt.subplots(rows ,columns, sharex='col', sharey='row', figsize=(6.666 * columns * scale, 5.625 * rows * scale))
+    fig,axs = plt.subplots(rows ,columns, sharex='col', sharey='row', figsize=(6.666 * columns * scale, 5.625 * rows * scale))
     fig.subplots_adjust(left=0.05, bottom=0.06, right=.99, top=.97, wspace=None, hspace=None)
     #fig.suptitle(kwargs.get('title', ''), fontsize=16)
     #fig.text(0.5, 0, 'Chromosomal position (normalized)',fontsize=28, ha='center')
@@ -179,15 +204,19 @@ def panel_plot(DATA,num_of_buckets_in_chr21,pairs,**kwargs):
         for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
     
             if (a,b) in info['statistics']['LLRs_per_genomic_window']:
-                LLR_stat = info['statistics']['LLRs_per_genomic_window'][(a,b)]
+                LLRs_per_genomic_window = info['statistics']['LLRs_per_genomic_window'][(a,b)]
             else:
-                _ = {};
-                LLR_stat = {window:  mean_and_var([*starmap(LLR, ((_[a], _[b]) for _['monosomy'], _['disomy'], _['SPH'], _['BPH'] in L))])
-                       for window,L in likelihoods.items()}
+                    
+                LLRs = {window: tuple(LLR(attrgetter(a)(l), attrgetter(b)(l)) for l in likelihoods_in_window)
+                                   for window,likelihoods_in_window in likelihoods.items()} 
+                                                                   
+                    
+                LLRs_per_genomic_window = {window: mean_and_var(LLRs_in_window) for window, LLRs_in_window in LLRs.items()}
+                                                                    
             
-            X,Y,E = confidence(LLR_stat,info,num_of_buckets=num_of_buckets[info['chr_id']],z_score=z_score)
+            X,Y,E = binning(LLRs_per_genomic_window,info,num_of_bins[info['chr_id']])
             Y = [(y if y else 0) for y in Y]
-            E = [(e if e else 0) for e in E]
+            E = [(z_score*e if e else 0) for e in E]
             
             T = [(x[1]+x[0])/2 for x in X]                
             steps_x = [X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]]
@@ -275,7 +304,7 @@ def single_plot(likelihoods,info,**kwargs):
     
     scale = kwargs.get('scale', 1)
     z_score = kwargs.get('z_score', 1)
-    num_of_buckets = kwargs.get('num_of_buckets', 10)
+    num_of_bins = kwargs.get('num_of_bins', 10)
     save = kwargs.get('save', '')
     pairs = kwargs.get('pairs', (('BPH','DISOMY'),('DISOMY','SPH'),('SPH','MONOSOMY')))
     
@@ -293,19 +322,23 @@ def single_plot(likelihoods,info,**kwargs):
               ('SPH','MONOSOMY'):(239/255,106/255,92/255),
               ('DISOMY','MONOSOMY'):(104/255,162/255,183/255),
               ('BPH','SPH'):(104/255,162/255,104/255)}
-
-    _ = {};
-    LLRs_per_genomic_window = {(i,j): {window:  mean_and_var([*starmap(LLR, ((_[i], _[j]) for _['MONOSOMY'], _['DISOMY'], _['SPH'], _['BPH'] in L))])
-                       for window,L in likelihoods.items()} for i,j in pairs}
     
+    LLRs = {(i,j): 
+            {window: tuple(LLR(attrgetter(i)(l), attrgetter(j)(l)) for l in likelihoods_in_window)
+                       for window,likelihoods_in_window in likelihoods.items()} 
+                                                        for i,j in pairs}
+        
+    #LLRs_per_genomic_window = {(i,j): 
+    #        {window: mean_and_var(LLRs_in_window) for window, LLRs_in_window in LLRs[(i,j)].items()}
+    #                                                    for (i,j) in pairs}
     
     fig,(ax1)=plt.subplots(1,1, figsize=(16 * scale, 9 * scale))
     fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
     H = {}
-    for p,LLR_stat in LLRs_per_genomic_window.items():
-        X,Y,E = confidence(LLR_stat,info,num_of_buckets=num_of_buckets,z_score=z_score)
+    for p,LLRs_per_genomic_window in LLRs.items():
+        X,Y,E = binning(LLRs_per_genomic_window,info,num_of_bins)
         Y = [(y if y else 0) for y in Y]
-        E = [(e if e else 0) for e in E]        
+        E = [(z_score*e if e else 0) for e in E]        
         T = [(x[1]+x[0])/2 for x in X]            
         
         ###ax1.plot([X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]],[i for i in Y for j in (1,2)], label=f'{p[0]:s} vs. {p[1]:s}',color=colors[p],linewidth=2)
@@ -370,20 +403,21 @@ def single_plot(likelihoods,info,**kwargs):
        plt.tight_layout()
        plt.show()
        
-def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),), num_of_buckets_in_chr21=5, save='', work_dir=''):
+def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),), num_of_bins_in_chr21=5, save='', work_dir=''):
     """ Wraps the function panel_plot. """
     #DATA = {filename: load_likelihoods(filename)}      
     DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(work_dir + f'{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
     
     for f,(likelihoods,info) in DATA.items():
-        show_info(f'{f:s}.LLR.p.bz2',info,('BPH','SPH'))
-    panel_plot(DATA.values(),num_of_buckets_in_chr21=num_of_buckets_in_chr21,pairs=pairs,title=f'{identifier:s}',save=save)
+        show_info(f'{f:s}.LLR.p.bz2',info,pairs)
+    panel_plot(DATA.values(),num_of_bins_in_chr21=num_of_bins_in_chr21,pairs=pairs,title=f'{identifier:s}',save=save)
     return 0
 
 def wrap_single_plot(llr_filename,pairs,bins):
     """ Wraps the function single_plot. """
     likelihoods,info =  load_likelihoods(llr_filename)
-    single_plot(likelihoods,info,pairs=pairs,num_of_buckets=bins)
+    show_info(llr_filename,info,pairs)
+    single_plot(likelihoods,info,pairs=pairs,num_of_bins=bins)
     return 0
 
 if __name__ == "__main__":
@@ -417,6 +451,6 @@ identifiers = {i.split('.')[0] for i in os.listdir(work_dir) if i[-3:]=='bz2'}
 for identifier in identifiers:
     try:
         if not os.path.isfile(work_dir+identifier+'.svg'):
-            wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=identifier,work_dir=work_dir, num_of_buckets_in_chr21=20)
+            wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=identifier,work_dir=work_dir, num_of_bins_in_chr21=20)
     except Exception as e:
         print(identifier,e)
