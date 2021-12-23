@@ -32,24 +32,15 @@ obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Enc
 comb_tuple = collections.namedtuple('comb_tuple', ('ref','alt','hap'))
 likelihoods_tuple = collections.namedtuple('likelihoods_tuple', ('monosomy', 'disomy', 'SPH', 'BPH'))
 
-if platform.python_implementation()=='PyPy':
-    class PopCount:
-        def __init__(self):
-            self.A = bytes((bin(i).count('1') for i in range(1<<20)))
-    
-        def __call__(self,x):
-            result = 0
-            while(x): result += self.A[x & 1048575]; x >>= 20
-            return result
-    popcount = PopCount()
-else:
-    try: 
+### Getting a function to count non-zero bits in positive integer.
+try:
+    if platform.python_implementation()=='PyPy':
+        from pypy3_popcounts.popcounts import popcount
+    else:
         from gmpy2 import popcount
-    except ModuleNotFoundError: 
-        print('caution: the module gmpy2 is missing.')
-        def popcount(x):
-            """ Counts non-zero bits in positive integer. """
-            return bin(x).count('1')
+except Exception as err: 
+    print(err)
+    popcount = lambda x: bin(x).count('1')
 
 try:
     from math import comb

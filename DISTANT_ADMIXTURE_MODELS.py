@@ -30,24 +30,15 @@ obs_tuple = collections.namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Enc
 spanel_tuple = collections.namedtuple('spanel_tuple', ('group2', 'flag', 'hap_number', 'proportion')) #Encodes the rows of the observations table
 likelihoods_tuple = collections.namedtuple('likelihoods_tuple', ('monosomy', 'disomy', 'SPH', 'BPH')) #Encodes the likelihoods for four scenarios, namely, monosomy, disomy, SPH and BPH.
 
-if platform.python_implementation()=='PyPy':
-    class PopCount:
-        def __init__(self):
-            self.A = bytes((bin(i).count('1') for i in range(1<<20)))
-    
-        def __call__(self,x):
-            result = 0
-            while(x): result += self.A[x & 1048575]; x >>= 20
-            return result
-    popcount = PopCount()
-else:
-    try: 
+### Getting a function to count non-zero bits in positive integer.
+try:
+    if platform.python_implementation()=='PyPy':
+        from pypy3_popcounts.popcounts import popcount
+    else:
         from gmpy2 import popcount
-    except ModuleNotFoundError: 
-        print('caution: the module gmpy2 is missing.')
-        def popcount(x):
-            """ Counts non-zero bits in positive integer. """
-            return bin(x).count('1')
+except Exception as err: 
+    print(err)
+    popcount = lambda x: bin(x).count('1')
 
 class distant_admixture:
     """ Based on the statisitcal models (models_dict) and the reference panel
