@@ -54,3 +54,21 @@ class get_popcount():
             i <<= 1
             x += x >> i
         return x & self.mask; 
+    
+if __name__ == "__main__":
+    print('The module POPCOUNTS was invoked directly.')
+    import random, sys
+    
+    popcount_naive = lambda x: bin(x).count('1')
+    random.seed(a=2022, version=2)
+    naive_result = [popcount_naive(random.getrandbits(1024)) for i in range(1000000)]
+    
+    popcount = get_popcount()
+    random.seed(a=2022, version=2)
+    result = [popcount(random.getrandbits(1024)) for i in range(1000000)]
+    
+    print('Algorithm validation: %s' % ('passed' if naive_result==result else 'failed'))
+    sys.exit(0)
+    
+else:
+    print("The module POPCOUNTS was imported.")
