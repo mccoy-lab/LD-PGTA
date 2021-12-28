@@ -72,9 +72,9 @@ def load_likelihoods(filename):
         info = pickle.load(f)
     return likelihoods, info
 
-def show_info(obs_filename, info, pairs):
+def show_info(filename, info, pairs):
     S = info['statistics']
-    print('\nFilename: %s' % obs_filename)
+    print('\nFilename: %s' % filename)
     print('\nSummary statistics')
     print('------------------')    
     print('Chromosome ID: %s, Depth: %.2f.' % (info['chr_id'],info['depth']))
