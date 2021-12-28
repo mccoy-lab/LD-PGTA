@@ -344,7 +344,10 @@ def save_results(likelihoods,info,compress,obs_filename,output_filename,output_d
     ext = ('.'+compress) * (compress in ('bz2','gz'))
     obs_filename_stripped =  obs_filename.rsplit('/', 1).pop()
     default_output_filename = re.sub('(.*)obs.p(.*)',f'\\1LLR.p{ext:s}', obs_filename_stripped, 1)
-    if output_filename=='': output_filename = default_output_filename
+    if output_filename=='': 
+        output_filename = default_output_filename
+    else:
+        output_filename += ext
     
     output_dir = re.sub('/$','',output_dir)+'/' #undocumented option
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
