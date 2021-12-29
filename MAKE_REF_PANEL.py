@@ -76,12 +76,20 @@ def read_impute2(filename,**kwargs):
 
 def load_mask_tab_fasta_gz(mask_filename):
     """ Loads accessibility masks from fasta.gz files. """
-    with gzip.open(mask_filename,'rb') as f0:
-        with gzip.open(f0,'rt') as f:
-            print(f'--- Mask filename: {mask_filename:s}')
-            f.readline()
-            cache = [i.rstrip('\n') for i in f]
-            result = ''.join(cache)
+    print(f'--- Mask filename: {mask_filename:s}')
+    try:
+        with gzip.open(mask_filename,'rt') as f:
+            f.readline() #bite header off
+            result = ''.join((i.rstrip('\n') for i in f))
+    except Exception as err:
+        ### Checks if it is a nested gzip file ###
+        if err.__str__()=="\'utf-8\' codec can\'t decode byte 0x8b in position 1: invalid start byte":
+            with gzip.open(mask_filename,'rb') as f0:
+                with gzip.open(f0,'rt') as f1:
+                    f1.readline() #bite header off
+                    result = ''.join((i.rstrip('\n') for i in f1))
+        else:
+            raise err
 
     return result
 
