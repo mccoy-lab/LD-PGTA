@@ -282,7 +282,7 @@ where the first argument is the path of a directory that contains LLR files with
 | `--chr-id <STR>` | _Apply a criterion for the chromosome number, e.g., chrX._ |
 | `--window-size <INT>` | _Apply a criterion for the size of the genomic window._ |
 | `--subsamples <INT>` | _Apply a criterion for the number of subsamples per genomic window._ |
-| `--min-reads <INT>` | _Apply a criterion for the minimal number of reads, admitting non-zero score._ |
+| `--min-reads <INT>` | _Apply a criterion for the minimal number of reads in a genomic window, admitting non-zero score._ |
 | `--max-reads <INT>` | _Apply a criterion for the maximal number of sampled reads per bootstrap iteration._ |
 | `--min-HF <FLOAT>` | _Apply a criterion for the minimal haplotype frequency_ |
 | `--min-score <INT>` | _Apply a criterion for the minimal score of a read._ |
