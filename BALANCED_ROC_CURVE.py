@@ -4,16 +4,19 @@
 BALANCED_ROC_CURVES
 
 Based on simulated data that was created by MIX_HAPLOIDS and analyzed by
-ANEUPLOIDY_TEST, Balanced ROC curves for predicting aneuploidy are created.
+ANEUPLOIDY_TEST, balanced ROC (Receiver Operating Characteristic) curves
+for predicting BPH (both parental homologs) and SPH (single parental homologs)
+are created.
+
+The balanced ROC curve is a plot of BTPR (Balanced True Positive Rate) vs. BFPR
+(Balanced False Positive Rate), where BTPR=0.5*[TPR(BPH) + TPR(SPH)] and B
+FPR=0.5*[FPR(BPH) + FPR(SPH)].
 
 The genome is divided into bins. For each simulated data, the mean LLR and the
 standard deviation for a bin are calculated. A positive (negative) prediction
 is made if the bounds of the confidence interval lie on the positive (negative)
-side of the number line. In order to determine the optimal a confidence
-level, the z-score is varied and the balanced positive and negative rates are
-calculated for each value that is takes. For each z-score the the balanced
-positive and negative rates are averaged across the bins. Then, averaged rates
-are used for creating a balanced ROC curve.
+side of the number line. In each bin, the z-score is varied and the balanced
+positive and negative rates are calculated for each value it takes.
 
 Daniel Ariad (daniel@ariad.org)
 Dec 30, 2021
@@ -253,7 +256,7 @@ if __name__ == "__main__":
     parser.add_argument('output_filename', type=str, metavar='OUTPUT_FILENAME',
                         help='The output filename.')
     parser.add_argument('-n', '--number-of-bins', type=int, metavar='INT',  default='15',
-                        help='The genome is divided into bins and for each bin a ROC curve is calculated.')
+                        help='The genome is divided into bins and for each bin a ROC curve is calculated. Default value is 15.')
     parser.add_argument('-c', '--compress', metavar='gz/bz2/unc', type=str, default='unc',  choices=['gz','bz2','unc'],
                         help='Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed.')
     parser.add_argument('-o', '--scenarios', type=str, nargs=2,
