@@ -12,6 +12,7 @@
 
 #### Additional documentation
 [Simulating various forms of trisomy](#simulate) \
+[Balanced ROC Analysis](#ROC_analysis) \
 [Description of the IMPUTE2 format for reference panels](#IMPUTE2) \
 [Generating IMPUTE2 reference panels from a VCF file](#"VCF2IMPUTE") \
 [Dependencies](#"Dependencies")
@@ -250,6 +251,43 @@ We run the script with the following arguments and flags:
 
 where the first argument is the filename of a legend file, describing the SNPs. The second argument is the filename of the IMPUTE2 haplotypes file, which contains a table of haplotypes. The thirds argument is the filename of the IMPUTE2 samples file, which lists the individuals. The forth and fifth arguments are the chromosome ID and sample ID, respectively. 
 
+# Balanced ROC Analysis #
+<a name="ROC_analysis"/>
+
+Based on simulated scenario that was created by MIX_HAPLOIDS and analyzed by
+ANEUPLOIDY_TEST, balanced ROC (Receiver Operating Characteristic) curves 
+for predicting BPH (both parental homologs) and SPH (single parental homologs)
+are created.
+
+The balanced ROC curve is a plot of BTPR (Balanced True Positive Rate) vs. BFPR (Balanced False Positive Rate), where BTPR &#8801; 0.5(TPR<sub>BPH</sub> + TPR<sub>SPH</sub>) and BFPR &#8801; 0.5(FPR<sub>BPH</sub> + FPR<sub>SPH</sub>).
+
+The genome is divided into bins. For each simulated data, the mean LLR and the
+standard deviation for a bin are calculated. A positive (negative) prediction
+is made if the bounds of the confidence interval lie on the positive (negative)
+side of the number line. In each bin, the z-score is varied and the balanced
+positive and negative rates are calculated for each value it takes. 
+
+We run the script with the following arguments and flags:
+
+`python BALANCED_ROC_CURVE.py ~/results/non_masked/nonadmixed_EAS_chr16/ nonadmixed_EAS_chr16.p`
+
+where the first argument is the path of a directory that contains LLR files with simulated scenarios and the second argument is the output filename. In addition, the following optional arguments are supported:
+
+| Optional argument  | Description |
+| --- | --- |
+| `--number-of-bins <INT>` | _The genome is divided into bins and for each bin a ROC curve is calculated. Default value is 15._ |
+| `--compress` <gz/bz2/unc>| _Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed._ |
+| `--scenarios <BPH/SPH/disomy/monosomy>` | _Two simulated scenarios for which a balanced ROC curve would be created. The default is "BPH SPH"._ |
+| `--ancestral-makeup` <STR> | _Apply a criterion for the ancestral makeup: <br/> a. For non-admixtures the argument consists a single superpopulation, e.g., EUR. <br/> b. For recent admixtures the argument consists two superpopulations, e.g., EUR EAS. <br/> c. For distant admixtures the argument consists of the superpoplations and their proportions, e.g, EUR 0.8 EAS 0.1 SAS 0.1._ |
+| `--chr-id <STR>` | _Apply a criterion for the chromosome number, e.g., chrX._ |
+| `--window-size <INT>` | _Apply a criterion for the size of the genomic window._ |
+| `--subsamples <INT>` | _Apply a criterion for the number of subsamples per genomic window._ |
+| `--min-reads <INT>` | _Apply a criterion for the minimal number of reads, admitting non-zero score._ |
+| `--max-reads <INT>` | _Apply a criterion for the maximal number of sampled reads per bootstrap iteration._ |
+| `--min-HF <FLOAT>` | _Apply a criterion for the minimal haplotype frequency_ |
+| `--min-score <INT>` | _Apply a criterion for the minimal score of a read._ |
+| `--read-length <INT>` | _Apply a criterion for the number of base pairs in read._ |
+| `--depth <INT>` | _Apply a criterion for the depth of coverage._ |
 
 # Description of the IMPUTE2 format for reference panels #
 <a name="IMPUTE2"/>
