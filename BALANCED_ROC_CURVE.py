@@ -4,9 +4,10 @@
 BALANCED_ROC_CURVES
 
 Based on simulated data that was created by MIX_HAPLOIDS and analyzed by
-ANEUPLOIDY_TEST, balanced ROC (Receiver Operating Characteristic) curves
+DETECT_CROSSOVERS, Balanced ROC (Receiver Operating Characteristic) curves
 for predicting BPH (both parental homologs) and SPH (single parental homologs)
 are created.
+
 
 The balanced ROC curve is a plot of BTPR (Balanced True Positive Rate) vs. BFPR
 (Balanced False Positive Rate), where BTPR=0.5*[TPR(BPH) + TPR(SPH)] and B
@@ -22,14 +23,10 @@ Daniel Ariad (daniel@ariad.org)
 Dec 30, 2021
 """
 
-import pickle, bz2, gzip, sys, os, argparse
+import pickle, bz2, gzip, sys, argparse, os
 from math import log
-from operator import attrgetter
-from collections import defaultdict, namedtuple
-
-leg_tuple = namedtuple('leg_tuple', ('chr_id', 'pos', 'ref', 'alt')) #Encodes the rows of the legend table
-sam_tuple = namedtuple('sam_tuple', ('sample_id', 'group1', 'group2', 'sex')) #Encodes the rows of the samples table
-obs_tuple = namedtuple('obs_tuple', ('pos', 'read_id', 'base')) #Encodes the rows of the observations table
+from itertools import starmap
+from collections import defaultdict
 
 def LLR(y,x):
     """ Calculates the logarithm of y over x and deals with edge cases. """
@@ -72,7 +69,7 @@ def load_likelihoods(filename):
     """ Loads from a file a dictionary that lists genomic windows that contain
     at least two reads and gives the bootstrap distribution of the
     log-likelihood ratios (LLRs). """
-    
+
     Open = {'bz2': bz2.open, 'gzip': gzip.open}.get(filename.rpartition('.')[-1], open)
     try:
         with Open(filename, 'rb') as f:
@@ -84,22 +81,25 @@ def load_likelihoods(filename):
         return None
 
 
-def show_info(filename, info, pairs):
+def show_info(info):
     S = info['statistics']
-    print('\nFilename: %s' % filename)
-    print('\nSummary statistics')
-    print('------------------')    
-    print('Chromosome ID: %s, Depth: %.2f.' % (info['chr_id'],info['depth']))
+    print('\nFilename of the disomy observation table: %s' % info['disomy_obs_filename'])
+    print('\nFilename of the monosomy observation table: %s' % info['monosomy_obs_filename'])
+    print('\nSummary statistics:')
+    print('-------------------')
+    print('Chromosome ID: %s' % info['chr_id'])
+    print('Depth of coverage of the disomy sequence: %.2f' % info['depth']['disomy'])
+    print('Depth of coverage of the monosomy sequence: %.2f' % info['depth']['monosomy'])
     print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
-    print('Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (S.get('reads_mean',0), S.get('reads_std',0)))
-    print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (str(info['ancestry']),info['statistics']['matched_alleles']))
+    print('Mean and standard error of meaningful reads per genomic window from the disomy sequence: %.1f, %.1f.' % (S.get('disomy_reads_mean',0), S.get('disomy_reads_std',0)))
+    print('Mean and standard error of meaningful reads per genomic window from the monosomy sequence: %.1f, %.1f.' % (S.get('monosomy_reads_mean',0), S.get('monosomy_reads_std',0)))
+    print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (', '.join(info['ancestry']),info['statistics']['matched_alleles']))
 
-    for pair in pairs:
-        if 'LLRs_per_chromosome' in S and tuple(pair) in S['LLRs_per_chromosome']:
-            L = S['LLRs_per_chromosome'][tuple(pair)]
-            print(f"--- Chromosome-wide LLR between {pair[0]:s} and {pair[1]:s} ----")
-            print(f"Mean LLR: {L['mean_of_mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
-            print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
+    if S.get('LLRs_per_chromosome',None):
+        L = S['LLRs_per_chromosome']
+        print("--- Chromosome-wide LLR between BPH and SPH ----")
+        print(f"Mean LLR: {L['mean_of_mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
+        print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
         
 
 def bin_genomic_windows(windows,chr_id,num_of_bins):
@@ -171,25 +171,23 @@ def collect_data(criteria, num_of_bins, work_dir):
             if likelihoods==None: continue
             subinfo = {x: info.get(x,None) for x in criteria.keys()}
             scenario = filename.split('.',2)[1]
-            
-            ###show_info(filename, info, scenarios)
             ###print(subinfo)
             ###print(criteria)
             ###print(criteria==subinfo)
             ###print(scenario, scenarios)
             if subinfo==criteria and scenario in scenarios:
+                ###show_info(info)
                 chr_id = info['chr_id']
-                                                                    
-                LLRs = {window: tuple(LLR(attrgetter(scenarios[0])(l), attrgetter(scenarios[1])(l)) for l in likelihoods_in_window)
+                LLRs = {window: tuple(starmap(LLR,likelihoods_in_window))
                                    for window,likelihoods_in_window in likelihoods.items()} 
-                
+                                                                    
                 result[scenario][chr_id][filename] = {bucket: {'mean': mean, 'std': std}
                                                    for (bucket,mean,std) in zip(*binning(LLRs,info,num_of_bins))}
         except Exception as err:
             print(err)
     return result
 
-def prediction_rates(data, thresholds, positive='both'):
+def prediction_rates(data, thresholds, positive = 'both'):
     """ Creates a nested dictionary that lists chromosomes, buckets and
     thresholds. For each entry the dictionary gives the false and true positive
     rates. """
@@ -230,7 +228,7 @@ def prediction_rates(data, thresholds, positive='both'):
     return prediction_rates
 
 def main(work_dir,output_filename,number_of_bins,criteria,compress):
-    """ Creates Balanced ROC curves for predicting aneuploidy. """
+    """ Creates Balanced ROC curves for predicting BPH and SPH. """
     
     assert os.path.isdir(work_dir), 'The path to the directory that contains simulated data does not exist.'
     Z = [i/33 for i in [*range(-1800,-300,300)]+[*range(-300,300)]+[*range(300,1800,300)]]
@@ -253,15 +251,15 @@ if __name__ == "__main__":
                 'DETECT_CROSSOVERS, Balanced ROC curves for predicting aneuploidy are created as the z-score varies.')
     parser.add_argument('path_to_simulated_data', type=str, metavar='PATH_TO_SIMULATED_DATA', 
                         help='Path of a directory that contains LLR files with simulated scenarios.')
+    ###parser.add_argument('-s', '--scenarios', type=str, nargs='+',
+    ###                    metavar='BPH/SPH/disomy/monosomy', default='BPH SPH', choices=['BPH','SPH','disomy','monosomy'],
+    ###                    help="Two simulated scenarios for which a balanced ROC curve would be created, e.g., BPH SPH.")
     parser.add_argument('output_filename', type=str, metavar='OUTPUT_FILENAME',
                         help='The output filename.')
     parser.add_argument('-n', '--number-of-bins', type=int, metavar='INT',  default='15',
                         help='The genome is divided into bins and for each bin a ROC curve is calculated. Default value is 15.')
     parser.add_argument('-c', '--compress', metavar='gz/bz2/unc', type=str, default='unc',  choices=['gz','bz2','unc'],
                         help='Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed.')
-    parser.add_argument('-o', '--scenarios', type=str, nargs=2,
-                        metavar='BPH/SPH/disomy/monosomy', default='BPH SPH', choices=['BPH','SPH','disomy','monosomy'],
-                        help="Two simulated scenarios for which a balanced ROC curve would be created. The default is \"BPH SPH\". ")
     parser.add_argument('-a', '--ancestral-makeup', metavar='STR', nargs='+',
                         help='Apply a criterion for the ancestral makeup: \n'
                              'a. For non-admixtures the argument consists a single superpopulation, e.g., EUR. \n'
@@ -274,9 +272,9 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--subsamples', type=int, metavar='INT', 
                         help='Apply a criterion for the number of subsamples per genomic window.')
     parser.add_argument('-m', '--min-reads', type=int, metavar='INT',
-                        help='Apply a criterion for the minimal number of reads per homolog, admitting non-zero score.')
+                        help='Apply a criterion for the minimal number of reads in a genomic window, per homolog.')
     parser.add_argument('-M', '--max-reads', type=int, metavar='INT',
-                        help='Apply a criterion for the maximal number of sampled reads per bootstrap iteration.')
+                        help='Apply a criterion for the maximal number of sampled reads per homolog and per bootstrap iteration.')
     parser.add_argument('-f', '--min-HF', type=float, metavar='FLOAT',
                         help='Apply a criterion for the minimal haplotype frequency.')
     parser.add_argument('-S', '--min-score', type=int, metavar='INT',
@@ -284,21 +282,20 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--read-length', type=int, metavar='INT',  
                         help='Apply a criterion for the number of base pairs in read.')
     parser.add_argument('-d', '--depth', type=float, metavar='FLOAT',  
-                        help='Apply a criterion for the depth of coverage.')
+                        help='Apply a criterion for the depth of coverage per homolog.')
     
     args = vars(parser.parse_args())
     
     #print(args)
-    criteria = {}
-    criteria['scenarios'] =  args['scenarios'][:2]
-    if args['depth']!=None: criteria['depth'] = args['depth']
+    criteria = {'scenarios': ('BPH','SPH')}
+    if args['depth']!=None: criteria['depth'] = {'monosomy': args['depth'], 'disomy': 2*args['depth']}
     if args['window_size']!=None: criteria['window_size'] = args['window_size']
     if args['min_reads']!=None: criteria['min_reads'] = args['min_reads']
     if args['max_reads']!=None: criteria['max_reads'] = args['max_reads']
     if args['min_score']!=None: criteria['min_score'] = args['min_score']
     if args['min_HF']!=None: criteria['min_HF'] = args['min_HF']
     if args['chr_id']!=None: criteria['chr_id'] = args['chr_id']
-    if args['read_length']!=None: criteria['read_length'] = args['read_length']
+    if args['read_length']!=None: criteria['read_length'] = {'monosomy': args['read_length'], 'disomy': args['read_length']}
    
     if args['ancestral_makeup']!=None:
         strings_even = all(i.isalpha() for i in args['ancestral_makeup'][0::2])
@@ -322,20 +319,21 @@ else:
     print("The module BALANCED_ROC_CURVE was imported.")
 
 ### END OF FILE ###
+
 """
 def configuration(C):
 
     result = dict(
 
-    C1 = {'depth': 0.1,
+    C1 = {'depth': {'monosomy': 0.05, 'disomy': 0.1},
          'window_size': 0,
-         'min_reads': 24,
-         'max_reads': 12,
+         'min_reads': 12,
+         'max_reads': 6,
          'min_score': 2,
          'min_HF': 0.05,
-         'chr_id': 'chr21',
-         'read_length': 75,
-         'ancestry': {'EAS', 'EUR'},
+         'chr_id': 'chr16',
+         'read_length': {'monosomy': 75, 'disomy': 75},
+         'ancestry': {'EAS',},
          'scenarios': ('BPH','SPH') ### LLR of BPH over SPH
          }
 
@@ -343,6 +341,38 @@ def configuration(C):
 
     return result[C]
 
+    
+if __name__ == "__main__":
+    if sys.platform == "linux" or sys.platform == "linux2":
+        print('Detected OS: linux.')
+        HOME='home'
+    elif sys.platform == "darwin":
+        print('Detected OS: macOS.')
+        HOME='Users'
+    elif sys.platform == "win32":
+        print('Detected OS: windows.')
+        HOME='????????'
+        
+    criteria = configuration('C1')
+    num_of_buckets = 30
+    work_dir = f'/{HOME:s}/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/CONTRAST-CROSSOVERS/results/non_masked/nonadmixed_EAS_chr16/'
+    output_dir = f'/{HOME:s}/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/CONTRAST-CROSSOVERS/results'
+    
+    output_filename = f"{output_dir.rstrip('/'):s}/PREDICTED_RATES_FOR_{criteria['scenarios'][0]:s}_vs_{criteria['scenarios'][1]:s}_{criteria['depth']['monosomy']:g}x_{num_of_buckets:d}bins_{criteria['read_length']['monosomy']:d}bp.p"
+    N, R = main(criteria,num_of_buckets,work_dir,output_filename)
+    
+    
+else:
+    print("The module ROC_curve was imported.")
+
+#from pathlib import Path
+#LLR_files = [str(j) for j in Path('/home/ariad/Dropbox/postdoc_JHU/Tools/origin_V2/results_ZOUVES/').rglob('*LLR.p')]
+#for filename in LLR_files:
+#    LLR_dict, info = load_llr(filename); plot_single_case(LLR_dict, info, N=10, save=filename.replace('LLR.p','png'))
+
+"""
+
+"""
 def average_prediction_rates(prediction_rates,thresholds):
     chr_id = 'chr21'
     g = lambda x: tuple(map(statistics.mean, zip(*x)))
@@ -360,31 +390,22 @@ def plot_ROC_curve(x):
     ax.grid(True)
     plt.show()
     
-if __name__ == "__main__":
-    if sys.platform == "linux" or sys.platform == "linux2":
-        print('Detected OS: linux.')
-        HOME='home'
-    elif sys.platform == "darwin":
-        print('Detected OS: macOS.')
-        HOME='Users'
-    elif sys.platform == "win32":
-        print('Detected OS: windows.')
-        HOME='????????'
-        
-    criteria = configuration('C1')
-    num_of_buckets = 15
-    work_dir = f'/{HOME:s}/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/recent_EAS_EUR_chr16/'
-    output_dir = f'/{HOME:s}/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results'
-    N, R = main(criteria,num_of_buckets,work_dir,output_dir)
     
     
-else:
-    print("The module ROC_curve was imported.")
+from itertools import cycle
+from matplotlib import pyplot as plt
+colors = plt.cm.jet([i/num_of_buckets for i in range(num_of_buckets+1)])
+linestyle = cycle(['dotted','dashed','dashdot'])
+for j,i in enumerate(R['chr16']):
+    if len(R['chr16'][i].values()) != 0:
+        ls = 'solid'
+        for x,y in R['chr16'][i].values():
+            if 0.05<x<0.15 and y<0.5:
+                ls=next(linestyle)
+                break
+            
 
-#from pathlib import Path
-#LLR_files = [str(j) for j in Path('/home/ariad/Dropbox/postdoc_JHU/Tools/origin_V2/results_ZOUVES/').rglob('*LLR.p')]
-#for filename in LLR_files:
-#    LLR_dict, info = load_llr(filename); plot_single_case(LLR_dict, info, N=10, save=filename.replace('LLR.p','png'))
-
-
+        x,y = zip(*R['chr16'][i].values())
+        plt.plot(x,y,label='%.2f-%.2f'%(i[0],i[1]),linestyle=ls,color=colors[j])
+plt.legend()
 """
