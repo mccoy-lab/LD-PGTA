@@ -120,7 +120,7 @@ Create an IMPUTE2 SAMPLE file, as explained in this [section](#IMPUTE2). In orde
 
 ## Generate a reference panel ##
 
-The script `MAKE_REF_PANEL.py` creates reference panels for LD-PGTA, using phased genotypes in VCF files. The reference panels of LD-PGTA follow the structure of the IMPUTE2 format but are encoded, but is encoded as binary for efficient storage and retrieval.
+The script `MAKE_REF_PANEL.py` creates reference panels for LD-PGTA, using phased genotypes in VCF files. The reference panels of LD-PGTA follow the structure of the IMPUTE2 format, but are encoded as binary files for efficient storage and retrieval.
 
 We run the script with the following arguments and flags:
 
