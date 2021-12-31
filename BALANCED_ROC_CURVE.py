@@ -162,10 +162,9 @@ def collect_data(criteria, num_of_bins, work_dir):
     scenarios = criteria['scenarios']
     del criteria['scenarios']
     
-    filenamesA = glob.glob(work_dir + "simulated*LLR.p*")
-    filenamesB = glob.glob(work_dir + "simulated*LLR.p*")
+    filenames = glob.glob(work_dir.rstrip('/') +'/'+ "simulated*LLR.p*")
     result = {scenarios[0]: defaultdict(dict), scenarios[1]: defaultdict(dict)}
-    for filename in filenamesA+filenamesB:
+    for filename in filenames:
         try:
             likelihoods, info = load_likelihoods(filename)
             if likelihoods==None: continue
@@ -375,7 +374,7 @@ if __name__ == "__main__":
     num_of_buckets = 15
     work_dir = f'/{HOME:s}/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/recent_EAS_EUR_chr16/'
     output_dir = f'/{HOME:s}/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results'
-    N, R = main(criteria,num_of_buckets,work_dir,output_dir)
+    N, R = main(work_dir,output_filename,number_of_bins,criteria,compress='unc')
     
     
 else:
