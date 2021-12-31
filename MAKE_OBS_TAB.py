@@ -41,7 +41,9 @@ def save_obs(obs_tab,info,compress,bam_filename,output_filename,output_dir):
     return output_dir + output_filename
 
 def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,compress,**kwargs):
-    """ Retrives observed bases from known SNPs position. """
+    """ Retrives observed bases from known SNPs position.
+        Note: chromosomal position starts from one in obs_tab. """
+
     time0 = time.time()
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
