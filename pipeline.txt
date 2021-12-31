@@ -139,7 +139,7 @@ In addition, the following flags are supported:
 <a name="obs_tab"/>
 
 The script `MAKE_OBS_TAB.py` uses a BAM file, which is aligned and sorted, as well as a legend file.
-It then builds a nested list that contains observed alleles at SNPs positions together with their chromosome position and line number in the legend file. The nested list is stored in a pickle format.
+It then builds a nested list that contains observed alleles at SNPs positions together with their chromosome position and the associated read ID. The nested list is stored in a pickle format.
 
 We run the script with the following arguments and flags:
 
