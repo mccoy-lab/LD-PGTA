@@ -186,7 +186,7 @@ In addition, the following optional arguments are supported:
 | `--output-filename <FILENAME>` | _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._ |
 |`--compress gz/bz2/unc` | _Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed._ |
 
-* The presence of the Python module gmpy2 accelerates performance of this script. gmpy2 is an implementation of a standard GMP (GNU Multiple Precision Arithmetic Library) and supports arbitrary precision integers. For more information check [ gmpy2 ](https://pypi.org/project/gmpy2/) and also [gmpy2’s documentation](https://gmpy2.readthedocs.io/).
+* When the python module `gmpy2` is present, the script would use its implementation of `popcount` to boost performance. `gmpy2` is an implementation of a standard GMP (GNU Multiple Precision Arithmetic Library) and supports arbitrary precision integers. For more information check [ gmpy2 ](https://pypi.org/project/gmpy2/) and also [gmpy2’s documentation](https://gmpy2.readthedocs.io/).
 
 # Stage 5: Plot log-likelihood ratios vs. chromosomal position. #
 <a name="plot_llr"/>
