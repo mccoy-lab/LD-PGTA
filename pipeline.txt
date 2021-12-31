@@ -169,9 +169,9 @@ As demonstration, we run the script with the following arguments and flags:
 `python3 ANEUPLOIDY_TEST.py SRR6676163.obs.p EUR_panel.chr21.legend EUR_panel.chr21.hap EUR_panel.chr21.sam EUR --window-size 0 --min-reads 6 --max-reads 4 --compress bz2`,
 
 where the first argument is the filename of a pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions. The second argument is the filename of the reference panel legend, which lists the SNPs in our reference panel. The third required argument is the filename of the reference panel haplotypes, which lists the haplotypes in our reference panel. The forth required argument is the filename of the reference panel samples, which describes the ancestral group of the individuals consisting the reference panel. The fifth argument is ancestral makeup of SRR6676163. In general, the ancestral makeup is specified as follows:
-1. For non-admixtures the argument consists a single superpopulation, e.g., EUR.
-2. For recent admixtures the argument consists two superpopulations, e.g., EUR EAS.
-3. For distant admixtures the argument consists of the superpoplations and their proportions, e.g, EUR 0.8 EAS 0.1 SAS 0.1.
+1. For non-admixtures the argument consists a single superpopulation, e.g., `EUR`.
+2. For recent admixtures the argument consists two superpopulations, e.g., `EUR EAS`.
+3. For distant admixtures the argument consists of the superpoplations and their proportions, e.g, `EUR 0.8 EAS 0.1 SAS 0.1`.
 
 In addition, the following optional arguments are supported:
 
