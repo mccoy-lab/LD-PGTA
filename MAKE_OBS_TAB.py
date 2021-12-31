@@ -124,7 +124,7 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         samfile.close()
 
     time1 = time.time()
-    print('Done building the observations table in %.2f sec.' % (time1-time0))
+    print('Done building the observations table for %s in %.2f sec.' % (chr_id, time1-time0))
     return tuple(obs_tab), info
 
 if __name__ == "__main__":
