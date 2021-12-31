@@ -120,7 +120,7 @@ Create an IMPUTE2 SAMPLE file, as explained in this [section](#IMPUTE2). In orde
 
 ## Generate a reference panel ##
 
-The script `MAKE_REF_PANEL.py` creates reference panels for LD-PGTA, using phased genotypes in VCF files. The reference panels of LD-PGTA follow the structure of the IMPUTE2 format, but are encoded as binary files for efficient storage and retrieval.
+The script `MAKE_REF_PANEL.py` creates reference panels for LD-PGTA, using phased genotypes in VCF files. A reference panel of LD-PGTA follows the structure of the IMPUTE2 format and consist of three files: samples, legend and haplotypes. However,the reference panel is stored as binary files for efficient storage and retrieval.
 
 We run the script with the following arguments and flags:
 
@@ -138,14 +138,14 @@ In addition, the following flags are supported:
 # Stage 3: Tabulation of allele observations at known SNPs #
 <a name="obs_tab"/>
 
-The script `MAKE_OBS_TAB.py` uses a BAM file, which is aligned and sorted, as well as an IMPUTE2 legend file.
+The script `MAKE_OBS_TAB.py` uses a BAM file, which is aligned and sorted, as well as a legend file.
 It then builds a nested list that contains observed alleles at SNPs positions together with their chromosome position and line number in the legend file. The nested list is stored in a pickle format.
 
 We run the script with the following arguments and flags:
 
 `python3 MAKE_OBS_TAB.py SRR6676163.bam EUR_panel.chr21.legend --min-bq 30 --min-mq 30 --max-depth 0 --handle-multiple-observations all`,
 
-where the first argument is the filename of the BAM file, containing reads mapped to a reference sequence. The second required argument is the filename of the IMPUTE2 legend file, which lists the SNPs positions. In addition, the following flags are supported:
+where the first argument is the filename of the BAM file, containing reads mapped to a reference sequence. The second required argument is the filename of the legend file, which lists the SNPs positions. In addition, the following flags are supported:
 
 | Optional argument  | Description |
 | --- | --- |
