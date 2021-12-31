@@ -1,7 +1,7 @@
 ## Table of Contents  
 
 #### Introduction
-[What is CONTRAST-CROSSOVERS?](#background)
+[What is LD-PGTA?](#background)
 
 #### Tutorial
 [Stage 1: Sequence alignment](#seq_alignment) \
@@ -12,11 +12,12 @@
 
 #### Additional documentation
 [Simulating various forms of trisomy](#simulate) \
-[Balanced ROC analysis](#ROC_analysis) \
+[Balanced ROC Analysis](#ROC_analysis) \
 [Description of the IMPUTE2 format for reference panels](#IMPUTE2) \
-[Generating IMPUTE2 reference panels from a VCF file](#"VCF2IMPUTE")
+[Generating IMPUTE2 reference panels from a VCF file](#"VCF2IMPUTE") \
+[Dependencies](#"Dependencies")
 
-# What is CONTRAST-CROSSOVERS? #
+# What is LD-PGTA? #
 <a name="background"/>
 
 Extra or missing chromosomes—a phenomenon termed aneuploidy—frequently arises during human meiosis and embryonic mitosis and is the leading cause of pregnancy loss, including in the context of *in vitro* fertilization (IVF). While meiotic aneuploidies affect all cells and are deleterious, mitotic errors generate mosaicism, which may be compatible with healthy live birth. Large-scale abnormalities such as triploidy and haploidy also contribute to adverse pregnancy outcomes, but remain hidden from standard sequencing-based approaches to preimplantation genetic testing (PGT-A). The ability to reliably distinguish meiotic and mitotic aneuploidies, as well as abnormalities in genome-wide ploidy may thus prove valuable for enhancing IVF outcomes. Here, we describe a statistical method for distinguishing these forms of aneuploidy based on analysis of low-coverage whole-genome sequencing data, which is the current standard in the field. Our approach overcomes the sparse nature of the data by leveraging allele frequencies and linkage disequilibrium (LD) measured in a population reference panel. The method, which we term LD-informed PGT-A (LD-PGTA), retains high accuracy down to coverage as low as 0.05x and at higher coverage can also distinguish between meiosis I and meiosis II errors based on signatures spanning the centromeres. LD-PGTA provides fundamental insight into the origins of human chromosome abnormalities, as well as a practical tool with the potential to improve genetic testing during IVF.
@@ -35,16 +36,18 @@ To demonstrate the use of LD-PGTA, we can obtain a trisomic sample from SRA.
 `fastq-dump ./SRR6676163.sra --gzip `
 
 ## Prepare a reference genome for alignment ##
-We next prepare a primary assembly of the reference genome hg38 (here GRCh38/hg38 refers to the UCSC release, Dec. 2013):
+We next prepare a reference genome file (here GRCh38/hg38; UCSC release, Dec. 2013). In order to accelerate the alignment, we do not include unplaced sequences, centromeric sequences and alternates:
 
-`wget https://hgdownload.cse.ucsc.edu/goldenpath/hg38/bigZips/hg38.chromFa.tar.gz`
-`tar xvf hg38.chromFa.tar.gz`\
-`rm chroms/*_alt.fa`\
-`cat chroms/* > hg38_primary.fa`\
-`rf -rf chroms`\
+`wget 'ftp://hgdownload.cse.ucsc.edu/goldenPath/hg38/chromosomes/chr?.fa.gz'`\
+`wget 'ftp://hgdownload.cse.ucsc.edu/goldenPath/hg38/chromosomes/chr??.fa.gz'`\
+`gunzip *.fa.gz`\
+`cat *.fa > hg38.fa`\
+`rm chr*.fa`
 
-> Primary assembly refers to the collection of assembled chromosomes, unlocalized and unplaced sequences. It represents a non-redundant haploid genome. For more information check the article about [ Reference Genome Components ](https://gatk.broadinstitute.org/hc/en-us/articles/360041155232-Reference-Genome-Components) by the GATK Team.
+The complete GRCh38/hg38 (UCSC release, Dec. 2013) reference genome, which includes unplaced sequences, centromeric sequences and alternates, can be downloaded :
 
+`wget 'http://hgdownload.cse.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz'`\
+`gunzip hg38.fa.gz`
 
 ## Creating the fasta index file ##
 
@@ -52,7 +55,7 @@ We use the faidx command from samtools to prepare the FASTA index file. This ind
 
 `samtools faidx hg38.fa`
 
-## Prepare the reference index for BWA and minimap2 ##
+## Prepare the reference index for BWA ##
 For reads shorter than 70 bp we use the software BWA. The reference index is created from the reference genome FASTA by executing:
 
 `bwa index -p hg38bwaidx -a bwtsw hg38.fa`
@@ -91,34 +94,33 @@ Next, we create an index from the BAM file with the samtools index subcommand:
 
 `samtools index SRR6676163.sorted.bam SRR6676163.sorted.bai`
 
+Source: http://bioinformatics-core-shared-training.github.io/cruk-bioinf-sschool/Day1/Sequence%20Alignment_July2015_ShamithSamarajiwa.pdf and http://genomeintelligence.org/?p=1486
+
 # Stage 2: Construction of the reference panel #
 <a name="ref_panel"/>
-As described in our manuscript, Contrast-Crossovers overcomes the sparse nature of low-coverage data by using information about allele frequencies and haplotype structure as measured in a population reference panel. Here we demonstrate the construction of such a reference panel using data from the 1000 Genomes Project.
+As described in our manuscript, LD-PGTA overcomes the sparse nature of low-coverage data by using information about allele frequencies and haplotype structure as measured in a population reference panel. Here we demonstrate the construction of such a reference panel using data from the 1000 Genomes Project.
 
 ## Download VCF files from the 1000 Genome Project Phase 3 ##
 
-VCF files from the [1000 Genome Project Phase 3 aligned against GRCh38/hg38](https://www.internationalgenome.org/data-portal/data-collection/30x-grch38):
+VCF files from the 1000 Genome Project Phase 3 aligned against GRCh38/hg38:
 
-`wget 'http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/working/20201028_3202_phased/*'`
+`wget 'ftp://ftp.sra.ebi.ac.uk/vol1/ERZ822/ERZ822766/*'`
 
-A table with Pedigree information:
+This call set is also available from: 
 
-[http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/working/1kGP.3202_samples.pedigree_info.txt](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/working/1kGP.3202_samples.pedigree_info.txt).
+[http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL/).
 
-**Since individuals in the reference panel are assumed to be unrelated, only sample IDs with a `fatherID=0` and `motherID=0` should be included.**
-
-Reference: [High coverage whole genome sequencing of the expanded 1000 Genomes Project cohort including 602 trios
-](https://www.biorxiv.org/content/10.1101/2021.02.06.430068v1)
+Reference: [Variant calling on the GRCh38 assembly with the data from phase three of the 1000 Genomes Project](https://wellcomeopenresearch.org/articles/4-50/v2)
 
 ## Generate list of individuals to include in the creation of the reference panel ##
 
-Create an IMPUTE2 SAMPLE file, as explained in this [section](#IMPUTE2). In order to generate such a list for the 1000 genome project phase 3 visit https://www.internationalgenome.org/data-portal/sample.
+Create an IMPUTE2 SAMPLE file, as explained in this [section](#IMPUTE2). In order to generate such a list for the 1000 genome project phase 1\3 visit https://www.internationalgenome.org/data-portal/sample.
 
-**One important note**: the columns of sample file for population, group, and sex expected to be filled by the user. Contrast-Crossovers uses the values in the group column to differentiate between samples that are associated to distinct super-populations, and thus providing this information is required.
+**One important note**: the columns of sample file for population, group, and sex expected to be filled by the user. LD-PGTA uses the values in the group column to differentiate between samples that are associated to distinct super-populations, and thus providing this information is required.
 
 ## Generate a reference panel ##
 
-The script `MAKE_REF_PANEL.py` creates reference panels for Contrast-Crossovers, using phased genotypes in VCF files. The reference panels of Contrast-Crossovers follow the structure of the IMPUTE2 format, but are encoded as binary files for efficient storage and retrieval.
+The script `MAKE_REF_PANEL.py` creates reference panels for LD-PGTA, using phased genotypes in VCF files. The reference panels of LD-PGTA follow the structure of the IMPUTE2 format but are encoded, but is encoded as binary for efficient storage and retrieval.
 
 We run the script with the following arguments and flags:
 
@@ -155,18 +157,18 @@ where the first argument is the filename of the BAM file, containing reads mappe
 | `--output-filename <FILENAME>` | _Output filename. The default filename is the same as the BAM filename, but with an extension of .chr_id.obs.p ._ |
     
 
-* In order to use the script, the Python module Pysam (v0.15.4) must be installed. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
+* In order to use the script, the Python module Pysam (v0.18.0) must be installed. Pysam is a lightweight wrapper of the htslib C-API, allowing our script to read SAM/BAM files. For more information check [ pysam-developers / pysam ](https://github.com/pysam-developers/pysam) and also [pysam: htslib interface for python](https://pysam.readthedocs.io/en/latest/index.html).
 
 # Stage 4: Model comparison with log likelihood ratios #
 <a name="aneuploidy_test"/>
 
-The script `DETECT_CROSSOVERS.py` builds a dictionary that lists linkage disequilibrium (LD) blocks that contain at least two meaningful reads and gives the associated log-likelihood BPH/SPH ratio (LLR). BPH (Both Parental Homologs) describes to the presence of three unmatched haplotypes, while SPH (Single Parental Homolog) describes the presence of two identical haplotypes, with an additional unmatched haplotype. Finally, the script analyzes the dictionary and reports summary statistics, including the mean LLR, the standard error, the number of informative genomic windows and the fraction of genomic windows with a negative LLR.
+The script `ANEUPLOIDY_TEST.py` builds a dictionary that lists linkage disequilibrium (LD) blocks that contain at least two meaningful reads and gives the associated log-likelihood BPH/SPH ratio (LLR). BPH (Both Parental Homologs) describes to the presence of three unmatched haplotypes, while SPH (Single Parental Homolog) describes the presence of two identical haplotypes, with an additional unmatched haplotype. Finally, the script analyzes the dictionary and reports summary statistics, including the mean LLR, the standard error, the number of informative genomic windows and the fraction of genomic windows with a negative LLR.
 
 As demonstration, we run the script with the following arguments and flags:
 
-`python DETECT_CROSSOVERS.py  simulated.disomy.chr16.x0.100.NA12889A.HG00448A.obs.p.bz2 simulated.monosomy.chr16.x0.050.NA18644A.obs.p.bz2 chr16_EAS_EUR_panel.legend.gz chr16_EAS_EUR_panel.hap.gz EAS_EUR_panel.samples.gz EAS 0.7 EUR 0.3 --window-size 0 --min-reads 12 --max-reads 6 --compress bz2`,
+`python3 ANEUPLOIDY_TEST.py SRR6676163.obs.p EUR_panel.chr21.legend EUR_panel.chr21.hap EUR_panel.chr21.sam EUR --window-size 0 --min-reads 6 --max-reads 4 --compress bz2`,
 
-where the first and second argument are filenames of observation tables for disomy and monosomy, respectively. The observation tables are created by MAKE_OBS_TAB and contain base observations at known SNP positions. The third argument is the filename of the reference panel legend, which lists the SNPs in our reference panel. The forth required argument is the filename of the reference panel haplotypes, which lists the haplotypes in our reference panel. The fifth required argument is the filename of the reference panel samples, which describes the ancestral group of the individuals consisting the reference panel. The rest of the non-optional arguments describe the ancestral makeup of the disomy. In general, the ancestral makeup is specified as follows:
+where the first argument is the filename of a pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions. The second argument is the filename of the reference panel legend, which lists the SNPs in our reference panel. The third required argument is the filename of the reference panel haplotypes, which lists the haplotypes in our reference panel. The forth required argument is the filename of the reference panel samples, which describes the ancestral group of the individuals consisting the reference panel. The fifth argument is ancestral makeup of SRR6676163. In general, the ancestral makeup is specified as follows:
 1. For non-admixtures the argument consists a single superpopulation, e.g., `EUR`.
 2. For recent admixtures the argument consists two superpopulations, e.g., `EUR EAS`.
 3. For distant admixtures the argument consists of the superpoplations and their proportions, e.g, `EUR 0.8 EAS 0.1 SAS 0.1`.
@@ -177,8 +179,8 @@ In addition, the following optional arguments are supported:
 | --- | --- |
 | `--window-size <INT>` | _Specifies the size of the genomic window. The default value is 100 kbp. When given a zero-size genomic window, it adjusts the size of the window to include min-reads reads._ |
 | `--offset <INT>` | _Shifts all the genomic windows by the requested base pairs. The default value is 0._
-| `--min-reads <INT>` | _Takes into account only genomic windows with at least INT reads per homolog, admitting non-zero score. The minimal value is 3, while the default is 6._ |
-| `--max-reads <INT>` | _Selects up to INT reads per homolog from each genomic windows in each bootstrap sampling. The minimal value is 2, while the default value is 4._ |
+| `--min-reads <INT>` | _Takes into account only genomic windows with at least INT reads, admitting non-zero score. The minimal value is 3, while the default is 6._ |
+| `--max-reads <INT>` | _Selects up to INT reads from each genomic windows in each bootstrap sampling. The minimal value is 2, while the default value is 4._ |
 | `--min-HF <FLOAT>`  | _Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05._ |
 | `--min-score <INT>` | _Consider only reads that reach the minimal score. The default value is 2._ |
 | `--output-filename <FILENAME>` | _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._ |
@@ -257,8 +259,9 @@ where the first argument is the filename of a legend file, describing the SNPs. 
 <a name="ROC_analysis"/>
 
 Based on simulated scenario that was created by MIX_HAPLOIDS and analyzed by
-DETECT_CROSSOVERS, balanced ROC (Receiver Operating Characteristic) curves for predicting BPH (both parental
-homologs) and SPH (single parental homologs) are created.
+ANEUPLOIDY_TEST, balanced ROC (Receiver Operating Characteristic) curves 
+for predicting BPH (both parental homologs) and SPH (single parental homologs)
+are created.
 
 The balanced ROC curve is a plot of BTPR (Balanced True Positive Rate) vs. BFPR (Balanced False Positive Rate), where BTPR &#8801; 0.5(TPR<sub>BPH</sub> + TPR<sub>SPH</sub>) and BFPR &#8801; 0.5(FPR<sub>BPH</sub> + FPR<sub>SPH</sub>).
 
@@ -277,17 +280,18 @@ where the first argument is the path of a directory that contains LLR files with
 | Optional argument  | Description |
 | --- | --- |
 | `--number-of-bins <INT>` | _The genome is divided into bins and for each bin a ROC curve is calculated. Default value is 15._ |
-| `--compress <gz/bz2/unc>` | _Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed._ |
-| `--ancestral-makeup <STR>` | _Apply a criterion for the ancestral makeup: <br/> a. For non-admixtures the argument consists a single superpopulation, e.g., EUR. <br/> b. For recent admixtures the argument consists two superpopulations, e.g., EUR EAS. <br/> c. For distant admixtures the argument consists of the superpoplations and their proportions, e.g, EUR 0.8 EAS 0.1 SAS 0.1._ |
+| `--compress` <gz/bz2/unc>| _Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed._ |
+| `--scenarios <BPH/SPH/disomy/monosomy>` | _Two simulated scenarios for which a balanced ROC curve would be created. The default is "BPH SPH"._ |
+| `--ancestral-makeup` <STR> | _Apply a criterion for the ancestral makeup: <br/> a. For non-admixtures the argument consists a single superpopulation, e.g., EUR. <br/> b. For recent admixtures the argument consists two superpopulations, e.g., EUR EAS. <br/> c. For distant admixtures the argument consists of the superpoplations and their proportions, e.g, EUR 0.8 EAS 0.1 SAS 0.1._ |
 | `--chr-id <STR>` | _Apply a criterion for the chromosome number, e.g., chrX._ |
 | `--window-size <INT>` | _Apply a criterion for the size of the genomic window._ |
 | `--subsamples <INT>` | _Apply a criterion for the number of subsamples per genomic window._ |
-| `--min-reads <INT>` | _Apply a criterion for the minimal number of reads in a genomic window, per homolog._ |
-| `--max-reads <INT>` | _Apply a criterion for the maximal number of sampled reads per homolog and per bootstrap iteration._ |
+| `--min-reads <INT>` | _Apply a criterion for the minimal number of reads in a genomic window, admitting non-zero score._ |
+| `--max-reads <INT>` | _Apply a criterion for the maximal number of sampled reads per bootstrap iteration._ |
 | `--min-HF <FLOAT>` | _Apply a criterion for the minimal haplotype frequency_ |
 | `--min-score <INT>` | _Apply a criterion for the minimal score of a read._ |
 | `--read-length <INT>` | _Apply a criterion for the number of base pairs in read._ |
-| `--depth <INT>` | _Apply a criterion for the depth of coverage per homolog._ |
+| `--depth <INT>` | _Apply a criterion for the depth of coverage._ |
 
 # Description of the IMPUTE2 format for reference panels #
 <a name="IMPUTE2"/>
@@ -395,5 +399,11 @@ Then, we convert from BCF to hap/legend/sample format used by IMPUTE2 and SHAPEI
 
 where `--haplegendsample prefix`  _converts from BCF to hap/legend/sample format used by IMPUTE2. The columns of the .legend file are ID,POS,REF,ALT. Moreover, in order to prevent strand swaps, the program uses IDs of the form "CHROM:POS_REF_ALT". The columns of the .sample file are population, group and sex._ 
 
+# Dependencies #
+<a name="Dependencies"/>
 
-
+* All scripts require Python v3.7 or above. The CPython and PyPy implementation are supported. 
+* The script `MAKE_REF_PANEL.py` requires one of the following: (a) bcftools v1.14 or above, (b) cyvcf2 v0.30.12 or above, (c) pysam v0.18.0 or above.
+* The script `MAKE_OBS_TAB.py` requires pysam v0.18.0 or above.
+* The script `ANEUPLOIDY_TEST.py` would perform faster when gmpy2 v2.1.0rc1 is present.
+* The script `PLOT_PANEL.py` requires matplotlib v3.5.1 or above.
