@@ -181,7 +181,7 @@ In addition, the following optional arguments are supported:
 | `--offset <INT>` | _Shifts all the genomic windows by the requested base pairs. The default value is 0._
 | `--min-reads <INT>` | _Takes into account only genomic windows with at least INT reads, admitting non-zero score. The minimal value is 3, while the default is 6._ |
 | `--max-reads <INT>` | _Selects up to INT reads from each genomic windows in each bootstrap sampling. The minimal value is 2, while the default value is 4._ |
-| `--min-HF <INT>`  | _Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05._ |
+| `--min-HF <FLOAT>`  | _Only haplotypes with a frequnecy between FLOAT and 1-FLOAT add to the score of a read. The default value is 0.05._ |
 | `--min-score <INT>` | _Consider only reads that reach the minimal score. The default value is 2._ |
 | `--output-filename <FILENAME>` | _The output filename. The default is the input filename with the extension ".obs.p" replaced by ".LLR.p"._ |
 |`--compress gz/bz2/unc` | _Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed._ |
