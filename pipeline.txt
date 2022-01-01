@@ -221,7 +221,7 @@ The script MIX_HAPLOIDS.py simulates observed bases at known SNP positions from 
 
 We demonstrate the script with the following arguments and flags:
 
-`python3 MIX_HAPLOIDS.py HAPLOID1.obs.p HAPLOID2.obs.p HAPLOID3.obs.p --depth 0.01 --read-length 36 --scenarios monosomy,SPH,disomy,BPH`,
+`python3 MIX_HAPLOIDS.py HAPLOID1.obs.p HAPLOID2.obs.p HAPLOID3.obs.p --depth 0.01 --read-length 36 --scenarios monosomy SPH disomy BPH`,
 
 where the three first arguments are the filenames of observation tables created by MAKE_OBS_TAB for each haploid sequence. In addition, some of the following optional flags were used:
 
