@@ -257,7 +257,7 @@ if __name__ == "__main__":
                              "Giving a list of scenarios, e.g. \"SPH BPH\" would create a batch of simulations."
                              "In batch mode, the first observation table would be used to simulate monosomy (and the first two tables for disomy).")
     parser.add_argument('-o', '--output-filename', metavar='OUTPUT_FILENAME', type=str,
-                        help='Output filename. The default filename is a combination of both obs filenames.')
+                        help='Output filename. Output filename. The default filename includes all the sample IDs associated with the given observation tables.')
     parser.add_argument('-c', '--compress', metavar='gz/bz2/unc', type=str, default='unc',  choices=['gz','bz2','unc'],
                         help='Output compressed via gzip, bzip2 or uncompressed. Default is uncompressed.')
     parser.add_argument('-t', '--transitions', type=str, nargs='+', metavar='STR,FLOAT,...,FLOAT',

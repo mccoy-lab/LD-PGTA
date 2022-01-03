@@ -203,7 +203,7 @@ def build_ref_panel_via_pysam(samp_filename,vcf_filename,mask_filename):
         ALLELES = tuple(itertools.chain.from_iterable((s.allele_indices for s in get_samples(record.samples))))
         an = ALLELES.count(1)
         if an==2*lenSAM or an==0: continue ### Only encode SNPs with a non-zero minor allele count.
-        if mask!=None and mask[record.pos-1]!='P':
+        if mask!=None and mask[record.pos-1]!='P': ### Record start position on chrom/contig is 1-based inclusive.
             skipped_SNPs +=1
             continue ### Include only SNPs in regions accessible to NGS, according to accessibility masks.
 
