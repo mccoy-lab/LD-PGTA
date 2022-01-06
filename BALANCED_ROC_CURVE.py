@@ -86,13 +86,14 @@ def load_likelihoods(filename):
 
 def show_info(filename, info, pairs):
     S = info['statistics']
+    ancestral_makeup = ", ".join("{:.1f}% {}".format(100*v, k) for k, v in info['ancestral_makeup'].items()) if type(info['ancestral_makeup'])==dict else ', '.join(info['ancestral_makeup'])
     print('\nFilename: %s' % filename)
     print('\nSummary statistics')
     print('------------------')    
     print('Chromosome ID: %s, Depth: %.2f.' % (info['chr_id'],info['depth']))
     print('Number of genomic windows: %d, Mean and standard error of genomic window size: %d, %d.' % (S.get('num_of_windows',0),S.get('window_size_mean',0),S.get('window_size_std',0)))
     print('Mean and standard error of meaningful reads per genomic window: %.1f, %.1f.' % (S.get('reads_mean',0), S.get('reads_std',0)))
-    print('Ancestry: %s, Fraction of alleles matched to the reference panel: %.3f.' % (str(info['ancestry']),info['statistics']['matched_alleles']))
+    print('Ancestral makeup: %s, Fraction of alleles matched to the reference panel: %.3f.' % (ancestral_makeup, info['statistics']['matched_alleles']))
 
     for pair in pairs:
         if 'LLRs_per_chromosome' in S and tuple(pair) in S['LLRs_per_chromosome']:
