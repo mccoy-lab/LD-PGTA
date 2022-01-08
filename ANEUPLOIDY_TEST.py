@@ -405,7 +405,6 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
     some_statistics = {'matched_alleles': matched_alleles,
                        'runtime': time.time()-time0}
 
-
     info.update({'ancestral_makeup': ancestral_makeup,
                  'window_size': window_size,
                  'subsamples': subsamples,
