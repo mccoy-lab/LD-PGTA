@@ -351,7 +351,7 @@ def save_results(likelihoods,info,compress,obs_filename,output_filename,output_d
     else:
         output_filename += ext
     
-    output_dir = re.sub('/$','',output_dir)+'/' #undocumented option
+    output_dir = output_dir.rstrip('/') +'/' #undocumented option
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     
     with Open(output_dir + output_filename, "wb") as f:

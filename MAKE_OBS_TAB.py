@@ -31,14 +31,14 @@ def save_obs(obs_tab,info,compress,bam_filename,output_filename,output_dir):
 
     Open = {'bz2': bz2.open, 'gz': gzip.open}.get(compress, open)
     ext = ('.'+compress) * (compress in ('bz2','gz'))
-    default_output_filename = re.sub('.bam$',f".{info['chr_id']:s}.obs.p{ext:s}",bam_filename.strip().split('/')[-1])
+    default_output_filename = re.sub('.[bB][aA][mM]$',f".{info['chr_id']:s}.obs.p{ext:s}",bam_filename.strip().split('/')[-1])
     
     if output_filename=='': 
         output_filename = default_output_filename
     else:
         output_filename += ext
     
-    output_dir = re.sub('/$','',output_dir)+'/' #undocumented option
+    output_dir = output_dir.rstrip('/') +'/' #undocumented option
     if output_dir!='' and not os.path.exists(output_dir): os.makedirs(output_dir)
     with Open(output_dir + output_filename, "wb") as f:
         pickle.dump(obs_tab, f, protocol=4)
