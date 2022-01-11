@@ -160,7 +160,7 @@ def detect_transition(X,Y,E):
 def capitalize(x):
     return x[0].upper() + x[1:]
     
-def panel_plot(DATA,num_of_bins_in_chr21,pairs,**kwargs):
+def panel_plot(DATA,bin_size,pairs,**kwargs):
     """ Creates a multi-panel figure. For each numbered chromosome, a figure 
         depicts the log-likelihood ratio vs. chromosomal position for BPH over
         SPH. """
@@ -180,7 +180,7 @@ def panel_plot(DATA,num_of_bins_in_chr21,pairs,**kwargs):
     mpl.rcParams.update({'figure.max_open_warning': 0})
     import matplotlib.pyplot as plt
     #from scipy.interpolate import interp1d
-    num_of_bins = {'chr'+str(i): num_of_bins_in_chr21*chr_length('chr'+str(i))//chr_length('chr21') for i in [*range(1,23)]+['X','Y']}
+    num_of_bins = {'chr'+str(i): chr_length('chr'+str(i))//bin_size for i in [*range(1,23)]+['X','Y']}
 
     colors = {frozenset(('BPH','disomy')):(177/255,122/255,162/255),
               frozenset(('disomy','SPH')):(242/255,142/255,44/255),
@@ -202,20 +202,13 @@ def panel_plot(DATA,num_of_bins_in_chr21,pairs,**kwargs):
     YMAX = [0]*len(DATA)
     transitions = []
     for a,b in pairs:
-        for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
+        for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA.values())):
     
-            if (a,b) in info['statistics']['LLRs_per_genomic_window']:
-                LLRs_per_genomic_window = info['statistics']['LLRs_per_genomic_window'][(a,b)]
-            else:
-                    
-                LLRs = {window: tuple(LLR(attrgetter(a)(l), attrgetter(b)(l)) for l in likelihoods_in_window)
-                                   for window,likelihoods_in_window in likelihoods.items()} 
-                                                                   
-                    
-                LLRs_per_genomic_window = {window: mean_and_var(LLRs_in_window) for window, LLRs_in_window in LLRs.items()}
-                                                                    
-            
-            X,Y,E = binning(LLRs_per_genomic_window,info,num_of_bins[info['chr_id']])
+
+            LLRs = {window: tuple(LLR(attrgetter(a)(l), attrgetter(b)(l)) for l in likelihoods_in_window)
+                               for window,likelihoods_in_window in likelihoods.items()} 
+                                                               
+            X,Y,E = binning(LLRs,info,num_of_bins[info['chr_id']])
             Y = [(y if y else 0) for y in Y]
             E = [(z_score*e if e else 0) for e in E]
             
@@ -235,15 +228,16 @@ def panel_plot(DATA,num_of_bins_in_chr21,pairs,**kwargs):
                     
             YMAX[g] = yabsmax if YMAX[g]< yabsmax else YMAX[g]
 
-    for g,(ax1,(likelihoods,info)) in enumerate(zip(AX,DATA)):
+    for g,(ax1,(identifier,(likelihoods,info))) in enumerate(zip(AX,DATA.items())):
         mean_genomic_window_size = info['statistics']['window_size_mean']/chr_length(info['chr_id']) 
         ymax = max(YMAX[columns*(g//columns):columns*(g//columns+1)])
         ax1.errorbar( 0.88-mean_genomic_window_size, -0.76*ymax,marker=None, ls='none', xerr=25*mean_genomic_window_size, linewidth=2*scale, color='k', capsize=4*scale, zorder=20)
         ax1.text(     0.88-mean_genomic_window_size, -0.82*ymax, '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=2*fs//3, zorder=20)
         ax1.plot([0,1],[0,0],color='black', ls='dotted',alpha=0.7,zorder=0, linewidth=2*scale, scalex=False, scaley=False)
         #ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
-        ax1.set_title(f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x",fontsize=fs)
-        
+        #ax1.set_title(f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x",fontsize=fs)
+        ax1.set_title(identifier,fontsize=fs)
+
     for g,ax1 in enumerate(AX[:len(DATA)]):
         ymax = max(YMAX[columns*(g//columns):columns*(g//columns+1)])
         ax1.set_ylim((-1.01*ymax,+1.01*ymax))
@@ -305,7 +299,7 @@ def single_plot(likelihoods,info,**kwargs):
     
     scale = kwargs.get('scale', 1)
     z_score = kwargs.get('z_score', 1)
-    num_of_bins = kwargs.get('num_of_bins', 10)
+    bin_size = kwargs.get('bin_size', 4000000)
     save = kwargs.get('save', '')
     pairs = kwargs.get('pairs', (('BPH','DISOMY'),('DISOMY','SPH'),('SPH','MONOSOMY')))
     
@@ -315,6 +309,9 @@ def single_plot(likelihoods,info,**kwargs):
         #['GTK3Agg', 'GTK3Cairo', 'MacOSX', 'nbAgg', 'Qt4Agg', 'Qt4Cairo', 'Qt5Agg', 'Qt5Cairo', 'TkAgg', 'TkCairo', 'WebAgg', 'WX', 'WXAgg', 'WXCairo', 'agg', 'cairo', 'pdf', 'pgf', 'ps', 'svg', 'template']
         mpl.use('Qt5Agg')
     
+    
+    num_of_bins = {'chr'+str(i): chr_length('chr'+str(i))//bin_size for i in [*range(1,23)]+['X','Y']}
+
     
     fs = 24 * scale
     
@@ -329,15 +326,11 @@ def single_plot(likelihoods,info,**kwargs):
                        for window,likelihoods_in_window in likelihoods.items()} 
                                                         for i,j in pairs}
         
-    #LLRs_per_genomic_window = {(i,j): 
-    #        {window: mean_and_var(LLRs_in_window) for window, LLRs_in_window in LLRs[(i,j)].items()}
-    #                                                    for (i,j) in pairs}
-    
     fig,(ax1)=plt.subplots(1,1, figsize=(16 * scale, 9 * scale))
     fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
     H = {}
     for p,LLRs_per_genomic_window in LLRs.items():
-        X,Y,E = binning(LLRs_per_genomic_window,info,num_of_bins)
+        X,Y,E = binning(LLRs_per_genomic_window,info,num_of_bins[info['chr_id']])
         Y = [(y if y else 0) for y in Y]
         E = [(z_score*e if e else 0) for e in E]        
         T = [(x[1]+x[0])/2 for x in X]            
@@ -404,21 +397,43 @@ def single_plot(likelihoods,info,**kwargs):
        plt.tight_layout()
        plt.show()
        
-def wrap_panel_plot(identifier,pairs=(('BPH','SPH'),), num_of_bins_in_chr21=5, save='', work_dir=''):
-    """ Wraps the function panel_plot. """
-    #DATA = {filename: load_likelihoods(filename)}      
-    DATA = {f'{identifier:s}.chr{str(i):s}': load_likelihoods(work_dir + f'{identifier:s}.chr{str(i):s}.LLR.p.bz2') for i in [*range(1,23)]+['X']}
+def wrap_panel_plot_for_single_indv(identifier, bin_size=4000000, pairs=(('BPH','SPH'),), save='', work_dir=''):
+    """ Wraps the function panel_plot to show all the chromosomes from a single individual. """
     
-    for f,(likelihoods,info) in DATA.items():
-        show_info(f'{f:s}.LLR.p.bz2',info,pairs)
-    panel_plot(DATA.values(),num_of_bins_in_chr21=num_of_bins_in_chr21,pairs=pairs,title=f'{identifier:s}',save=save)
+    DATA = {}
+    for i in [*range(1,23)]+['X']:
+        llr_filename = work_dir.rstrip('/') + '/' + f'{identifier:s}.chr{str(i):s}.LLR.p.bz2'
+        likelihoods,info = load_likelihoods(llr_filename) 
+        DATA[f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x"] = (likelihoods,info)
+        show_info(llr_filename,info,pairs)
+    panel_plot(DATA,bin_size=bin_size,pairs=pairs,title=f'{identifier:s}',save=save)
+    
     return 0
 
-def wrap_single_plot(llr_filename,pairs,bins):
+def wrap_panel_plot_many_cases(filenames, bin_size=4000000, pairs=(('BPH','SPH'),), save=''):
+    """ Wraps the function panel_plot to show a panel with many cases. """
+    
+    DATA = {}
+    for llr_filename in filenames:
+        likelihoods,info = load_likelihoods(llr_filename)
+        if llr_filename[-6:]=='.LLR.p':
+            identifer = llr_filename[:-6].rsplit('/',1).pop()
+        elif llr_filename[-10:]=='.LLR.p.bz2':
+            identifer = llr_filename[:-10].rsplit('/',1).pop()
+        elif llr_filename[-9:]=='.LLR.p.gz':
+            identifer = llr_filename[:9].rsplit('/',1).pop()
+        else:
+            identifer = llr_filename.rsplit('/',1).pop()
+        DATA[identifer]=(likelihoods,info)
+        show_info(llr_filename,info,pairs)
+    panel_plot(DATA,bin_size=bin_size,pairs=pairs,title='Panel',save=save)
+    return 0
+
+def wrap_single_plot(llr_filename, pairs=(('BPH','SPH'),), bin_size=4000000):
     """ Wraps the function single_plot. """
     likelihoods,info =  load_likelihoods(llr_filename)
     show_info(llr_filename,info,pairs)
-    single_plot(likelihoods,info,pairs=pairs,num_of_bins=bins)
+    single_plot(likelihoods, info, pairs=pairs, bin_size=bin_size)
     return 0
 
 if __name__ == "__main__":
@@ -439,8 +454,13 @@ if __name__ == "__main__":
 
 else:
     print('The module PLOT_PANEL was imported.')
-    
-#identifier = '13094FA-B6MTL_3'
+   
+######## END OF FILE ########    
+   
+
+
+
+
 
 ####################################################
 # Produce panel plots for all cases in the folders #
@@ -451,7 +471,42 @@ work_dir = 'results2/'
 identifiers = {i.split('.')[0] for i in os.listdir(work_dir) if i[-3:]=='bz2'}
 for identifier in identifiers:
     try:
-        if not os.path.isfile(work_dir+identifier+'.svg'):
-            wrap_panel_plot(identifier,pairs=(('BPH','SPH'),),save=identifier,work_dir=work_dir, num_of_bins_in_chr21=20)
+        if not os.path.isfile(work_dir.rstrip('/') + '/' + identifier+'.svg'):
+            wrap_panel_plot_for_single_indv(identifier, bin_size=4000000, pairs=(('BPH','SPH'),), save=identifier, work_dir=work_dir)
     except Exception as e:
         print(identifier,e)
+
+
+
+"""
+wrap_panel_plot_for_single_indv(identifier='robert', bin_size=4000000, pairs=(('BPH','SPH'),), work_dir='/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/')
+
+filenames = [
+    "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr1.x0.100.HG00105A.NA12827B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr2.x0.100.NA12872A.HG00343A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr3.x0.100.HG01710B.NA20774A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr4.x0.100.NA20502B.NA20507A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr4.x0.100.NA20813A.HG01707A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr5.x0.100.NA12273B.HG00111B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr6.x0.100.HG01773A.NA20770A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr7.x0.100.HG02235B.NA12286B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr8.x0.100.HG01521A.NA20521A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr9.x0.100.HG00240B.HG01682A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr10.x0.100.HG00360B.HG00109A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr11.x0.100.NA12778A.HG01527A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr12.x0.100.NA20511B.HG01682A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr13.x0.100.NA12828B.HG00261B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr14.x0.100.NA07034B.NA12815A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr15.x0.100.HG00130A.HG00174A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr16.x0.100.NA11993B.HG00146A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr17.x0.100.HG00108B.HG01522A.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr18.x0.100.HG00278A.HG01697B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr19.x0.100.NA12144A.NA12413B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr20.x0.100.HG00240B.HG01709B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr21.x0.100.HG00235A.HG01767B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr22.x0.100.NA12249A.NA12891B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chrX.x0.100.HG00362A.NA20766B.LLR.p.bz2" 
+]
+
+wrap_panel_plot_many_cases(filenames)
+"""
