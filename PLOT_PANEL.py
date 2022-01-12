@@ -8,7 +8,7 @@ Plots log-likelihood ratio vs. chromosomal position from a LLR file.
 May 20, 2020
 """
 
-import pickle, bz2, gzip, collections
+import pickle, bz2, gzip, collections, math
 from statistics import mean, variance
 from math import log
 from operator import attrgetter
@@ -156,30 +156,36 @@ def detect_transition(X,Y,E):
         
     return result
 
-
 def capitalize(x):
     return x[0].upper() + x[1:]
     
-def panel_plot(DATA,bin_size,pairs,**kwargs):
+def panel_plot(DATA,**kwargs):
     """ Creates a multi-panel figure. For each numbered chromosome, a figure 
         depicts the log-likelihood ratio vs. chromosomal position for BPH over
         SPH. """
     
-    scale = 0.5
-    z_score = 1
-    fs=28 * scale
-    rows = 4
-    columns = 6
     import matplotlib as mpl
+    mpl.rcParams.update({'figure.max_open_warning': 0})
+    
+    
+    scale = kwargs.get('scale', 0.5)
     save = kwargs.get('save', '')
+    z_score = kwargs.get('z_score', 1.96)
+    bin_size = kwargs.get('bin_size', 4000000)
+    pairs = kwargs.get('pairs', (('BPH','disomy'),('disomy','SPH'),('SPH','monosomy')))
+    
+    fs=28 * scale
+    columns = 6
+    rows = math.ceil(len(DATA)/columns)
+        
     if save!='':
             mpl.use('Agg')
     else:
         #['GTK3Agg', 'GTK3Cairo', 'MacOSX', 'nbAgg', 'Qt4Agg', 'Qt4Cairo', 'Qt5Agg', 'Qt5Cairo', 'TkAgg', 'TkCairo', 'WebAgg', 'WX', 'WXAgg', 'WXCairo', 'agg', 'cairo', 'pdf', 'pgf', 'ps', 'svg', 'template']
         mpl.use('Qt5Agg')
-    mpl.rcParams.update({'figure.max_open_warning': 0})
+    
+    
     import matplotlib.pyplot as plt
-    #from scipy.interpolate import interp1d
     num_of_bins = {'chr'+str(i): chr_length('chr'+str(i))//bin_size for i in [*range(1,23)]+['X','Y']}
 
     colors = {frozenset(('BPH','disomy')):(177/255,122/255,162/255),
@@ -188,15 +194,15 @@ def panel_plot(DATA,bin_size,pairs,**kwargs):
               frozenset(('disomy','monosomy')):(104/255,162/255,183/255),
               frozenset(('BPH','SPH')):(104/255,162/255,104/255)}
 
-
-    fig,axs = plt.subplots(rows ,columns, sharex='col', sharey='row', figsize=(6.666 * columns * scale, 5.625 * rows * scale))
-    fig.subplots_adjust(left=0.05, bottom=0.06, right=.99, top=.97, wspace=None, hspace=None)
-    #fig.suptitle(kwargs.get('title', ''), fontsize=16)
-    #fig.text(0.5, 0, 'Chromosomal position (normalized)',fontsize=28, ha='center')
-    #fig.text(0, 0.5, 'Log-likelihood ratio per genomic window', fontsize=28, va='center', rotation='vertical')
-
-
-    AX = [i for j in axs for i in j]
+    if len(DATA)>columns:
+        fig,axs = plt.subplots(rows ,columns, sharex='col', sharey='row', figsize=(6.666 * columns * scale, 5.625 * rows * scale))
+        fig.subplots_adjust(left=0.05, bottom=0.1, right=.99, top=(0.92 if kwargs.get('title',None) else 0.96), wspace=None, hspace=None)
+    else:
+        fig,axs = plt.subplots(rows ,columns, sharex='none', sharey='row', figsize=( 6.666 * columns * scale, 1.25 * 5.625 * rows * scale))
+        fig.subplots_adjust(left=0.05, bottom=0.3, right=.99, top=(0.82 if kwargs.get('title',None) else 0.86), wspace=None, hspace=None)
+    
+    
+    AX = [i for j in axs for i in j] if len(DATA)>columns else axs
     
     H = {}
     YMAX = [0]*len(DATA)
@@ -215,7 +221,7 @@ def panel_plot(DATA,bin_size,pairs,**kwargs):
             T = [(x[1]+x[0])/2 for x in X]                
             steps_x = [X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]]
             steps_y = [i for i in Y for j in (1,2)]
-            H[a,b] = ax1.plot(steps_x, steps_y, label=capitalize(f'{a:s} vs. {b:s}') ,color=colors[frozenset((a,b))], linewidth=2, zorder=10, scalex=True, scaley=True, alpha=0.8)
+            H[a,b] = ax1.plot(steps_x, steps_y, label=f'{capitalize(a):s} vs. {capitalize(b):s}' ,color=colors[frozenset((a,b))], linewidth=2, zorder=10, scalex=True, scaley=True, alpha=0.8)
             
             P = [(x[1]-x[0])/2 for x in X]                
             ax1.errorbar(T, Y, xerr = P, ecolor=colors[frozenset((a,b))],marker=None, ls='none',alpha=1, zorder=13, linewidth=5*scale) 
@@ -234,8 +240,6 @@ def panel_plot(DATA,bin_size,pairs,**kwargs):
         ax1.errorbar( 0.88-mean_genomic_window_size, -0.76*ymax,marker=None, ls='none', xerr=25*mean_genomic_window_size, linewidth=2*scale, color='k', capsize=4*scale, zorder=20)
         ax1.text(     0.88-mean_genomic_window_size, -0.82*ymax, '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=2*fs//3, zorder=20)
         ax1.plot([0,1],[0,0],color='black', ls='dotted',alpha=0.7,zorder=0, linewidth=2*scale, scalex=False, scaley=False)
-        #ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
-        #ax1.set_title(f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x",fontsize=fs)
         ax1.set_title(identifier,fontsize=fs)
 
     for g,ax1 in enumerate(AX[:len(DATA)]):
@@ -263,26 +267,27 @@ def panel_plot(DATA,bin_size,pairs,**kwargs):
 
     fig.add_subplot(111, frameon=False)
     plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-    ###plt.title(f'{RATIO[0]:s} vs. {RATIO[1]:s}\n', fontsize=int(1.2*fs))
     
-    plt.xlabel('Chromosomal position (normalized)', fontsize=fs,labelpad=23*scale)
-    plt.ylabel('Log-likelihood ratio (normalized)', fontsize=fs,labelpad=45*scale)        
+    plt.xlabel('Chromosomal position', fontsize=fs,labelpad=23*scale)
+    plt.ylabel('Log-likelihood ratio', fontsize=fs,labelpad=45*scale)        
     
     for l in range(1,len(AX)-len(DATA)+1):
         AX[-l].tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False, width=0)
         for axis in ['top','bottom','left','right']:
             AX[-l].spines[axis].set_visible(False)
         AX[-l].xaxis.set_tick_params(labelbottom=True)
-    AX[-1].legend(handles=[i[0] for i in H.values()], title='', bbox_to_anchor=(.5, .45), loc='upper center', ncol=1, fancybox=True,fontsize=fs)
-    if kwargs.get('title',None): AX[-1].set_title(kwargs.get('title',None), fontsize=int(fs), y=0.55, color='purple')
+    if len(H)>1:
+        fig.legend(handles=[i[0] for i in H.values()], title='', loc='lower right', ncol=len(H), fancybox=True,fontsize=fs) # bbox_to_anchor=(.5, .45)
+    
+    if kwargs.get('title',None): 
+        fig.suptitle(kwargs['title'], fontsize=int(1.2*fs), color='black', fontweight="bold") #, y=1.01
             
         
     if save!='':
         print('Saving plot...')
-        #ax1.set_title(save.rpartition('/')[-1].removesuffix('.png'))
-        plt.tight_layout()
+        #####plt.tight_layout()
         extension = 'svg'
-        plt.savefig('.'.join([save,extension]), format=extension, bbox_inches='tight')
+        plt.savefig('.'.join([save,extension]), format=extension) # bbox_inches='tight'
         plt.close(fig)
     else:
        #plt.tight_layout()
@@ -295,13 +300,12 @@ def single_plot(likelihoods,info,**kwargs):
         
     import matplotlib as mpl
     import matplotlib.pyplot as plt
-    #from scipy.interpolate import interp1d
-    
+
     scale = kwargs.get('scale', 1)
-    z_score = kwargs.get('z_score', 1)
+    z_score = kwargs.get('z_score', 1.96)
     bin_size = kwargs.get('bin_size', 4000000)
     save = kwargs.get('save', '')
-    pairs = kwargs.get('pairs', (('BPH','DISOMY'),('DISOMY','SPH'),('SPH','MONOSOMY')))
+    pairs = kwargs.get('pairs', (('BPH','disomy'),('disomy','SPH'),('SPH','monosomy')))
     
     if save!='':
         mpl.use('Agg')
@@ -315,11 +319,11 @@ def single_plot(likelihoods,info,**kwargs):
     
     fs = 24 * scale
     
-    colors = {('BPH','DISOMY'):(177/255,122/255,162/255),
-              ('DISOMY','SPH'):(242/255,142/255,44/255),
-              ('SPH','MONOSOMY'):(239/255,106/255,92/255),
-              ('DISOMY','MONOSOMY'):(104/255,162/255,183/255),
-              ('BPH','SPH'):(104/255,162/255,104/255)}
+    colors = {frozenset(('BPH','disomy')):(177/255,122/255,162/255),
+              frozenset(('disomy','SPH')):(242/255,142/255,44/255),
+              frozenset(('SPH','monosomy')):(239/255,106/255,92/255),
+              frozenset(('disomy','monosomy')):(104/255,162/255,183/255),
+              frozenset(('BPH','SPH')):(104/255,162/255,104/255)}
     
     LLRs = {(i,j): 
             {window: tuple(LLR(attrgetter(i)(l), attrgetter(j)(l)) for l in likelihoods_in_window)
@@ -339,9 +343,9 @@ def single_plot(likelihoods,info,**kwargs):
         
         steps_x = [X[0][0]]+[i[1] for i in X[:-1] for j in (1,2)]+[X[-1][1]]
         steps_y = [i for i in Y for j in (1,2)]
-        H[p] = ax1.plot(steps_x, steps_y, label=f'{p[0]:s} vs. {p[1]:s}',color=colors[p], linewidth=2*scale, zorder=10, scalex=True, scaley=True, alpha=0.8)
+        H[p] = ax1.plot(steps_x, steps_y, label=f'{capitalize(p[0]):s} vs. {capitalize(p[1]):s}' ,color=colors[frozenset(p)], linewidth=2*scale, zorder=10, scalex=True, scaley=True, alpha=0.8)
         P = [(x[1]-x[0])/2 for x in X]                
-        ax1.errorbar(T, Y, xerr = P, color=colors[p],marker=None, ls='none',alpha=1, zorder=13, linewidth=3*scale) 
+        ax1.errorbar(T, Y, xerr = P, color=colors[frozenset(p)],marker=None, ls='none',alpha=1, zorder=13, linewidth=3*scale) 
         
         
         ax1.errorbar(T, Y, yerr = E, ecolor='black',marker=None, ls='none',alpha=0.2, linewidth=scale, zorder=15) 
@@ -356,10 +360,10 @@ def single_plot(likelihoods,info,**kwargs):
         ax1.spines[axis].set_linewidth(scale)
         
     #ax1.set_title(info['chr_id'].replace('chr', 'Chromosome '),fontsize=fs)
-    ax1.set_title(f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x",fontsize=fs)
+    ax1.set_title(f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x", fontsize=int(1.2 * fs), color='black', fontweight="bold")
 
-    ax1.set_ylabel('Log-likelihood ratio (normalized)', fontsize=fs,labelpad=2*scale)   
-    ax1.set_xlabel('Chromosomal position (normalized)', fontsize=fs,labelpad=2*scale)
+    ax1.set_ylabel('Log-likelihood ratio', fontsize=fs,labelpad=2*scale)   
+    ax1.set_xlabel('Chromosomal position', fontsize=fs,labelpad=2*scale)
 
     
     #Replace ticks along the x-axis 
@@ -383,7 +387,8 @@ def single_plot(likelihoods,info,**kwargs):
     
     
     #handles, labels = ax1.get_legend_handles_labels()
-    ax1.legend(handles=[i[0] for i in H.values()], title='', loc='upper center', ncol=len(H), fancybox=True,fontsize=8*fs//10)
+    if len(H)>1:
+        ax1.legend(handles=[i[0] for i in H.values()], title='', loc='upper right', ncol=len(H), fancybox=True,fontsize=int(0.8*fs))
     
     if save!='':
         print('Saving plot...')
@@ -397,20 +402,21 @@ def single_plot(likelihoods,info,**kwargs):
        plt.tight_layout()
        plt.show()
        
-def wrap_panel_plot_for_single_indv(identifier, bin_size=4000000, pairs=(('BPH','SPH'),), save='', work_dir=''):
+def wrap_panel_plot_for_single_indv(identifier, **kwargs):
     """ Wraps the function panel_plot to show all the chromosomes from a single individual. """
     
     DATA = {}
     for i in [*range(1,23)]+['X']:
-        llr_filename = work_dir.rstrip('/') + '/' + f'{identifier:s}.chr{str(i):s}.LLR.p.bz2'
+        llr_filename = kwargs.get('work_dir','.').rstrip('/') + '/' + f'{identifier:s}.chr{str(i):s}.LLR.p.bz2'
         likelihoods,info = load_likelihoods(llr_filename) 
         DATA[f"{info['chr_id'].replace('chr', 'Chromosome '):s}, {info['depth']:.2f}x"] = (likelihoods,info)
-        show_info(llr_filename,info,pairs)
-    panel_plot(DATA,bin_size=bin_size,pairs=pairs,title=f'{identifier:s}',save=save)
+        show_info(llr_filename,info,kwargs['pairs'])
+        kwargs['title'] = identifier
+    panel_plot(DATA,**kwargs)
     
     return 0
 
-def wrap_panel_plot_many_cases(filenames, bin_size=4000000, pairs=(('BPH','SPH'),), save=''):
+def wrap_panel_plot_many_cases(filenames, **kwargs):
     """ Wraps the function panel_plot to show a panel with many cases. """
     
     DATA = {}
@@ -425,43 +431,52 @@ def wrap_panel_plot_many_cases(filenames, bin_size=4000000, pairs=(('BPH','SPH')
         else:
             identifer = llr_filename.rsplit('/',1).pop()
         DATA[identifer]=(likelihoods,info)
-        show_info(llr_filename,info,pairs)
-    panel_plot(DATA,bin_size=bin_size,pairs=pairs,title='Panel',save=save)
+        show_info(llr_filename,info,kwargs['pairs'])
+    panel_plot(DATA, **kwargs)
     return 0
 
-def wrap_single_plot(llr_filename, pairs=(('BPH','SPH'),), bin_size=4000000):
+def wrap_single_plot(llr_filename, **kwargs):
     """ Wraps the function single_plot. """
-    likelihoods,info =  load_likelihoods(llr_filename)
-    show_info(llr_filename,info,pairs)
-    single_plot(likelihoods, info, pairs=pairs, bin_size=bin_size)
+    likelihoods,info = load_likelihoods(llr_filename)
+    show_info(llr_filename,info,kwargs['pairs'])
+    single_plot(likelihoods, info, **kwargs)
     return 0
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Plots log-likelihood ratios (LLR) vs. chromosomal position from a LLR file.')
-    parser.add_argument('llr_filename', metavar='LLR_FILENAME', type=str,
-                        help='A pickle file created by ANEUPLOIDY_TEST, containing likelihoods to observese reads under various aneuploidy landscapes .')
-    parser.add_argument('-p', '--pairs', type=str, nargs='+', metavar='scenario_A,scenario_B scenario_C,scenario_D', default=['BPH,SPH'],
-                        help='Plots the LLR between scenario A and scenario B along the chromosome. The possible pairs are: BPH,DISOMY; DISOMY,SPH; SPH,MONOSOMY; DISOMY,MONOSOMY; BPH,SPH.'
+    parser.add_argument('llr_filename', metavar='LLR_FILENAME', type=str, nargs='+',
+                        help='One or more LLR files created by ANEUPLOIDY_TEST, containing likelihoods to observese reads under various aneuploidy landscapes .')
+    parser.add_argument('-p', '--pairs', type=str, nargs='+', metavar='scenario_A,scenario_B', default=['BPH,SPH'],
+                        help='Plots the LLR between scenario A and scenario B along the chromosome. The possible pairs are: BPH,disomy; disomy,SPH; SPH,monosomy; disomy,monosomy; BPH,SPH.'
                              'In addition, giving a list of pairs would plot the LLR of each pair in the same figure, e.g. \"BPH,SPH SPH,MONOSOMY\". The default value is BPH,SPH.')
-    parser.add_argument('-b', '--bins', type=int, metavar='INT', default=10,
-                        help='The numbers of bins the chromosome is divided into. The default value is 10.')
+    parser.add_argument('-b', '--bin-size', type=int, metavar='INT', default=4000000,
+                        help='The bin size in which the chromosome is divided. The default value is 4,000,000 bp.')
+    parser.add_argument('-z', '--z-score', type=int, metavar='INT', default=1.96,
+                        help='The z-score value for the confidence intervals. The default value is 1.96, which corresponds to confidence level of 95\%.')
 
     kwargs = vars(parser.parse_args())
     kwargs['pairs'] = [j.split(',') for j in kwargs.get('pairs','')]
-    wrap_single_plot(**kwargs)
+    
+    if  len(kwargs['llr_filename'])==1:
+        kwargs['llr_filename'] = kwargs['llr_filename'].pop()
+        wrap_single_plot(**kwargs)
+    else:
+        kwargs['filenames'] = kwargs['llr_filename']
+        del kwargs['llr_filename']
+        wrap_panel_plot_many_cases(**kwargs)
     sys.exit(0)
 
 else:
     print('The module PLOT_PANEL was imported.')
-   
+
 ######## END OF FILE ########    
    
 
 
 
 
-
+"""
 ####################################################
 # Produce panel plots for all cases in the folders #
 ####################################################
@@ -475,17 +490,16 @@ for identifier in identifiers:
             wrap_panel_plot_for_single_indv(identifier, bin_size=4000000, pairs=(('BPH','SPH'),), save=identifier, work_dir=work_dir)
     except Exception as e:
         print(identifier,e)
-
-
-
 """
-wrap_panel_plot_for_single_indv(identifier='robert', bin_size=4000000, pairs=(('BPH','SPH'),), work_dir='/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/')
 
+
+
+#wrap_panel_plot_for_single_indv(identifier='robert', bin_size=4000000, pairs=(('BPH','SPH'),), work_dir='/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/')
+"""
 filenames = [
-    "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr1.x0.100.HG00105A.NA12827B.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr1.x0.100.HG00105A.NA12827B.LLR.p.bz2",
 "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr2.x0.100.NA12872A.HG00343A.LLR.p.bz2",
 "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr3.x0.100.HG01710B.NA20774A.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr4.x0.100.NA20502B.NA20507A.LLR.p.bz2",
 "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr4.x0.100.NA20813A.HG01707A.LLR.p.bz2",
 "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr5.x0.100.NA12273B.HG00111B.LLR.p.bz2",
 "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chr6.x0.100.HG01773A.NA20770A.LLR.p.bz2",
@@ -508,5 +522,6 @@ filenames = [
 "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/single/simulated.SPH.chrX.x0.100.HG00362A.NA20766B.LLR.p.bz2" 
 ]
 
-wrap_panel_plot_many_cases(filenames)
+#wrap_panel_plot_many_cases(filenames,pairs=(('BPH','SPH'),('disomy','monosomy')),title=None)
+wrap_single_plot(filenames[0],pairs=(('BPH','SPH'),('disomy','monosomy')))
 """
