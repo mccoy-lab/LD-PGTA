@@ -197,13 +197,14 @@ As demonstration, we run the script with the following arguments and flags:
 
 `python3 PLOT_PANEL.py SRR6676163.LLR.p`,
 
-where the first argument is the filename of a pickle file created by ANEUPLOIDY_TEST, containing likelihoods to observese various
-aneuploidy landscapes.  In addition, the following flags are supported:
+where the first argument is the filename of a LLR file created by ANEUPLOIDY_TEST, containing likelihoods to observe various
+aneuploidy landscapes. When a few LLR files are given, a panel of plots would be produced. In addition, the following flags are supported:
 
 | Optional argument  | Description |
 | --- | --- |
 | `--pairs` | _Plots the LLR between scenario A and scenario B along the chromosome. The possible pairs are: BPH,DISOMY; DISOMY,SPH; SPH,MONOSOMY; DISOMY,MONOSOMY; BPH,SPH. In addition, giving a list of pairs would plot the LLR of each pair in the same figure, e.g. "BPH,SPH SPH,MONOSOMY". The default value is BPH,SPH._ |
-| `--bins` | _The numbers of bins the chromosome is divided into. The default value is 10._ |
+| `--bin-size` | _The bin size in which the chromosome is divided. The default value is 2,000,000 bp._ |
+| `--z-score` | _The z-score value for the confidence intervals. The default value is 1.96, which corresponds to confidence level of 95\%._ |
 
 # Simulating various forms of trisomy #
 <a name="simulate"/>
