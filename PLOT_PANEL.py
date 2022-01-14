@@ -90,9 +90,6 @@ def show_info(filename, info, pairs):
             print(f"Mean LLR: {L['mean_of_mean']:.3f}, Standard error of the mean LLR: {L['std_of_mean']:.3f}")
             print(f"Fraction of genomic windows with a negative LLR: {L['fraction_of_negative_LLRs']:.3f}")
 
-        
-    
-
 def bin_genomic_windows(windows,chr_id,num_of_bins):
     """ Lists the bins and gives the genomic windows that they contain. """
     bin_size = chr_length(chr_id) / num_of_bins
@@ -143,14 +140,15 @@ def binning(LLRs_per_window,info,num_of_bins):
     
     return X,Y,E
 
-def detect_transition(X,Y,E):
+def detect_transition(X, Y, E):
     """  Detection of meiotic crossovers based on inferred switches between
          tracts of BPH and SPH trisomy. """
     
     A = [(l,j,k) for i,j,k in zip(X,Y,E) for l in i if j!=None and (abs(j)-k)>0 ]
     if len(A)>2:
         x,y,e = zip(*A)
-        result = [(x[i+1]+x[i])/2 for i,(a,b) in enumerate(zip(y[:-1],y[1:])) if b/a<0]
+        result = [round(.5*(x0+x1),8) for x0,x1,y0,y1 in zip(x[1::2],x[2::2],y[1::2],y[2::2]) if y1/y0<0]
+
     else:
         result = []
         
