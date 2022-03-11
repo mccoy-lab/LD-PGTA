@@ -193,6 +193,8 @@ def build_gw_dict(obs, window_size, offset, min_reads, max_reads, min_score):
     adaptive, window_size = (False, int(window_size)) if window_size else (True, initial_win_size)
     offset = int(offset)
 
+    assert len(obs.positions), 'error: the observation table is empty.'
+
     first, last = obs.positions[0] + offset, obs.positions[-1] + window_size
     a, b  = first, first+window_size
     readIDs_in_window = set()
