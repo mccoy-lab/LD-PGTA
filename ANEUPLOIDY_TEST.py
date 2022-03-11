@@ -429,7 +429,7 @@ def aneuploidy_test(obs_filename,leg_filename,hap_filename,samp_filename,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
     description='Builds a dictionary that lists genomic windows that contain'
-                'at least two reads and gives the associated log-likelihood '
+                'at least three reads and gives the associated log-likelihood '
                 'BPH/SPH ratio (LLR). BPH (Both Parental Homologs) correspond'
                 'to the presence of three unmatched haplotypes, while SPH'
                 '(Single Parental Homolog) correspond to chromosome gains'
