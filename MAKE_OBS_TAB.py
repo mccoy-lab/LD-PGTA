@@ -59,7 +59,7 @@ def retrive_bases(bam_filename,legend_filename,samples_filename,fasta_filename,h
 
     if not os.path.isfile(bam_filename): raise Exception('Error: BAM file does not exist.')
     if not os.path.isfile(legend_filename): raise Exception('Error: LEGEND file does not exist.')
-    if not os.path.isfile(samples_filename): raise Exception('Error: SAMPLE file does not exist.')
+    if not os.path.isfile(samples_filename): raise Exception('Error: SAMPLES file does not exist.')
     if fasta_filename!='' and not os.path.isfile(fasta_filename): raise Exception('Error: FASTA file does not exist.')
 
     open_samp = load(samples_filename)     
