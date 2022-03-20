@@ -143,9 +143,9 @@ It then builds a nested list that contains observed alleles at SNPs positions to
 
 We run the script with the following arguments and flags:
 
-`python3 MAKE_OBS_TAB.py SRR6676163.bam EUR_panel.chr21.legend --min-bq 30 --min-mq 30 --max-depth 0 --handle-multiple-observations all`,
+`python3 MAKE_OBS_TAB.py SRR6676163.bam EUR_panel.chr21.legend.gz EUR_panel.chr21.samples.gz --min-bq 30 --min-mq 30 --max-depth 0 --handle-multiple-observations all`,
 
-where the first argument is the filename of the BAM file, containing reads mapped to a reference sequence. The second required argument is the filename of the legend file, which lists the SNPs positions. In addition, the following flags are supported:
+where the first argument is the filename of the BAM file, containing reads mapped to a reference sequence. The second required argument is the filename of the legend file, which lists the SNPs positions. The third required argument is the filename of the samples file, which lists the reference samples and their associated population, group/superpopulation and sex. In addition, the following flags are supported:
 
 | Optional argument  | Description |
 | --- | --- |
