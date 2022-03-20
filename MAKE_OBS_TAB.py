@@ -32,7 +32,7 @@ def save_obs(obs_tab,info,compress,bam_filename,output_filename,output_dir):
     Open = {'bz2': bz2.open, 'gz': gzip.open}.get(compress, open)
     ext = ('.'+compress) * (compress in ('bz2','gz'))
     default_output_filename = re.sub('.[bB][aA][mM]$',f".{info['chr_id']:s}.obs.p{ext:s}",bam_filename.strip().split('/')[-1])
-    
+
     if output_filename=='': 
         output_filename = default_output_filename
     else:
@@ -45,18 +45,27 @@ def save_obs(obs_tab,info,compress,bam_filename,output_filename,output_dir):
         pickle.dump(info, f, protocol=4)
     return output_dir + output_filename
 
-def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,compress,**kwargs):
-    """ Retrives observed bases from known SNPs position.
-        Note: chromosomal position starts from one in obs_tab. """
+def load(filename):
+    """ Adjusts the file opening method according to the file extension. """
+    return {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open) 
 
-    time0 = time.time()
+def retrive_bases(bam_filename,legend_filename,samples_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,compress,**kwargs):
+    """ Retrives observed bases from known SNPs position. 
+        Note: chromosomal position starts from one in obs_tab. """
+    time0 = time.time()        
     random.seed(a=None, version=2) #I should set a=None after finishing to debug the code.
 
     UNMAP, SECONDARY, QCFAIL, DUP = 0x4,0x100,0x200,0x400 #From http://www.htslib.org/doc/samtools-flags.html
 
     if not os.path.isfile(bam_filename): raise Exception('Error: BAM file does not exist.')
     if not os.path.isfile(legend_filename): raise Exception('Error: LEGEND file does not exist.')
+    if not os.path.isfile(samples_filename): raise Exception('Error: SAMPLE file does not exist.')
     if fasta_filename!='' and not os.path.isfile(fasta_filename): raise Exception('Error: FASTA file does not exist.')
+
+    open_samp = load(samples_filename)     
+    with open_samp(samples_filename,'rb') as samp_in:
+        sam_tab = pickle.load(samp_in)
+    ancestral_makeup = {row.group2 for row in sam_tab}
 
     obs_tab = list()
 
@@ -64,7 +73,6 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
         genome_reference = pysam.FastaFile(fasta_filename) if fasta_filename!='' else None
         samfile = pysam.AlignmentFile(bam_filename, 'rb' )
 
-        load = lambda filename: {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open)  #Adjusts the opening method according to the file extension. 
         open_leg = load(legend_filename)
         with open_leg(legend_filename,'rb') as leg_in:
             leg_tab = pickle.load(leg_in)
@@ -121,7 +129,8 @@ def retrive_bases(bam_filename,legend_filename,fasta_filename,handle_multiple_ob
                 'min-mq' :  min_mq,
                 'max-depth' :  max_depth,
                 'chr_id': chr_id,
-                'depth': len(obs_tab)/len(leg_tab)}
+                'depth': len(obs_tab)/len(leg_tab),
+                'ancestral_makeup': ancestral_makeup}
 
         if output_filename!=None:
             save_obs(obs_tab,info,compress,bam_filename,output_filename,kwargs.get('output_dir', 'results'))
@@ -142,7 +151,9 @@ if __name__ == "__main__":
                         help='A BAM file sorted by position.')
     parser.add_argument('legend_filename', metavar='LEG_FILENAME', type=str,
                         help='A legend file of reference panel.')
-    parser.add_argument('-f','--fasta_filename', type=str,metavar='FASTA_FILENAME', default='',
+    parser.add_argument('samples_filename', metavar='SAMP_FILENAME', type=str,
+                        help='A samples file of the reference panel.')
+    parser.add_argument('-f','--fasta_filename', metavar='FASTA_FILENAME', type=str, default='',
                         help='The faidx-indexed reference file in the FASTA format. '
                              'Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8.')
     parser.add_argument('-u', '--handle-multiple-observations', type=str,
