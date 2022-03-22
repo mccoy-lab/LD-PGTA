@@ -49,7 +49,7 @@ def load(filename):
     """ Adjusts the file opening method according to the file extension. """
     return {'bz2': bz2.open, 'gz': gzip.open}.get(filename.rsplit('.',1)[1], open) 
 
-def retrive_bases(bam_filename,legend_filename,samples_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,compress,**kwargs):
+def retrive_bases(bam_filename,legend_filename,sample_filename,fasta_filename,handle_multiple_observations,min_bq,min_mq,max_depth,output_filename,compress,**kwargs):
     """ Retrives observed bases from known SNPs position. 
         Note: chromosomal position starts from one in obs_tab. """
     time0 = time.time()        
@@ -59,11 +59,11 @@ def retrive_bases(bam_filename,legend_filename,samples_filename,fasta_filename,h
 
     if not os.path.isfile(bam_filename): raise Exception('Error: BAM file does not exist.')
     if not os.path.isfile(legend_filename): raise Exception('Error: LEGEND file does not exist.')
-    if not os.path.isfile(samples_filename): raise Exception('Error: SAMPLES file does not exist.')
+    if not os.path.isfile(sample_filename): raise Exception('Error: SAMPLE file does not exist.')
     if fasta_filename!='' and not os.path.isfile(fasta_filename): raise Exception('Error: FASTA file does not exist.')
 
-    open_samp = load(samples_filename)     
-    with open_samp(samples_filename,'rb') as samp_in:
+    open_samp = load(sample_filename)     
+    with open_samp(sample_filename,'rb') as samp_in:
         sam_tab = pickle.load(samp_in)
     ancestral_makeup = {row.group2 for row in sam_tab}
 
@@ -151,8 +151,8 @@ if __name__ == "__main__":
                         help='A BAM file sorted by position.')
     parser.add_argument('legend_filename', metavar='LEG_FILENAME', type=str,
                         help='A legend file of reference panel.')
-    parser.add_argument('samples_filename', metavar='SAMP_FILENAME', type=str,
-                        help='A samples file of the reference panel.')
+    parser.add_argument('sample_filename', metavar='SAMP_FILENAME', type=str,
+                        help='A sample file of the reference panel.')
     parser.add_argument('-f','--fasta_filename', metavar='FASTA_FILENAME', type=str, default='',
                         help='The faidx-indexed reference file in the FASTA format. '
                              'Supplying a reference file will reduce false SNPs caused by misalignments using the Base Alignment Quality (BAQ) method described in the paper “Improving SNP discovery by base alignment quality”, Heng Li, Bioinformatics, Volume 27, Issue 8.')
