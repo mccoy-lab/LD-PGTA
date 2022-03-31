@@ -25,31 +25,34 @@ def generate_legned(SNPs=24,depth=0.1):
     legend = tuple(leg_tuple(chr_id,pos,ref,alt) for pos,ref,alt in zip(POS,REF,ALT))
     return legend
 
-def generate_haplotype(SNPs=24,number_of_haplotypes=10):
-    max_int = 2**number_of_haplotypes
-    hap_tab = tuple(random.randrange(1,max_int+1) for i in range(SNPs))     
-    return hap_tab, number_of_haplotypes
+def generate_haplotype(groups=1,SNPs=24,number_of_haplotypes=10):
+    max_int = 1 << number_of_haplotypes
+    hap_tab_per_group = {'group'+str(i): tuple(random.randrange(1,max_int+1) for i in range(SNPs)) for i in range(groups)}
+    number_of_haplotypes_per_group = {'group'+str(i): number_of_haplotypes for i in range(groups)}
+    return hap_tab_per_group, number_of_haplotypes_per_group
 
 def generate_obs(legend,alleles_per_read=4):
     reads_generator = (i for i in range(len(legend)//alleles_per_read) for j in range(alleles_per_read))
     obs_tab = tuple(obs_tuple(pos,'read'+str(read_id),random.choice(alleles)) 
-     for read_id,(chr_id,pos,*alleles) in zip(reads_generator,legend))
+                        for read_id,(chr_id,pos,*alleles) in zip(reads_generator,legend))
     return obs_tab
 
 def generate_sam(groups=1,number_of_haplotypes=10):
-    sample_ids = ('sample'+str(i) for i in range(number_of_haplotypes//2))
-    groups2 = ('group'+str(i) for i in random.choices(range(groups),k=number_of_haplotypes//2))
-    sex = random.choices(range(2),k=number_of_haplotypes//2)
-    sam_tab = tuple(sam_tuple(i,'N/A',j,k) for i,j,k in zip(sample_ids,groups2,sex))
+    sam_tab = {}
+    for i in range(groups):
+        sample_ids = ('sample'+str(i) for j in range(number_of_haplotypes//2))
+        groups2 = ['group'+str(i)]*(number_of_haplotypes//2) 
+        sex = random.choices(range(2),k=number_of_haplotypes//2)
+        sam_tab['group'+str(i)] = tuple(sam_tuple(i,'N/A',j,k) for i,j,k in zip(sample_ids,groups2,sex))
     return sam_tab
 
 def print_haplotypes(hap_tab,number_of_haplotypes):
     return tuple(tuple(bin(h)[2:].zfill(number_of_haplotypes)) for h in hap_tab)
 
 leg_tab = generate_legned(SNPs=1000)
-hap_tab, number_of_haplotypes = generate_haplotype(SNPs=1000,number_of_haplotypes=250)  ### number of haplotypes must be even, because diploids are simulated.
+hap_tab, number_of_haplotypes = generate_haplotype(groups=2,SNPs=1000,number_of_haplotypes=50)  ### number of haplotypes must be even, because diploids are simulated.
 obs_tab = generate_obs(leg_tab,alleles_per_read=1)
-sam_tab = generate_sam(groups=2,number_of_haplotypes=250)
+sam_tab = generate_sam(groups=2,number_of_haplotypes=50)
 
 if not os.path.exists('test'): os.makedirs('test')
 
@@ -69,7 +72,8 @@ with open('test/test.leg.p','wb') as f:
     pickle.dump(leg_tab,f)
 
 with open('test/test.hap.p','wb') as f:
-    pickle.dump((hap_tab,number_of_haplotypes),f)
+    pickle.dump(hap_tab,f)
+    pickle.dump(number_of_haplotypes,f)
     
 with open('test/test.sam.p','wb') as f:
     pickle.dump(sam_tab,f)

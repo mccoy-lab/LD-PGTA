@@ -132,8 +132,9 @@ In addition, the following flags are supported:
 
 | Optional argument  | Description |
 | --- | --- |
+|`--ignore-duplicates` | _Ignore multiple records with the same chromosomal position._ |
 | `--output-directory <PATH>` | _The directory in which the reference panel would be created._ |
-| `--force-module cyvcf2/bcftools/pysam`| _By deafult cyvcf2 module would be used. This allows to use pysam or bcftools instead._ |
+| `--force-module cyvcf2/bcftools/pysam`| _By default cyvcf2 module would be used. This allows to use pysam or bcftools instead._ 
 
 # Stage 3: Tabulation of allele observations at known SNPs #
 <a name="obs_tab"/>
@@ -166,9 +167,9 @@ The script `ANEUPLOIDY_TEST.py` builds a dictionary that lists linkage disequili
 
 As demonstration, we run the script with the following arguments and flags:
 
-`python3 ANEUPLOIDY_TEST.py SRR6676163.obs.p EUR_panel.chr21.legend EUR_panel.chr21.hap EUR_panel.chr21.sam EUR --window-size 0 --min-reads 6 --max-reads 4 --compress bz2`,
+`python3 ANEUPLOIDY_TEST.py SRR6676163.obs.p EUR_panel.chr21.legend EUR_panel.chr21.hap EUR --window-size 0 --min-reads 6 --max-reads 4 --compress bz2`,
 
-where the first argument is the filename of a pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions. The second argument is the filename of the reference panel legend, which lists the SNPs in our reference panel. The third required argument is the filename of the reference panel haplotypes, which lists the haplotypes in our reference panel. The forth required argument is the filename of the reference panel samples, which describes the ancestral group of the individuals consisting the reference panel. The fifth argument is ancestral makeup of SRR6676163. In general, the ancestral makeup is specified as follows:
+where the first argument is the filename of a pickle file created by MAKE_OBS_TAB, containing base observations at known SNP positions. The second argument is the filename of the reference panel legend, which lists the SNPs in our reference panel. The third required argument is the filename of the reference panel haplotypes, which lists the haplotypes in our reference panel. The forth argument is ancestral makeup of SRR6676163. In general, the ancestral makeup is specified as follows:
 1. For non-admixtures the argument consists a single superpopulation, e.g., `EUR`.
 2. For recent admixtures the argument consists two superpopulations, e.g., `EUR EAS`.
 3. For distant admixtures the argument consists of the superpoplations and their proportions, e.g, `EUR 0.8 EAS 0.1 SAS 0.1`.
@@ -408,3 +409,4 @@ where `--haplegendsample prefix`  _converts from BCF to hap/legend/sample format
 * The script `MAKE_OBS_TAB.py` requires pysam v0.18.0 or above.
 * The script `ANEUPLOIDY_TEST.py` would perform faster when gmpy2 v2.1.0rc1 is present.
 * The script `PLOT_PANEL.py` requires matplotlib v3.5.1 or above.
+

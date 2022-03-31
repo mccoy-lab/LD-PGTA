@@ -65,7 +65,7 @@ def retrive_bases(bam_filename,legend_filename,sample_filename,fasta_filename,ha
     open_samp = load(sample_filename)     
     with open_samp(sample_filename,'rb') as samp_in:
         sam_tab = pickle.load(samp_in)
-    ancestral_makeup = {row.group2 for row in sam_tab}
+    ancestral_makeup = {*sam_tab.keys()}
 
     obs_tab = list()
 
