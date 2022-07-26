@@ -242,7 +242,7 @@ def panel_plot(DATA,**kwargs):
 
             LLRs = {window: tuple(LLR(attrgetter(a)(l), attrgetter(b)(l)) for l in likelihoods_in_window)
                                for window,likelihoods_in_window in likelihoods.items()} 
-                                                               
+            if len(LLRs)<25: continue                                                   
             X,Y,E = binning(LLRs,info,num_of_bins[info['chr_id']])
             Y = [(y if y else 0) for y in Y]
             E = [(z_score*e if e else 0) for e in E]
@@ -269,7 +269,7 @@ def panel_plot(DATA,**kwargs):
             YMAX[g] = yabsmax if YMAX[g]< yabsmax else YMAX[g]
 
     for g,(ax1,(identifier,(likelihoods,info))) in enumerate(zip(AX,DATA.items())):
-        mean_genomic_window_size = info['statistics']['window_size_mean']/chr_length(info['chr_id']) 
+        mean_genomic_window_size = info['statistics'].get('window_size_mean',0)/chr_length(info['chr_id']) 
         ymax = max(YMAX[columns*(g//columns):columns*(g//columns+1)])
         ax1.errorbar( 0.88-mean_genomic_window_size, -0.76*ymax,marker=None, ls='none', xerr=25*mean_genomic_window_size, linewidth=2*scale, color='k', capsize=4*scale, zorder=20)
         ax1.text(     0.88-mean_genomic_window_size, -0.82*ymax, '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=2*fs//3, zorder=20)
@@ -580,6 +580,177 @@ filenames = [
 "/Users/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/CReATe_results/MES-J-8-SplitA-15-Jun-2020.chr7.LLR.p.bz2"
 ]
 
-wrap_panel_plot_many_cases(filenames,pairs=(('BPH','SPH'),),title=None)
+filenames = [
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/CHA-S-11-30-May-2020.chr6.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MAR-A-1-13-Aug-2020.chr2.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RESEARCH-E7-8-01-Sep-2020.chr8.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BOU-M-3-11-Oct-2021.chr1.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LOC-A-7-20-Dec-2020.chr2.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HEN-T-3-17-Dec-2020.chr1.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/COM-M-5-1-01-Oct-2020.chr1.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BOU-JB-5-29-Jun-2020.chr2.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/WRI-A-2-06-Oct-2020.chr3.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RESEARCH-E6-19-01-Sep-2020.chr2.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LOH-J-2-28-Nov-2021.chr3.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MES-A-1-02-Jul-2020.chr2.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/YU-SH-3-16-Feb-2021.chr1.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DHA-D-3-17-Feb-2021.chr3.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/TRO-S-2-03-Jul-2020.chr4.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SCH-S-4-12-Jun-2021.chr3.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GOY-D-12-15-Dec-2020.chr5.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SCH-P-1-04-Jul-2021.chr4.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-2-16-Nov-2020.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LEP-T-4-24-Jun-2021.chr1.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/CAR-N-1-07-Nov-2020.chr6.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/AND-J-5-02-Nov-2020.chr3.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/COM-M-5-1-01-Oct-2020.chr5.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/COM-M-1-1-01-Oct-2020.chr5.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RIC-L-7-1-08-Sep-2020.chr3.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/AZA-G-8-03-Oct-2021.chr8.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-1-16-Jun-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/KHA-H-10-04-Nov-2020.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/IAN-B-H-E-16-05-Dec-2020.chr6.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/KAU-C-3-10-Dec-2020.chr4.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/VIG-B-L-I-4-05-Sep-2021.chr4.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/COL-S-1-09-Apr-2021.chr1.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GRE-O-11-RETEST-14-Aug-2020.chr7.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MRO-L-2-23-Jul-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/WU-A-5-11-Aug-2021.chr8.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/CON-J-12-17-Dec-2020.chr3.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GOY-D-3-15-Dec-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/AND-J-12-02-Nov-2020.chr11.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MOL-C-1-18-Jun-2020.chr6.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BOT-S-1-10-Oct-2021.chr4.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GEL-B-3-10-Jan-2021.chr7.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/POL-T-7-retest-13-Mar-2021.chr10.LLR.p.bz2"
+]
+
+
+filenames = ["/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/ROS-L-8-NextSeq.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DO-T-1-14-Sep-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GOY-D-3-15-Dec-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MRO-L-2-23-Jul-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/CAS-S-27-17-Nov-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HOL-TR-1-16-Aug-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-1-16-Jun-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-2-16-Jun-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SAI-D-10-30-Nov-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BRU-M-N-2-14-Apr-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/WHE-B-11-1-17-Sep-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DHA-D-3-17-Feb-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LAV-F-4-06-Jul-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SHE-M-9-03-Sep-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BRA-S-1-splitA-25-Sep-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GOS-L-9-splitA-19-Jun-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/PUG-J-15-splitA-14-Jun-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/KNI-J-M-11-SplitA-15-Jul-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BEK-N-5-21-Aug-2020.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GON-S-24-17-Sep-2021.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/KHA-H-10-04-Nov-2020.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/TIL-M-11-18-Dec-2021.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/IAN-B-H-E-16-05-Dec-2020.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LON-M-6-splitA-25-Nov-2021.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/POL-T-7-retest-13-Mar-2021.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/TUN-BN-8-splitA-12-Dec-2020.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAG-R-4-2-NIPT-TOP-16-Nov-2021.chr10.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/CHE-X-6-06-Jul-2020.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GON-J-7-15-Aug-2021.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SAH-P-7-04-Dec-2021.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DON-D-16-18-Nov-2021.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-2-16-Nov-2020.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RIC-L-7-1-08-Sep-2020.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MON-AL-FT1-18-Oct-2021.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/TUC-E-1-splitA-04-Dec-2020.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HOL-B-37-splitA-25-Sep-2021.chr12.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/AFR-F-5-13-Dec-2020.chr13.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DUK-A-2-15-Jul-2020.chr13.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RAD-A-2-24-Oct-2020.chr13.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RAD-A-3-03-Aug-2020.chr13.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RAD-M-2-18-Nov-2020.chr13.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LIU-TXY-6-11-Oct-2021.chr13.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RIC-L-2-1-08-Sep-2020.chr13.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RESEARCH-E5-9-01-Sep-2020.chr13.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BRA-S-1-20-Oct-2020.chr21.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/TUN-BN-8-splitA-12-Dec-2020.chr21.LLR.p.bz2"
+]
+
+filenames = ["/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BLA-C-7-28-Feb-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/COU-O-1-03-Aug-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DHA-D-3-17-Feb-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LAV-F-4-06-Jul-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SHE-M-9-03-Sep-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/ADD-B-10-15-Sep-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/ALC-I-11-07-Aug-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-10-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-11-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-16-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-17-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-22-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-37-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-39-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-41-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-53-06-May-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SHE-K-10-07-Feb-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LOP-J-5-1-05-Sep-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DUB-L-C-M-5-03-Jun-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RES-C4-E8-10-21-Dec-2021.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BRA-S-1-splitA-25-Sep-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GOS-L-9-splitA-19-Jun-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/PUG-J-15-splitA-14-Jun-2020.chr18.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/KNI-J-M-11-SplitA-15-Jul-2020.chr18.LLR.p.bz2"]
+
+filenames = ['WAN-H-8-RETEST-24-Jan-2021_S192',
+ 'DO-T-1-14-Sep-2020_S116',
+ 'NG-M-K-3-11-Jul-2020_S145',
+ 'MOO-K-2-04-Apr-2021_S14',
+ 'KLE-M-12-03-Oct-2020_S23',
+ 'CAS-J-3-14-Jan-2021_S8',
+ 'NG-M-K-2-16-Jun-2020_S58',
+ 'SCH-P-8-21-Jan-2021_S91',
+ 'MAT-J-19-08-Sep-2021_S146',
+ 'DUA-P-1-15-Sep-2021_S128',
+ 'PAH-Y-4-28-Jun-2021_S59',
+ 'ROS-L-8-NextSeq_S15',
+ 'CAO-C-21-09-May-2021_S187',
+ 'HYD-D-17-04-Jul-2021_S26',
+ 'HOL-TR-1-16-Aug-2020_S141',
+ 'BRO-B-8-18-Jan-2021_S59',
+ 'FRA-M-6-23-Jun-2020_S88',
+ 'KAD-M-10-RETEST-13-Sep-2021_S95',
+ 'BID-I-9-21-Jul-2021_S20',
+ 'ROS-J-6-20-Sep-2020_S157',
+ 'NG-M-K-1-16-Jun-2020_S57',
+ 'BRI-B-6-02-Sep-2021_S115',
+ 'SAI-D-10-30-Nov-2021_S31',
+ 'CAS-S-27-17-Nov-2021_S46',
+ 'PIE-S-9-31-Mar-2021_S134',
+ 'SHU-S-3-05-May-2021_S22',
+ 'BRU-M-N-3-14-Apr-2021_S91',
+ 'MRO-L-2-23-Jul-2020_S79',
+ 'DIE-H-12-24-Sep-2021_S188',
+ 'CAM-M-2-01-Dec-2021_S65',
+ 'TSA-M-3-27-Jun-2020_S81',
+ 'MEN-Y-7-28-Nov-2021_S274',
+ 'BRU-M-N-2-14-Apr-2021_S90',
+ 'NG-M-K-3-16-Jun-2020_S59',
+ 'JIW-S-1-09-Jun-2020_S16',
+ 'BOX-AN-7-23-Apr-2021_S178',
+ 'GAN-C-3-23-Nov-2021_S220',
+ 'GIL-K-8-14-Jun-2021_S175',
+ 'GOY-D-3-15-Dec-2020_S163',
+ 'HAS-A-2-16-Jun-2021_S97',
+ 'MAC-S-5-04-Aug-2021_S127',
+ 'CHI-S-5-20-Jan-2021_S75',
+ 'CAO-C-14-09-May-2021_S182',
+ 'DUA-Z-M-P-1-RETEST-15-Sep-2021_S96',
+ 'LIN-Y-3-02-Aug-2020_S140',
+ 'WHE-B-11-1-17-Sep-2020_S42',
+ 'SHA-E-9-31-Jan-2021_S118',
+ 'JOH-J-18-retest-17-Feb-2021_S175',
+ 'AGG-H-17-07-Aug-2021_S180',
+ 'KOU-R-5-10-May-2021_S13']
+filenames = ["/Users/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/" + i.rsplit('_',1)[0] + ".chr9.LLR.p.bz2" for i in filenames]
+
+wrap_panel_plot_many_cases(filenames,pairs=(('BPH','disomy'),),title='BPH vs. disomy')
 #wrap_single_plot(filenames[0],pairs=(('BPH','SPH'),))
 """
