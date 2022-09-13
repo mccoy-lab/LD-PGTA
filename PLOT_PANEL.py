@@ -183,6 +183,59 @@ def detect_crossovers(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_score=1
                 
     return crossovers
 
+def detect_crossovers_v2(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_score=1.96, lookahead=20):
+    """ Detecting crossovers by indetifying transitions between BPH and SPH 
+        regions. """
+        
+    crossovers = {}
+    #Scan the chromosome in the 5'-to-3' direction to find crossovers.
+    x_coord = tuple(0.5*(a+b) for a,b in genomic_windows)
+    acc_means = tuple(accumulate(mean_of_LLRs))
+    acc_vars = tuple(accumulate(variance_of_LLRs))
+    triple = tuple(zip(x_coord, acc_means, acc_vars))
+    
+    #Maxima and minima candidates are temporarily stored in mx and mn, respectively.
+    mx, mn, last_ind, last_extremum = None, None, 0, 0
+        
+    for index, (x, y, v) in enumerate(triple):
+        
+        if  mx==None or y > mx:
+            mx_index,mx_pos,mx,mx_var = index,x,y,v
+        
+        if  mn==None or y < mn:
+            mn_index,mn_pos,mn,mn_var = index,x,y,v
+
+        if mx!=None and 0 < (mx-y)-z_score*(v-mx_var)**.5 and index-mx_index>=lookahead: #maximum point detected
+            for x2, y2, v2 in triple[max(mx_index-lookahead,last_ind):last_ind:-1]:
+                if 0 < (mx-y2)-z_score*(mx_var-v2)**.5:
+                    if last_extremum == +1: #Recovering skipped minimum point.
+                        x0, mx0, mx_var0 = triple[last_ind]    
+                        x1, mn1, mn_var1 = min(triple[last_ind+1:mx_index],key=itemgetter(1))
+                        kappa = min((mx0-mn1)/(mn_var1-mx_var0)**.5 , (mx-mn1)/(mx_var-mn_var1)**.5 )
+                        crossovers[x1] = kappa
+
+                    kappa = min((mx-y2)/(mx_var-v2)**.5,(mx-y)/(v-mx_var)**.5)
+                    crossovers[mx_pos] = kappa
+                    mx, mn, last_ind, last_extremum = None, None, mx_index, +1 # set algorithm to find the next minimum
+                    break
+                
+        if mn!=None and 0 < (y-mn)-z_score*(v-mn_var)**.5  and index-mn_index>=lookahead: #minimum point detected
+            for x2, y2, v2 in triple[max(mn_index-lookahead,last_ind):last_ind:-1]:
+                if  0 < (y2-mn)-z_score*(mn_var-v2)**.5:
+                    if last_extremum == -1: #Recovering skipped maximum point.
+                        x0, mn0, mn_var0 = triple[last_ind]    
+                        x1, mx1, mx_var1 = max(triple[last_ind+1:mn_index],key=itemgetter(1))
+                        kappa = min((mx1-mn0)/(mx_var1-mn_var0)**.5 , (mx1-mn)/(mn_var-mx_var1)**.5 )
+                        crossovers[x1] = kappa
+                        
+                    kappa = min((y2-mn)/(mn_var-v2)**.5,(y-mn)/(v-mn_var)**.5)
+                    crossovers[mn_pos] = kappa
+                    
+                    mx, mn, last_ind, last_extremum = None, None, mn_index, -1 # set algorithm to find the next maxima
+                    break
+                
+    return crossovers
+
 def capitalize(x):
     return x[0].upper() + x[1:]
     
@@ -242,7 +295,7 @@ def panel_plot(DATA,**kwargs):
 
             LLRs = {window: tuple(LLR(attrgetter(a)(l), attrgetter(b)(l)) for l in likelihoods_in_window)
                                for window,likelihoods_in_window in likelihoods.items()} 
-            if len(LLRs)<25: continue                                                   
+                                                               
             X,Y,E = binning(LLRs,info,num_of_bins[info['chr_id']])
             Y = [(y if y else 0) for y in Y]
             E = [(z_score*e if e else 0) for e in E]
@@ -262,14 +315,14 @@ def panel_plot(DATA,**kwargs):
                 genomic_windows = info['statistics']['LLRs_per_genomic_window'][('BPH','SPH')]
                 mean_of_LLRs = [*map(itemgetter(0),genomic_windows.values())]
                 variance_of_LLRs = [*map(itemgetter(1),genomic_windows.values())]
-                unnormalized_crossovers = detect_crossovers(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_score=z_score, lookahead=lookahead)
+                unnormalized_crossovers = detect_crossovers_v2(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_score=z_score, lookahead=lookahead)
                 l = chr_length(info['chr_id'])
                 crossovers[g] = [pos/l for pos in unnormalized_crossovers] #Normalize position according to the chromosome length.
                 
             YMAX[g] = yabsmax if YMAX[g]< yabsmax else YMAX[g]
 
     for g,(ax1,(identifier,(likelihoods,info))) in enumerate(zip(AX,DATA.items())):
-        mean_genomic_window_size = info['statistics'].get('window_size_mean',0)/chr_length(info['chr_id']) 
+        mean_genomic_window_size = info['statistics']['window_size_mean']/chr_length(info['chr_id']) 
         ymax = max(YMAX[columns*(g//columns):columns*(g//columns+1)])
         ax1.errorbar( 0.88-mean_genomic_window_size, -0.76*ymax,marker=None, ls='none', xerr=25*mean_genomic_window_size, linewidth=2*scale, color='k', capsize=4*scale, zorder=20)
         ax1.text(     0.88-mean_genomic_window_size, -0.82*ymax, '25 GW',  horizontalalignment='center', verticalalignment='top',fontsize=2*fs//3, zorder=20)
@@ -674,83 +727,38 @@ filenames = ["/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_
 "/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/TUN-BN-8-splitA-12-Dec-2020.chr21.LLR.p.bz2"
 ]
 
-filenames = ["/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BLA-C-7-28-Feb-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/COU-O-1-03-Aug-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DHA-D-3-17-Feb-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LAV-F-4-06-Jul-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SHE-M-9-03-Sep-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/ADD-B-10-15-Sep-2020.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/ALC-I-11-07-Aug-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-10-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-11-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-16-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-17-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-22-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-37-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-39-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-41-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAU-T-53-06-May-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SHE-K-10-07-Feb-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LOP-J-5-1-05-Sep-2020.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DUB-L-C-M-5-03-Jun-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/RES-C4-E8-10-21-Dec-2021.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BRA-S-1-splitA-25-Sep-2020.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GOS-L-9-splitA-19-Jun-2020.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/PUG-J-15-splitA-14-Jun-2020.chr18.LLR.p.bz2",
-"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/KNI-J-M-11-SplitA-15-Jul-2020.chr18.LLR.p.bz2"]
+filenames = ["/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/ROS-L-8-NextSeq.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/DO-T-1-14-Sep-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/CAS-J-3-14-Jan-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GAN-C-3-23-Nov-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GIL-K-8-14-Jun-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/GOY-D-3-15-Dec-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HAS-A-2-16-Jun-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/JIW-S-1-09-Jun-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/KOU-R-5-10-May-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/LIN-Y-3-02-Aug-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MAC-S-5-04-Aug-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MOO-K-2-04-Apr-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MRO-L-2-23-Jul-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/PAH-Y-4-28-Jun-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SHU-S-3-05-May-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BOX-AN-7-23-Apr-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/CAS-S-27-17-Nov-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HOL-TR-1-16-Aug-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/HYD-D-17-04-Jul-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/KLE-M-12-03-Oct-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/MAT-J-19-08-Sep-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-1-16-Jun-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-2-16-Jun-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-3-11-Jul-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/NG-M-K-3-16-Jun-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/SAI-D-10-30-Nov-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BRU-M-N-2-14-Apr-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/BRU-M-N-3-14-Apr-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/WHE-B-11-1-17-Sep-2020.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/WAN-H-8-RETEST-24-Jan-2021.chr9.LLR.p.bz2",
+"/home/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/JOH-J-18-retest-17-Feb-2021.chr9.LLR.p.bz2"]
 
-filenames = ['WAN-H-8-RETEST-24-Jan-2021_S192',
- 'DO-T-1-14-Sep-2020_S116',
- 'NG-M-K-3-11-Jul-2020_S145',
- 'MOO-K-2-04-Apr-2021_S14',
- 'KLE-M-12-03-Oct-2020_S23',
- 'CAS-J-3-14-Jan-2021_S8',
- 'NG-M-K-2-16-Jun-2020_S58',
- 'SCH-P-8-21-Jan-2021_S91',
- 'MAT-J-19-08-Sep-2021_S146',
- 'DUA-P-1-15-Sep-2021_S128',
- 'PAH-Y-4-28-Jun-2021_S59',
- 'ROS-L-8-NextSeq_S15',
- 'CAO-C-21-09-May-2021_S187',
- 'HYD-D-17-04-Jul-2021_S26',
- 'HOL-TR-1-16-Aug-2020_S141',
- 'BRO-B-8-18-Jan-2021_S59',
- 'FRA-M-6-23-Jun-2020_S88',
- 'KAD-M-10-RETEST-13-Sep-2021_S95',
- 'BID-I-9-21-Jul-2021_S20',
- 'ROS-J-6-20-Sep-2020_S157',
- 'NG-M-K-1-16-Jun-2020_S57',
- 'BRI-B-6-02-Sep-2021_S115',
- 'SAI-D-10-30-Nov-2021_S31',
- 'CAS-S-27-17-Nov-2021_S46',
- 'PIE-S-9-31-Mar-2021_S134',
- 'SHU-S-3-05-May-2021_S22',
- 'BRU-M-N-3-14-Apr-2021_S91',
- 'MRO-L-2-23-Jul-2020_S79',
- 'DIE-H-12-24-Sep-2021_S188',
- 'CAM-M-2-01-Dec-2021_S65',
- 'TSA-M-3-27-Jun-2020_S81',
- 'MEN-Y-7-28-Nov-2021_S274',
- 'BRU-M-N-2-14-Apr-2021_S90',
- 'NG-M-K-3-16-Jun-2020_S59',
- 'JIW-S-1-09-Jun-2020_S16',
- 'BOX-AN-7-23-Apr-2021_S178',
- 'GAN-C-3-23-Nov-2021_S220',
- 'GIL-K-8-14-Jun-2021_S175',
- 'GOY-D-3-15-Dec-2020_S163',
- 'HAS-A-2-16-Jun-2021_S97',
- 'MAC-S-5-04-Aug-2021_S127',
- 'CHI-S-5-20-Jan-2021_S75',
- 'CAO-C-14-09-May-2021_S182',
- 'DUA-Z-M-P-1-RETEST-15-Sep-2021_S96',
- 'LIN-Y-3-02-Aug-2020_S140',
- 'WHE-B-11-1-17-Sep-2020_S42',
- 'SHA-E-9-31-Jan-2021_S118',
- 'JOH-J-18-retest-17-Feb-2021_S175',
- 'AGG-H-17-07-Aug-2021_S180',
- 'KOU-R-5-10-May-2021_S13']
-filenames = ["/Users/ariad/Dropbox/postdoc_JHU/Project2_Trace_Crossovers/LD-PGTA_analysis/results/CReATe_segmentals/" + i.rsplit('_',1)[0] + ".chr9.LLR.p.bz2" for i in filenames]
-
-wrap_panel_plot_many_cases(filenames,pairs=(('BPH','disomy'),),title='BPH vs. disomy')
+wrap_panel_plot_many_cases(filenames,pairs=(('BPH','SPH'),),title='BPH vs. SPH')
 #wrap_single_plot(filenames[0],pairs=(('BPH','SPH'),))
 """
