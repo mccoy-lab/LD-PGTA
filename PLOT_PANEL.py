@@ -209,10 +209,10 @@ def detect_crossovers_v2(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_scor
             for x2, y2, v2 in triple[max(mx_index-lookahead,last_ind):last_ind:-1]:
                 if 0 < (mx-y2)-z_score*(mx_var-v2)**.5:
                     if last_extremum == +1: #Recovering skipped minimum point.
-                        x0, mx0, mx_var0 = triple[last_ind]    
-                        x1, mn1, mn_var1 = min(triple[last_ind+1:mx_index],key=itemgetter(1))
+                        mx_pos0, mx0, mx_var0 = triple[last_ind]    
+                        mn_pos1, mn1, mn_var1 = min(triple[last_ind+1:mx_index],key=itemgetter(1))
                         kappa = min((mx0-mn1)/(mn_var1-mx_var0)**.5 , (mx-mn1)/(mx_var-mn_var1)**.5 )
-                        crossovers[x1] = kappa
+                        crossovers[mn_pos1] = kappa
 
                     kappa = min((mx-y2)/(mx_var-v2)**.5,(mx-y)/(v-mx_var)**.5)
                     crossovers[mx_pos] = kappa
@@ -223,10 +223,10 @@ def detect_crossovers_v2(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_scor
             for x2, y2, v2 in triple[max(mn_index-lookahead,last_ind):last_ind:-1]:
                 if  0 < (y2-mn)-z_score*(mn_var-v2)**.5:
                     if last_extremum == -1: #Recovering skipped maximum point.
-                        x0, mn0, mn_var0 = triple[last_ind]    
-                        x1, mx1, mx_var1 = max(triple[last_ind+1:mn_index],key=itemgetter(1))
+                        mn_pos0, mn0, mn_var0 = triple[last_ind]    
+                        mx_pos1, mx1, mx_var1 = max(triple[last_ind+1:mn_index],key=itemgetter(1))
                         kappa = min((mx1-mn0)/(mx_var1-mn_var0)**.5 , (mx1-mn)/(mn_var-mx_var1)**.5 )
-                        crossovers[x1] = kappa
+                        crossovers[mx_pos1] = kappa
                         
                     kappa = min((y2-mn)/(mn_var-v2)**.5,(y-mn)/(v-mn_var)**.5)
                     crossovers[mn_pos] = kappa
