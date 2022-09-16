@@ -209,10 +209,14 @@ def detect_crossovers_v2(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_scor
             for x2, y2, v2 in triple[max(mx_index-lookahead,last_ind):last_ind:-1]:
                 if 0 < (mx-y2)-z_score*(mx_var-v2)**.5:
                     if last_extremum == +1: #Recovering skipped minimum point.
-                        mx_pos0, mx0, mx_var0 = triple[last_ind]    
-                        mn_pos1, mn1, mn_var1 = min(triple[last_ind+1:mx_index],key=itemgetter(1))
-                        kappa = min((mx0-mn1)/(mn_var1-mx_var0)**.5 , (mx-mn1)/(mx_var-mn_var1)**.5 )
-                        crossovers[mn_pos1] = kappa
+                        
+                        M0, M2 = acc_means[last_ind],acc_means[mx_index]
+                        V0, V2 = acc_vars[last_ind], acc_vars[mx_index]
+                        Z1, X1, M1, V1 = max((((M2-M1)/(V2-V1)**.5-(M1-M0)/(V1-V0)**.5, X1, M1, V1) 
+                                              for X1,M1,V1 in triple[last_ind+1:mx_index] if V0!=V1!=V2), key=itemgetter(0))
+                        kappa = min((M2-M1)/(V2-V1)**.5,(M0-M1)/(V1-V0)**.5)
+                        crossovers[X1] = kappa
+                        print('Recovering skipped minimum point:',(Z1, X1, M1, V1))
 
                     kappa = min((mx-y2)/(mx_var-v2)**.5,(mx-y)/(v-mx_var)**.5)
                     crossovers[mx_pos] = kappa
@@ -223,10 +227,15 @@ def detect_crossovers_v2(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_scor
             for x2, y2, v2 in triple[max(mn_index-lookahead,last_ind):last_ind:-1]:
                 if  0 < (y2-mn)-z_score*(mn_var-v2)**.5:
                     if last_extremum == -1: #Recovering skipped maximum point.
-                        mn_pos0, mn0, mn_var0 = triple[last_ind]    
-                        mx_pos1, mx1, mx_var1 = max(triple[last_ind+1:mn_index],key=itemgetter(1))
-                        kappa = min((mx1-mn0)/(mx_var1-mn_var0)**.5 , (mx1-mn)/(mn_var-mx_var1)**.5 )
-                        crossovers[mx_pos1] = kappa
+                        M0, M2 = acc_means[last_ind],acc_means[mx_index]
+                        V0, V2 = acc_vars[last_ind], acc_vars[mx_index]
+                        Z1, X1, M1, V1 = max((((M1-M0)/(V1-V0)**.5-(M2-M1)/(V2-V1)**.5, X1, M1, V1) 
+                                              for X1,M1,V1 in triple[last_ind+1:mx_index] if V0!=V1!=V2), key=itemgetter(0))
+                        kappa = min((M1-M0)/(V1-V0)**.5,(M1-M2)/(V2-V1)**.5)
+                        crossovers[X1] = kappa
+                        print('Recovering skipped maximum point:',(Z1, X1, M1, V1))
+
+
                         
                     kappa = min((y2-mn)/(mn_var-v2)**.5,(y-mn)/(v-mn_var)**.5)
                     crossovers[mn_pos] = kappa
