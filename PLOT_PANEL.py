@@ -204,7 +204,7 @@ def detect_crossovers_v2(genomic_windows, mean_of_LLRs, variance_of_LLRs, z_scor
         ### ind is the index of the most recent detected extremum.
         M0, M2, V0, V2 = acc_means[last_ind],acc_means[ind], acc_vars[last_ind], acc_vars[ind]
         Z1, X1, M1, V1 = extremum_type((((M1-M0)/(V1-V0)**.5-(M2-M1)/(V2-V1)**.5, X1, M1, V1) 
-                              for X1,M1,V1 in triple[last_ind+1:ind] if V0!=V1!=V2), key=itemgetter(0))
+                              for X1,M1,V1 in triple[last_ind+5:ind-4] if V0!=V1!=V2), key=itemgetter(0))
         kappa = min(abs(M2-M1)/(V2-V1)**.5,abs(M0-M1)/(V1-V0)**.5)
         print(f'Recovering skipped {extremum_type.__name__:s} point:',(Z1, X1, M1, V1))
         return {X1: kappa}
